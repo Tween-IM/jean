@@ -2,42 +2,36 @@
 
 ## 1. Overview
 
-The TMCP Payment Processing System provides a secure, reliable payment infrastructure for mini-apps, featuring a comprehensive state machine, multi-factor authentication integration, and wallet service connectivity. It handles payment authorization, processing, and settlement with proper security controls.
+The TMCP Payment Processing System implements the complete payment protocol as specified in TMCP v1.2.0, including peer-to-peer transfers with recipient acceptance, group gift distribution, mini-app payments with MFA, and Matrix event integration. It coordinates with the Tween Wallet Service for all financial operations.
 
 ## 2. System Architecture
 
 ```mermaid
 graph TB
-    Client[Mini-App Client] --> AG[API Gateway]
-    AG --> PS[Payment Service]
-    
+    Client[Mini-App Client] --> TMCP[TMCP Server]
+    TMCP --> PS[Payment Service]
+
     PS --> SM[State Machine]
     PS --> MFA[MFA Service]
-    PS --> WS[Wallet Service]
-    PS --> Val[Payment Validator]
-    PS --> Notif[Notification Service]
-    
+    PS --> WS[Tween Wallet Service]
+    PS --> P2P[P2P Transfer Handler]
+    PS --> Gift[Group Gift Handler]
+    PS --> Matrix[Matrix Event Publisher]
+
     SM --> StateDB[(State Database)]
-    WS --> Ledger[(Payment Ledger)]
-    PS --> TxDB[(Transaction Database)]
-    
-    subgraph "External Payment Processors"
-        PP1[Payment Processor 1]
-        PP2[Payment Processor 2]
-        PP3[Payment Processor N]
+    WS --> Ledger[(Wallet Ledger)]
+    P2P --> RoomDB[(Room Membership)]
+    Gift --> GiftDB[(Gift Distribution)]
+
+    Matrix --> MatrixHS[Matrix Homeserver]
+
+    subgraph "TMCP Payment Features"
+        P2P
+        Gift
+        Matrix
     end
-    
-    WS --> PP1
-    WS --> PP2
-    WS --> PP3
-    
-    subgraph "Monitoring"
-        Monitor[Payment Monitoring]
-        Audit[Audit Logger]
-    end
-    
-    PS --> Monitor
-    PS --> Audit
+
+    WS --> ExtGateway[External Payment Gateway]
 ```
 
 ## 3. Payment State Machine
@@ -56,19 +50,33 @@ stateDiagram-v2
     MFA_Failed --> MFA_Challenge: Retry allowed
     MFA_Failed --> Failed: Max retries exceeded
     MFA_Verified --> Authorized: MFA successful
+
     Authorized --> Processing: Start payment processing
     Processing --> Completed: Payment successful
     Processing --> Failed: Payment declined
     Processing --> Refunded: Payment refunded
+
+    Authorized --> PendingAcceptance: P2P transfer initiated
+    PendingAcceptance --> Accepted: Recipient accepts
+    PendingAcceptance --> Rejected: Recipient rejects
+    PendingAcceptance --> Expired: Acceptance timeout
+    Accepted --> Processing
+    Rejected --> Failed
+    Expired --> Refunded
+
     Completed --> [*]
     Failed --> [*]
     Refunded --> [*]
-    
+
     note right of MFA_Required
-        MFA is required for:
-        - Amounts > $50
-        - High-risk transactions
-        - User preference settings
+        MFA required for payments > $50
+        (Protocol Section 7.4)
+    end note
+
+    note right of PendingAcceptance
+        P2P transfers require recipient
+        acceptance within 24h
+        (Protocol Section 7.2.2)
     end note
 ```
 
@@ -98,11 +106,18 @@ stateDiagram-v2
 ### 4.1 Payment Operations
 
 ```
-POST /payments/v1/initiate
-GET /payments/v1/{paymentId}
-POST /payments/v1/{paymentId}/authorize
-POST /payments/v1/{paymentId}/cancel
-POST /payments/v1/{paymentId}/refund
+POST /api/v1/payments/request - Mini-app payment request (Section 7.3)
+GET /api/v1/payments/{paymentId} - Get payment status
+POST /api/v1/payments/{paymentId}/authorize - Authorize payment with MFA
+POST /api/v1/payments/{paymentId}/cancel - Cancel payment
+POST /api/v1/payments/{paymentId}/refund - Refund payment
+
+POST /wallet/v1/p2p/initiate - Initiate P2P transfer (Section 7.2.1)
+POST /wallet/v1/p2p/{transferId}/accept - Accept P2P transfer
+POST /wallet/v1/p2p/{transferId}/reject - Reject P2P transfer
+
+POST /wallet/v1/gift/create - Create group gift (Section 7.5.1)
+POST /wallet/v1/gift/{giftId}/open - Open group gift
 ```
 
 ### 4.2 MFA Operations
@@ -157,7 +172,7 @@ sequenceDiagram
     AG->>C: Payment confirmation
 ```
 
-### 5.2 Payment with MFA Flow
+### 5.2 Payment with MFA Flow (Protocol Section 7.4)
 
 ```mermaid
 sequenceDiagram
@@ -165,14 +180,14 @@ sequenceDiagram
     participant PS as Payment Service
     participant MFA as MFA Service
     participant SM as State Machine
-    
+
     PS->>SM: Check payment amount
-    SM->>PS: MFA required
+    SM->>PS: MFA required (> $50)
     PS->>MFA: Create MFA challenge
     MFA->>C: Send challenge (PIN/biometric/TOTP)
     C->>MFA: Submit MFA response
     MFA->>PS: Verify MFA response
-    
+
     alt MFA Successful
         PS->>SM: Update state to Authorized
         PS->>SM: Continue payment processing
@@ -182,16 +197,68 @@ sequenceDiagram
     end
 ```
 
+### 5.3 P2P Transfer Flow (Protocol Section 7.2)
+
+```mermaid
+sequenceDiagram
+    participant Sender as Sender Client
+    participant TMCP as TMCP Server
+    participant WS as Wallet Service
+    participant Matrix as Matrix Homeserver
+    participant Receiver as Receiver Client
+
+    Sender->>TMCP: POST /wallet/v1/p2p/initiate
+    TMCP->>WS: Resolve recipient wallet
+    WS->>TMCP: Recipient wallet ID
+    TMCP->>Matrix: Validate room membership
+    Matrix->>TMCP: Membership confirmed
+    TMCP->>WS: Initiate transfer (pending acceptance)
+    WS->>TMCP: Transfer ID created
+    TMCP->>Matrix: Send m.tween.wallet.p2p event
+    Matrix->>Receiver: Payment notification
+
+    Receiver->>TMCP: POST /wallet/v1/p2p/{id}/accept
+    TMCP->>WS: Complete transfer
+    WS->>TMCP: Transfer completed
+    TMCP->>Matrix: Send completion event
+```
+
+### 5.4 Group Gift Distribution Flow (Protocol Section 7.5)
+
+```mermaid
+sequenceDiagram
+    participant Creator as Gift Creator
+    participant TMCP as TMCP Server
+    participant WS as Wallet Service
+    participant Matrix as Matrix Homeserver
+    participant Opener as Gift Opener
+
+    Creator->>TMCP: POST /wallet/v1/gift/create
+    TMCP->>WS: Reserve gift funds
+    WS->>TMCP: Gift ID created
+    TMCP->>Matrix: Send m.tween.gift event
+    Matrix->>TMCP: Event persisted
+
+    Opener->>TMCP: POST /wallet/v1/gift/{id}/open
+    TMCP->>WS: Calculate random distribution
+    WS->>TMCP: Amount allocated
+    TMCP->>Matrix: Send m.tween.gift.opened event
+    Matrix->>Opener: Gift amount received
+```
+
 ## 6. Component Details
 
-### 6.1 Payment Service
+### 6.1 Payment Service (Protocol Sections 7.2-7.5)
 
 **Responsibilities:**
-- Payment request validation
-- State machine orchestration
-- MFA integration
+- Payment request validation for mini-app and P2P payments
+- State machine orchestration with protocol-compliant states
+- MFA integration for high-value transactions
+- P2P transfer coordination with recipient acceptance
+- Group gift distribution and opening
 - Wallet service communication
-- Transaction logging
+- Matrix event publishing for payment events
+- Transaction logging and audit trails
 
 **Key Features:**
 - Multi-currency support
@@ -236,14 +303,41 @@ CREATE TABLE payment_states (
 2. **Biometric** - Fingerprint/Face ID
 3. **TOTP** - Time-based codes
 
-### 6.4 Wallet Service
+### 6.4 P2P Transfer Handler (Protocol Section 7.2)
 
 **Responsibilities:**
-- User wallet management
+- Matrix User ID to Wallet ID resolution
+- Room membership validation for transfers
+- 24-hour acceptance window management
+- Transfer state management (pending → accepted/rejected/expired)
+- Matrix event publishing for transfer lifecycle
+
+### 6.5 Group Gift Handler (Protocol Section 7.5)
+
+**Responsibilities:**
+- Random distribution algorithm implementation
+- Gift expiration and timeout handling
+- Leaderboard and ranking calculations
+- Multi-recipient fund allocation
+- Gift opening coordination
+
+### 6.6 Matrix Event Publisher (Protocol Section 8)
+
+**Responsibilities:**
+- Publishing payment-related Matrix events
+- m.tween.payment.completed for mini-app payments
+- m.tween.wallet.p2p for P2P transfers
+- m.tween.gift events for group gifts
+- Event formatting and room targeting
+
+### 6.7 Wallet Service Integration (Protocol Section 6)
+
+**Responsibilities:**
+- User wallet management and balance queries
 - Payment method handling
-- Balance management
-- Transaction processing
-- External processor integration
+- Transaction processing coordination
+- External payment gateway integration
+- Wallet ID resolution and mapping
 
 **Wallet Features:**
 - Multiple payment methods
@@ -301,23 +395,52 @@ CREATE TABLE payment_states (
 }
 ```
 
-### 7.3 Payment Method Model
+### 7.3 P2P Transfer Model (Protocol Section 7.2)
 
 ```json
 {
-  "id": "pm_123",
-  "userId": "uuid",
-  "type": "card",
-  "provider": "stripe",
-  "card": {
-    "brand": "visa",
-    "last4": "4242",
-    "expMonth": 12,
-    "expYear": 2025
+  "transfer_id": "p2p_abc123",
+  "status": "pending_recipient_acceptance",
+  "amount": 5000.00,
+  "currency": "USD",
+  "sender": {
+    "user_id": "@alice:tween.example",
+    "wallet_id": "tw_user_12345"
   },
-  "isDefault": true,
-  "metadata": {},
-  "createdAt": "2025-12-20T01:15:00Z"
+  "recipient": {
+    "user_id": "@bob:tween.example",
+    "wallet_id": "tw_user_67890"
+  },
+  "note": "Lunch money",
+  "room_id": "!chat123:tween.example",
+  "expires_at": "2025-12-19T14:30:00Z",
+  "created_at": "2025-12-18T14:30:00Z"
+}
+```
+
+### 7.4 Group Gift Model (Protocol Section 7.5)
+
+```json
+{
+  "gift_id": "gift_abc123",
+  "type": "group",
+  "status": "active",
+  "total_amount": 10000.00,
+  "currency": "USD",
+  "count": 10,
+  "remaining": 7,
+  "distribution": "random",
+  "message": "Happy Friday! 🎁",
+  "creator": {
+    "user_id": "@alice:tween.example",
+    "wallet_id": "tw_user_12345"
+  },
+  "opened_by": [
+    {"user_id": "@bob:tween.example", "amount": 1250.00},
+    {"user_id": "@charlie:tween.example", "amount": 1500.00}
+  ],
+  "expires_at": "2025-12-19T14:30:00Z",
+  "room_id": "!groupchat:tween.example"
 }
 ```
 
@@ -372,23 +495,62 @@ CREATE INDEX idx_payment_methods_user ON payment_methods(user_id);
 CREATE UNIQUE INDEX idx_payment_methods_provider ON payment_methods(provider, provider_method_id);
 ```
 
-### 8.3 Payment Ledger Table
+### 8.3 P2P Transfers Table (Protocol Section 7.2)
 
 ```sql
-CREATE TABLE payment_ledger (
-    id UUID PRIMARY KEY,
-    payment_id UUID REFERENCES payment_transactions(payment_id),
-    user_id UUID NOT NULL,
+CREATE TABLE p2p_transfers (
+    transfer_id VARCHAR(255) PRIMARY KEY,
+    status VARCHAR(50) NOT NULL,
     amount BIGINT NOT NULL,
-    currency VARCHAR(3) NOT NULL,
-    type VARCHAR(20) NOT NULL, -- 'payment', 'refund', 'fee'
-    balance_after BIGINT,
-    description TEXT,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    sender_user_id VARCHAR(255) NOT NULL,
+    sender_wallet_id VARCHAR(255) NOT NULL,
+    recipient_user_id VARCHAR(255) NOT NULL,
+    recipient_wallet_id VARCHAR(255),
+    note TEXT,
+    room_id VARCHAR(255),
+    expires_at TIMESTAMP,
+    accepted_at TIMESTAMP,
+    rejected_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_payment_ledger_user ON payment_ledger(user_id);
-CREATE INDEX idx_payment_ledger_payment ON payment_ledger(payment_id);
+CREATE INDEX idx_p2p_transfers_sender ON p2p_transfers(sender_user_id);
+CREATE INDEX idx_p2p_transfers_recipient ON p2p_transfers(recipient_user_id);
+CREATE INDEX idx_p2p_transfers_status ON p2p_transfers(status);
+```
+
+### 8.4 Group Gifts Table (Protocol Section 7.5)
+
+```sql
+CREATE TABLE group_gifts (
+    gift_id VARCHAR(255) PRIMARY KEY,
+    type VARCHAR(20) DEFAULT 'group',
+    status VARCHAR(50) NOT NULL,
+    total_amount BIGINT NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    count INTEGER NOT NULL,
+    remaining INTEGER NOT NULL,
+    distribution VARCHAR(20) DEFAULT 'random',
+    message TEXT,
+    creator_user_id VARCHAR(255) NOT NULL,
+    creator_wallet_id VARCHAR(255) NOT NULL,
+    room_id VARCHAR(255),
+    expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE gift_openings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    gift_id VARCHAR(255) REFERENCES group_gifts(gift_id),
+    user_id VARCHAR(255) NOT NULL,
+    amount BIGINT NOT NULL,
+    opened_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_group_gifts_creator ON group_gifts(creator_user_id);
+CREATE INDEX idx_group_gifts_room ON group_gifts(room_id);
+CREATE INDEX idx_gift_openings_gift ON gift_openings(gift_id);
 ```
 
 ## 9. Security Considerations
@@ -481,43 +643,47 @@ CREATE INDEX idx_payment_ledger_payment ON payment_ledger(payment_id);
 - Processing latency spikes
 - Unusual transaction patterns
 
-## 12. Integration with External Systems
+## 11. TMCP Protocol Compliance
 
-### 12.1 Payment Processor Integration
+### 11.1 Implemented Protocol Features
 
-**Supported Processors:**
-- Stripe
-- PayPal
-- Square
-- Bank transfers
+**Payment State Machine (Section 7.1):**
+- Complete state transitions including MFA_REQUIRED
+- P2P transfer states with recipient acceptance
+- Group gift lifecycle management
 
-**Integration Pattern:**
-```mermaid
-graph LR
-    PS[Payment Service] --> A[Adapter Interface]
-    A --> S[Stripe Adapter]
-    A --> P[PayPal Adapter]
-    A --> SQ[Square Adapter]
-    A --> B[Bank Transfer Adapter]
-    
-    S --> SP[Stripe API]
-    P --> PP[PayPal API]
-    SQ --> SQP[Square API]
-    B --> BP[Bank API]
-```
+**P2P Transfers (Section 7.2):**
+- Matrix User ID to Wallet ID resolution
+- 24-hour acceptance window
+- Room membership validation
+- Transfer cancellation and expiry
 
-### 12.2 Webhook Handling
+**Mini-App Payments (Section 7.3):**
+- Payment request flow with merchant integration
+- Hardware-backed authorization
+- Transaction signing and verification
 
-**Webhook Events:**
-- Payment completed
-- Payment failed
-- Payment refunded
-- Dispute created
+**MFA Integration (Section 7.4):**
+- Transaction PIN, biometric, and TOTP support
+- Challenge-response protocol
+- Device registration for biometrics
 
-**Webhook Security:**
-- Signature verification
-- Replay protection
-- Idempotency handling
-- Retry logic
+**Group Gifts (Section 7.5):**
+- Random and equal distribution algorithms
+- Multi-recipient fund allocation
+- Gift expiration and leaderboard
 
-This design provides a comprehensive payment processing system that meets the TMCP protocol requirements while ensuring security, reliability, and flexibility for various payment scenarios.
+**Matrix Events (Section 8):**
+- m.tween.payment.completed
+- m.tween.wallet.p2p and status events
+- m.tween.gift and opened events
+
+### 11.2 Wallet Service Integration (Section 6)
+
+**Core Interfaces:**
+- Balance queries and wallet resolution
+- Transfer execution and settlement
+- Fund reservation for gifts
+- Transaction history and reconciliation
+
+This design fully implements the TMCP payment protocol with integrated P2P transfers, group gifts, and Matrix event coordination as specified in TMCP v1.2.0.

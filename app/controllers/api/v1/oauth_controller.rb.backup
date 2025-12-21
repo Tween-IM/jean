@@ -1,0 +1,235 @@
+class Api::V1::OauthController < Doorkeeper::ApplicationController
+  # TMCP Protocol Section 4.2: OAuth 2.0 Authorization Code Flow with PKCE
+
+  skip_before_action :authenticate_user, only: [ :authorize, :token ]
+  before_action :validate_request, only: [ :authorize, :token ]
+
+  # GET /oauth2/authorize - TMCP Protocol Section 4.2.1
+  def authorize
+    # Validate required parameters
+    required_params = %w[response_type client_id redirect_uri scope state code_challenge code_challenge_method]
+    missing_params = required_params.select { |param| params[param].blank? }
+
+    if missing_params.any?
+      return render json: { error: "invalid_request", error_description: "Missing required parameters: #{missing_params.join(', ')}" }, status: :bad_request
+    end
+
+    # Validate response_type must be 'code'
+    unless params[:response_type] == "code"
+      return render json: { error: "unsupported_response_type" }, status: :bad_request
+    end
+
+    # Validate code_challenge_method must be 'S256' (TMCP requirement)
+    unless params[:code_challenge_method] == "S256"
+      return render json: { error: "invalid_request", error_description: "code_challenge_method must be S256" }, status: :bad_request
+    end
+
+    # Find OAuth application
+    application = Doorkeeper::Application.find_by(uid: params[:client_id])
+    unless application
+      return render json: { error: "invalid_client", error_description: "Unknown client" }, status: :unauthorized
+    end
+
+    # Validate redirect URI
+    unless application.redirect_uri.split.include?(params[:redirect_uri])
+      return render json: { error: "invalid_request", error_description: "Invalid redirect URI" }, status: :bad_request
+    end
+
+    # Validate scopes (TMCP Protocol Section 5.1)
+    requested_scopes = params[:scope].split
+    valid_scopes = %w[user:read user:read:extended user:read:contacts wallet:balance wallet:pay wallet:history messaging:send messaging:read storage:read storage:write]
+    invalid_scopes = requested_scopes - valid_scopes
+
+    if invalid_scopes.any?
+      return render json: { error: "invalid_scope", error_description: "Invalid scopes: #{invalid_scopes.join(', ')}" }, status: :bad_request
+    end
+
+    # In TMCP, authorization is handled by the client application
+    # The server redirects back to client with authorization code
+    authorization_code = SecureRandom.urlsafe_base64(32)
+
+    # Store authorization code with PKCE challenge
+    Rails.cache.write("auth_code:#{authorization_code}",
+      {
+        client_id: params[:client_id],
+        redirect_uri: params[:redirect_uri],
+        scope: requested_scopes,
+        code_challenge: params[:code_challenge],
+        state: params[:state]
+      },
+      expires_in: 10.minutes
+    )
+
+    # Redirect back to client with authorization code
+    redirect_uri = "#{params[:redirect_uri]}?code=#{authorization_code}&state=#{params[:state]}"
+    redirect_to redirect_uri, status: :found
+  end
+
+  # POST /oauth2/token - TMCP Protocol Section 4.2.5
+  def token
+    # Validate grant_type
+    unless params[:grant_type] == "authorization_code"
+      return render json: { error: "unsupported_grant_type" }, status: :bad_request
+    end
+
+    # Retrieve authorization code data
+    auth_data = Rails.cache.read("auth_code:#{params[:code]}")
+    unless auth_data
+      return render json: { error: "invalid_grant", error_description: "Authorization code expired or invalid" }, status: :bad_request
+    end
+
+    # Validate code_verifier (PKCE verification)
+    expected_challenge = auth_data["code_challenge"]
+    actual_challenge = Base64.urlsafe_encode64(OpenSSL::Digest::SHA256.digest(params[:code_verifier]), padding: false)
+
+    unless ActiveSupport::SecurityUtils.secure_compare(expected_challenge, actual_challenge)
+      return render json: { error: "invalid_grant", error_description: "Code verification failed" }, status: :bad_request
+    end
+
+    # Validate redirect URI
+    unless auth_data["redirect_uri"] == params[:redirect_uri]
+      return render json: { error: "invalid_grant", error_description: "Redirect URI mismatch" }, status: :bad_request
+    end
+
+    # Generate TEP tokens (TMCP Protocol Section 4.3)
+    access_token = TepTokenService.encode(
+      { user_id: "@test_user:tween.example", miniapp_id: auth_data["client_id"] },
+      scopes: auth_data["scope"]
+    )
+
+    refresh_token = SecureRandom.urlsafe_base64(32)
+
+    # Store refresh token
+    Rails.cache.write("refresh_token:#{refresh_token}",
+      {
+        user_id: "@test_user:tween.example",
+        miniapp_id: auth_data["client_id"],
+        scope: auth_data["scope"]
+      },
+      expires_in: 30.days
+    )
+
+    # Clean up authorization code
+    Rails.cache.delete("auth_code:#{params[:code]}")
+
+    render json: {
+      access_token: access_token,
+      token_type: "Bearer",
+      expires_in: 3600,
+      refresh_token: refresh_token,
+      scope: auth_data["scope"].join(" ")
+    }
+  end
+
+  private
+
+  def validate_request
+    # Basic request validation
+  end
+end
+
+    # Validate redirect URI
+    unless application.redirect_uri.split.include?(params[:redirect_uri])
+      return render json: { error: "invalid_request", error_description: "Invalid redirect URI" }, status: :bad_request
+    end
+
+    # Validate scopes (TMCP Protocol Section 5.1)
+    requested_scopes = params[:scope].split
+    valid_scopes = %w[user:read user:read:extended user:read:contacts wallet:balance wallet:pay wallet:history messaging:send messaging:read storage:read storage:write]
+    invalid_scopes = requested_scopes - valid_scopes
+
+    if invalid_scopes.any?
+      return render json: { error: "invalid_scope", error_description: "Invalid scopes: #{invalid_scopes.join(', ')}" }, status: :bad_request
+    end
+
+    # In TMCP, authorization is handled by the client application
+    # The server redirects back to client with authorization code
+    authorization_code = SecureRandom.urlsafe_base64(32)
+
+    # Store authorization code with PKCE challenge (simplified for demo)
+    Rails.cache.write("auth_code:#{authorization_code}",
+      {
+        client_id: params[:client_id],
+        redirect_uri: params[:redirect_uri],
+        scope: requested_scopes,
+        code_challenge: params[:code_challenge],
+        state: params[:state]
+      },
+      expires_in: 10.minutes
+    )
+
+    # Redirect back to client with authorization code
+    redirect_uri = "#{params[:redirect_uri]}?code=#{authorization_code}&state=#{params[:state]}"
+    redirect_to redirect_uri, status: :found
+  end
+
+  # POST /oauth2/token - TMCP Protocol Section 4.2.5
+  def token
+    # Validate grant_type
+    unless params[:grant_type] == "authorization_code"
+      return render json: { error: "unsupported_grant_type" }, status: :bad_request
+    end
+
+    # Retrieve authorization code data
+    auth_data = Rails.cache.read("auth_code:#{params[:code]}")
+    unless auth_data
+      return render json: { error: "invalid_grant", error_description: "Authorization code expired or invalid" }, status: :bad_request
+    end
+
+    # Validate code_verifier (PKCE verification)
+    code_challenge = Base64.urlsafe_encode64(OpenSSL::Digest::SHA256.digest(params[:code_verifier]), padding: false)
+    unless ActiveSupport::SecurityUtils.secure_compare(code_challenge, auth_data[:code_challenge])
+      return render json: { error: "invalid_grant", error_description: "Code verifier does not match challenge" }, status: :bad_request
+    end
+
+    # Validate redirect URI
+    unless auth_data[:redirect_uri] == params[:redirect_uri]
+      return render json: { error: "invalid_grant", error_description: "Redirect URI mismatch" }, status: :bad_request
+    end
+
+    # Find application
+    application = Doorkeeper::Application.find_by(uid: auth_data[:client_id])
+    unless application
+      return render json: { error: "invalid_client" }, status: :unauthorized
+    end
+
+    # In TMCP, we assume user authentication is handled by client
+    # For demo purposes, create a mock user
+    user = User.find_or_create_by!(matrix_user_id: "@test_user:tween.example") do |u|
+      u.matrix_username = "test_user"
+      u.matrix_homeserver = "tween.example"
+      u.status = :active
+    end
+
+    # Generate TEP token (TMCP Protocol Section 4.3)
+    tep_token = TepTokenService.encode(
+      { user_id: user.matrix_user_id, miniapp_id: application.uid },
+      scopes: auth_data[:scope],
+      wallet_id: user.wallet_id,
+      session_id: SecureRandom.uuid,
+      miniapp_context: { launch_source: "oauth_flow" }
+    )
+
+    # Remove used authorization code
+    Rails.cache.delete("auth_code:#{params[:code]}")
+
+    # Return tokens (TMCP Protocol Section 4.2.6)
+    render json: {
+      access_token: tep_token,
+      token_type: "Bearer",
+      expires_in: 3600,
+      scope: auth_data[:scope].join(" "),
+      user_id: user.matrix_user_id,
+      wallet_id: user.wallet_id
+    }
+  end
+
+  private
+
+  def validate_request
+    # Basic request validation
+    return if request.content_type&.include?("application/x-www-form-urlencoded") || request.get?
+
+    render json: { error: "invalid_request", error_description: "Invalid content type" }, status: :bad_request
+  end
+end
