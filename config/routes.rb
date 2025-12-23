@@ -34,6 +34,7 @@ Rails.application.routes.draw do
       get "oauth/authorize", to: "oauth#authorize"
       post "oauth/consent", to: "oauth#consent"
       post "oauth/token", to: "oauth#token"
+      get "oauth2/callback", to: "oauth#callback"
     end
   end
   use_doorkeeper

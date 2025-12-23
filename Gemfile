@@ -26,6 +26,9 @@ gem "jwt"
 # OAuth 2.0 + PKCE support (TMCP Protocol Section 4.2)
 gem "doorkeeper"
 
+# Keycloak integration for OAuth 2.0 + OpenID Connect
+gem "omniauth-keycloak"
+
 # Redis for caching and rate limiting (TMCP Protocol Section 11.4.1)
 gem "redis", "~> 5.0"
 
