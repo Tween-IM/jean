@@ -9,42 +9,67 @@ Rails.application.routes.draw do
       # Storage endpoints (TMCP Section 10.3)
       get "storage", to: "storage#index"
       post "storage", to: "storage#create"
+      get "storage/info", to: "storage#info"
       get "storage/:key", to: "storage#show"
       put "storage/:key", to: "storage#update"
       delete "storage/:key", to: "storage#destroy"
       post "storage/batch", to: "storage#batch"
-      get "storage/info", to: "storage#info"
 
-      # Wallet endpoints
-      get "wallet/balance"
-      get "wallet/transactions"
-      post "wallet/p2p/initiate"
-      post "wallet/p2p/:transfer_id/accept", to: "wallet#accept_p2p"
-      post "wallet/p2p/:transfer_id/reject", to: "wallet#reject_p2p"
-      get "wallet/resolve/:user_id", to: "wallet#resolve"
+       # Wallet endpoints
+       get "wallet/balance", to: "wallet#balance"
+       get "wallet/transactions", to: "wallet#transactions"
+       get "wallet/verification", to: "wallet#verification"
+       post "wallet/p2p/initiate", to: "wallet#initiate_p2p"
+       post "wallet/p2p/:transfer_id/accept", to: "wallet#accept_p2p"
+       post "wallet/p2p/:transfer_id/reject", to: "wallet#reject_p2p"
+       get "wallet/resolve/:user_id", to: "wallet#resolve"
+       post "wallet/resolve/batch", to: "wallet#resolve_batch"
 
-      # Payment endpoints (TMCP Section 7.3-7.4)
-      post "payments/request"
-      post "payments/:payment_id/authorize", to: "payments#authorize"
-      post "payments/:payment_id/refund", to: "payments#refund"
-      post "payments/:payment_id/mfa/challenge", to: "payments#mfa_challenge"
-      post "payments/:payment_id/mfa/verify", to: "payments#mfa_verify"
+       # External account endpoints (TMCP Protocol Section 6.5)
+       post "wallet/external/link", to: "wallet#link_external_account"
+       post "wallet/external/verify", to: "wallet#verify_external_account"
+       post "wallet/funding", to: "wallet#fund_wallet"
+       post "wallet/withdrawals", to: "wallet#create_withdrawal"
 
-      # OAuth endpoints (TMCP Protocol Section 4.2)
-      get "oauth/authorize", to: "oauth#authorize"
-      post "oauth/consent", to: "oauth#consent"
-      post "oauth/token", to: "oauth#token"
-      get "oauth2/callback", to: "oauth#callback"
+       # Payment endpoints (TMCP Section 7.3-7.4)
+       post "payments/request", to: "payments#create"
+       post "payments/:payment_id/authorize", to: "payments#authorize"
+       post "payments/:payment_id/refund", to: "payments#refund"
+       post "payments/:payment_id/mfa/challenge", to: "payments#mfa_challenge"
+       post "payments/:payment_id/mfa/verify", to: "payments#mfa_verify"
+
+        # OAuth endpoints (TMCP Protocol Section 4.2)
+        get "oauth/authorize", to: "oauth#authorize"
+        post "oauth/consent", to: "oauth#consent"
+        post "oauth/token", to: "oauth#token"
+        get "oauth2/callback", to: "oauth#callback"
+
+        # Device Authorization Grant (RFC 8628) - TMCP v1.5.0
+        post "oauth2/device/authorization", to: "oauth/device_authorization#create"
+        get "oauth2/device", to: "oauth/device_authorization#show"
+        post "oauth2/device/token", to: "oauth/device_token#create"
+
+       # Store endpoints (TMCP Protocol Section 16.6)
+       get "store/categories", to: "store#categories"
+       get "store/apps", to: "store#apps"
+       post "store/apps/:miniapp_id/install", to: "store#install"
+       delete "store/apps/:miniapp_id/install", to: "store#uninstall"
+
+        # Client endpoints (TMCP Protocol Section 10.5, 16.8)
+        get "capabilities", to: "client#capabilities"
+        get "capabilities/:capability", to: "client#check_capability"
+        post "client/bootstrap", to: "client#bootstrap"
+        post "client/check-updates", to: "client#check_updates"
     end
   end
   use_doorkeeper
 
-  # Matrix Application Service endpoints (PROTO Section 3.1.2)
-  scope "/_matrix/app/v1" do
-    post "transactions/:txn_id", to: "matrix#transactions"
-    get "users/:user_id", to: "matrix#user"
-    get "rooms/:room_alias", to: "matrix#room"
-    get "ping", to: "matrix#ping"
+   # Matrix Application Service endpoints (PROTO Section 3.1.2)
+   scope "/_matrix/app/v1" do
+     post "transactions/:txn_id", to: "matrix#transactions"
+     get "users/*user_id", to: "matrix#user", constraints: { user_id: /.*/ }
+     get "rooms/*room_alias", to: "matrix#room", constraints: { room_alias: /.*/ }
+     get "ping", to: "matrix#ping"
     get "thirdparty/location", to: "matrix#thirdparty_location"
     get "thirdparty/user", to: "matrix#thirdparty_user"
     get "thirdparty/location/:protocol", to: "matrix#thirdparty_location_protocol"

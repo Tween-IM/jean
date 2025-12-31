@@ -41,12 +41,11 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should query existing user" do
-    # Create a test user
-    user = User.create!(
-      matrix_user_id: "@test_user:tween.example",
-      matrix_username: "test_user",
-      matrix_homeserver: "tween.example"
-    )
+    # Use find_or_create_by to avoid duplicate key error
+    user = User.find_or_create_by(matrix_user_id: "@test_user:tween.example") do |u|
+      u.matrix_username = "test_user"
+      u.matrix_homeserver = "tween.example"
+    end
 
     # Verify user was created
     assert_not_nil User.find_by(matrix_user_id: "@test_user:tween.example")

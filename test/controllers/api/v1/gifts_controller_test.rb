@@ -114,7 +114,8 @@ class Api::V1::GiftsControllerTest < ActionDispatch::IntegrationTest
          headers: @headers
 
     assert_response :bad_request
-    assert_includes response.body, 'Distribution must be "random" or "equal"'
+    response_body = JSON.parse(response.body)
+    assert_equal "Distribution must be \"random\" or \"equal\"", response_body["message"]
   end
 
   test "should validate amount limits" do
@@ -314,5 +315,10 @@ class Api::V1::GiftsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     assert_includes response.body, "wallet:pay scope required"
+  end
+
+  teardown do
+    Rails.cache.clear
+    TepTokenService.reset_keys!
   end
 end

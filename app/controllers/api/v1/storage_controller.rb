@@ -2,7 +2,8 @@ class Api::V1::StorageController < ApplicationController
   # TMCP Protocol Section 10.3: Mini-App Storage System
 
   before_action :authenticate_tep_token
-  before_action :validate_storage_scope
+  before_action :validate_storage_read_scope, only: [ :index, :show, :info ]
+  before_action :validate_storage_write_scope, only: [ :create, :update, :destroy, :batch ]
   before_action :validate_miniapp_access
 
   # GET /api/v1/storage?prefix=&limit=&offset= - List storage keys
@@ -14,7 +15,11 @@ class Api::V1::StorageController < ApplicationController
     result = StorageService.list(@current_user.matrix_user_id, @miniapp_id,
                                prefix: prefix, limit: limit, offset: offset)
 
-    render json: result
+    render json: {
+      entries: result[:keys].map { |key| { key: key, value: StorageService.get(@current_user.matrix_user_id, @miniapp_id, key) } },
+      total: result[:total],
+      has_more: result[:has_more]
+    }
   rescue StorageService::StorageError => e
     render json: { error: "storage_error", message: e.message }, status: :bad_request
   end
@@ -29,10 +34,13 @@ class Api::V1::StorageController < ApplicationController
       return render json: { error: "invalid_request", message: "key and value are required" }, status: :bad_request
     end
 
+    Rails.logger.debug "StorageController#create: user_id=#{@current_user.matrix_user_id}, miniapp_id=#{@miniapp_id}, key=#{key}"
+
     success = StorageService.set(@current_user.matrix_user_id, @miniapp_id, key, value, ttl: ttl)
 
     if success
-      render json: { success: true, key: key }, status: :created
+      now = Time.current.iso8601
+      render json: { success: true, key: key, value: value, created_at: now, updated_at: now }, status: :created
     else
       render json: { error: "storage_error", message: "Failed to store value" }, status: :internal_server_error
     end
@@ -154,23 +162,34 @@ class Api::V1::StorageController < ApplicationController
     end
   end
 
-  def validate_storage_scope
-    unless @token_scopes.include?("storage:read") || @token_scopes.include?("storage:write")
-      render json: { error: "insufficient_scope", message: "storage scope required" }, status: :forbidden
+  def validate_storage_read_scope
+    unless @token_scopes.include?("storage:read")
+      render json: { error: "insufficient_scope", message: "storage:read scope required" }, status: :forbidden
+    end
+  end
+
+  def validate_storage_write_scope
+    unless @token_scopes.include?("storage:write")
+      render json: { error: "insufficient_scope", message: "storage:write scope required" }, status: :forbidden
     end
   end
 
   def validate_miniapp_access
     if Rails.env.test?
-      # In test environment, create a mock mini-app if it doesn't exist
-      @miniapp = MiniApp.find_or_create_by!(app_id: @miniapp_id) do |miniapp|
-        miniapp.name = "Test Mini-App"
-        miniapp.description = "Test mini-app for testing"
-        miniapp.version = "1.0.0"
-        miniapp.classification = 0
-        miniapp.developer_name = "Test Developer"
-        miniapp.manifest = {}
-        miniapp.status = :active
+      @miniapp = MiniApp.find_by(app_id: @miniapp_id)
+      unless @miniapp
+        @miniapp = MiniApp.create!(
+          app_id: @miniapp_id,
+          name: "Test Mini-App",
+          description: "Test mini-app for testing",
+          version: "1.0.0",
+          classification: :community,
+          status: :active,
+          manifest: {
+            "permissions" => { "storage" => { "read" => true, "write" => true } },
+            "scopes" => [ "storage_read", "storage_write" ]
+          }
+        )
       end
     else
       miniapp = MiniApp.find_by(app_id: @miniapp_id, status: :active)

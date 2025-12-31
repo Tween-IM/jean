@@ -1,53 +1,123 @@
 class MatrixEventService
   # TMCP Protocol Section 8: Event System
-  # Handles publishing Matrix events for TMCP operations
+  # Updated for v1.5.0 with Payment Bot integration
 
   MATRIX_API_URL = ENV["MATRIX_API_URL"] || "https://matrix.example.com"
   MATRIX_ACCESS_TOKEN = ENV["MATRIX_ACCESS_TOKEN"]
 
   class << self
-    # Publish payment completed event (PROTO Section 8.1.2)
-    def publish_payment_completed(payment_data)
-      event = {
-        type: "m.tween.payment.completed",
-        content: {
-          msgtype: "m.tween.payment",
-          body: "Payment of #{payment_data['amount']} #{payment_data['currency']} completed",
-          payment_id: payment_data["payment_id"],
-          txn_id: payment_data["txn_id"],
-          amount: payment_data["amount"],
-          merchant: payment_data["merchant"],
-          status: "completed"
-        },
-        room_id: payment_data["room_id"] || get_user_room(payment_data["user_id"])
-      }
-
-      publish_event(event)
+    def payment_bot
+      @payment_bot ||= PaymentBotService.new
     end
 
-    # Publish P2P transfer event (PROTO Section 7.2.2)
+    def publish_payment_completed(payment_data)
+      room_id = payment_data[:room_id] || get_user_room(payment_data[:user_id])
+
+      payment_bot.send_payment_completed(
+        room_id: room_id,
+        payment_data: {
+          payment_id: payment_data[:payment_id],
+          txn_id: payment_data[:txn_id],
+          amount: payment_data[:amount],
+          currency: payment_data[:currency],
+          sender_user_id: payment_data[:sender_user_id],
+          sender_display_name: payment_data[:sender_display_name],
+          sender_avatar_url: payment_data[:sender_avatar_url],
+          recipient_user_id: payment_data[:recipient_user_id],
+          recipient_display_name: payment_data[:recipient_display_name],
+          recipient_avatar_url: payment_data[:recipient_avatar_url],
+          note: payment_data[:note],
+          timestamp: payment_data[:timestamp]
+        }
+      )
+    end
+
+    def publish_payment_sent(payment_data)
+      room_id = payment_data[:room_id] || get_user_room(payment_data[:user_id])
+
+      payment_bot.send_payment_sent(
+        room_id: room_id,
+        payment_data: {
+          payment_id: payment_data[:payment_id],
+          txn_id: payment_data[:txn_id],
+          amount: payment_data[:amount],
+          currency: payment_data[:currency],
+          sender_user_id: payment_data[:sender_user_id],
+          sender_display_name: payment_data[:sender_display_name],
+          sender_avatar_url: payment_data[:sender_avatar_url],
+          recipient_user_id: payment_data[:recipient_user_id],
+          recipient_display_name: payment_data[:recipient_display_name],
+          recipient_avatar_url: payment_data[:recipient_avatar_url],
+          note: payment_data[:note],
+          timestamp: payment_data[:timestamp]
+        }
+      )
+    end
+
+    def publish_payment_failed(payment_data)
+      room_id = payment_data[:room_id] || get_user_room(payment_data[:user_id])
+
+      payment_bot.send_payment_failed(
+        room_id: room_id,
+        payment_data: {
+          txn_id: payment_data[:txn_id],
+          amount: payment_data[:amount],
+          currency: payment_data[:currency],
+          sender_user_id: payment_data[:sender_user_id],
+          sender_display_name: payment_data[:sender_display_name],
+          recipient_user_id: payment_data[:recipient_user_id],
+          recipient_display_name: payment_data[:recipient_display_name],
+          error_code: payment_data[:error_code],
+          error_message: payment_data[:error_message],
+          timestamp: payment_data[:timestamp]
+        }
+      )
+    end
+
+    def publish_payment_refunded(payment_data)
+      room_id = payment_data[:room_id] || get_user_room(payment_data[:user_id])
+
+      payment_bot.send_payment_refunded(
+        room_id: room_id,
+        payment_data: {
+          original_txn_id: payment_data[:original_txn_id],
+          refund_txn_id: payment_data[:refund_txn_id],
+          amount: payment_data[:amount],
+          currency: payment_data[:currency],
+          sender_user_id: payment_data[:sender_user_id],
+          sender_display_name: payment_data[:sender_display_name],
+          recipient_user_id: payment_data[:recipient_user_id],
+          recipient_display_name: payment_data[:recipient_display_name],
+          reason: payment_data[:reason],
+          timestamp: payment_data[:timestamp]
+        }
+      )
+    end
+
     def publish_p2p_transfer(transfer_data)
+      sender = transfer_data["sender"] || transfer_data[:sender]
+      recipient = transfer_data["recipient"] || transfer_data[:recipient]
+
       event = {
         type: "m.tween.wallet.p2p",
         content: {
           msgtype: "m.tween.money",
-          body: "💸 Sent #{transfer_data['amount']} #{transfer_data['currency']}",
-          transfer_id: transfer_data["transfer_id"],
-          amount: transfer_data["amount"],
-          currency: transfer_data["currency"],
-          note: transfer_data["note"],
-          sender: { user_id: transfer_data["sender"]["user_id"] },
-          recipient: { user_id: transfer_data["recipient"]["user_id"] },
-          status: transfer_data["status"],
-          timestamp: transfer_data["timestamp"]
+          body: "💸 Sent #{transfer_data['amount'] || transfer_data[:amount]} #{transfer_data['currency'] || transfer_data[:currency]}",
+          transfer_id: transfer_data["transfer_id"] || transfer_data[:transfer_id],
+          amount: transfer_data["amount"] || transfer_data[:amount],
+          currency: transfer_data["currency"] || transfer_data[:currency],
+          note: transfer_data["note"] || transfer_data[:note],
+          sender: { user_id: sender["user_id"] || sender[:user_id] },
+          recipient: { user_id: recipient["user_id"] || recipient[:user_id] },
+          status: transfer_data["status"] || transfer_data[:status],
+          timestamp: transfer_data["timestamp"] || transfer_data[:timestamp]
         },
-        room_id: transfer_data["room_id"]
+        room_id: transfer_data["room_id"] || transfer_data[:room_id]
       }
 
       publish_event(event)
     end
 
-    # Publish P2P transfer status update (PROTO Section 7.2.2)
     def publish_p2p_status_update(transfer_id, status, details = {})
       event = {
         type: "m.tween.wallet.p2p.status",
@@ -58,14 +128,11 @@ class MatrixEventService
         }.merge(details)
       }
 
-      # Find room from transfer data (would need to be passed or cached)
-      # For now, assume it's available in details
       event[:room_id] = details[:room_id] || get_default_room
 
       publish_event(event)
     end
 
-    # Publish group gift creation event (PROTO Section 7.5.4)
     def publish_gift_created(gift_data)
       event = {
         type: "m.tween.gift",
@@ -93,7 +160,6 @@ class MatrixEventService
       publish_event(event)
     end
 
-    # Publish gift opened event (PROTO Section 7.5.4)
     def publish_gift_opened(gift_id, opened_data)
       event = {
         type: "m.tween.gift.opened",
@@ -111,7 +177,6 @@ class MatrixEventService
       publish_event(event)
     end
 
-    # Publish mini-app lifecycle events (PROTO Section 8.1.4)
     def publish_miniapp_lifecycle_event(event_type, app_data, user_id, room_id = nil)
       event_content = case event_type
       when "launch"
@@ -151,7 +216,6 @@ class MatrixEventService
       publish_event(event)
     end
 
-    # Publish authorization events (PROTO Section 5.3)
     def publish_authorization_event(miniapp_id, user_id, authorized, details = {})
       event = {
         type: "m.room.tween.authorization",
@@ -163,6 +227,8 @@ class MatrixEventService
           miniapp_id: miniapp_id
         }.merge(details)
       }
+
+      event[:room_id] = details[:room_id] || details["room_id"] || get_default_room
 
       publish_event(event)
     end
@@ -198,8 +264,6 @@ class MatrixEventService
     end
 
     def get_user_room(user_id)
-      # In production, this would query user's default room
-      # For demo, return a default room
       "!general:matrix.example"
     end
 

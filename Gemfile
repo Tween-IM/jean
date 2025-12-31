@@ -85,6 +85,12 @@ group :development, :test do
 
   # SQLite for testing
   gem "sqlite3"
+
+  # HTTP request mocking for tests
+  gem "webmock"
+
+  # Minitest version compatible with Rails 8.1.1
+  gem "minitest", "~> 5.24.0"
 end
 
 group :development do

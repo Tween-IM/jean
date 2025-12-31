@@ -21,10 +21,14 @@ class MatrixController < ApplicationController
 
   # GET /_matrix/app/v1/users/:user_id - Query user existence
   def user
-    user_id = params[:user_id]
+    user_id = CGI.unescape(params[:user_id])
+
+    Rails.logger.debug "MatrixController#user: params[:user_id]=#{params[:user_id].inspect}, unescaped=#{user_id.inspect}"
 
     # Check if user exists in our system
     user = User.find_by(matrix_user_id: user_id)
+
+    Rails.logger.debug "MatrixController#user: found user=#{user.inspect}"
 
     if user
       render json: {}, status: :ok

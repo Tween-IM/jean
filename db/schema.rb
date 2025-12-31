@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_21_152934) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_28_114203) do
   create_table "mfa_methods", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "device_id"
@@ -28,6 +28,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_21_152934) do
     t.datetime "created_at", null: false
     t.text "description"
     t.string "developer_name"
+    t.integer "install_count", default: 0
     t.json "manifest"
     t.string "name"
     t.integer "status"
@@ -89,6 +90,15 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_21_152934) do
     t.string "uid", null: false
     t.datetime "updated_at", null: false
     t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
+  end
+
+  create_table "sessions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "data"
+    t.string "session_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["session_id"], name: "index_sessions_on_session_id", unique: true
+    t.index ["updated_at"], name: "index_sessions_on_updated_at"
   end
 
   create_table "storage_entries", force: :cascade do |t|

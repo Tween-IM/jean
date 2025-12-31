@@ -15,12 +15,16 @@ class StorageEntry < ApplicationRecord
   scope :by_miniapp, ->(miniapp_id) { where(miniapp_id: miniapp_id) }
 
   # Class methods for TMCP storage operations
-  def self.find_entry(user, miniapp_id, key)
-    active.where(user: user, miniapp_id: miniapp_id, key: key).first
+  def self.find_entry(matrix_user_id, miniapp_id, key)
+    user = User.find_by(matrix_user_id: matrix_user_id)
+    return nil unless user
+    active.where(user_id: user.id, miniapp_id: miniapp_id, key: key).first
   end
 
-  def self.user_miniapp_entries(user, miniapp_id)
-    active.where(user: user, miniapp_id: miniapp_id)
+  def self.user_miniapp_entries(matrix_user_id, miniapp_id)
+    user = User.find_by(matrix_user_id: matrix_user_id)
+    return none unless user
+    active.where(user_id: user.id, miniapp_id: miniapp_id)
   end
 
   # Instance methods

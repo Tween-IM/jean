@@ -2,32 +2,34 @@ class Api::V1::PaymentsController < ApplicationController
   # TMCP Protocol Section 7.3-7.4: Mini-App Payment Processing with MFA
 
   before_action :authenticate_tep_token
-  before_action :validate_payment_scope, only: [ :request, :authorize, :refund ]
+  before_action :validate_payment_scope, only: [ :create, :authorize, :refund ]
 
   # POST /api/v1/payments/request - TMCP Protocol Section 7.3.1
-  def request
+  def create
+    raw_params = request.parameters
+
     # Validate required TMCP parameters (Section 7.3.1)
     required_params = %w[amount currency description merchant_order_id callback_url]
-    missing_params = required_params.select { |param| params[param].blank? }
+    missing_params = required_params.select { |param| raw_params[param].blank? }
 
     if missing_params.any?
       return render json: { error: "invalid_request", message: "Missing required parameters: #{missing_params.join(', ')}" }, status: :bad_request
     end
 
     # Validate amount
-    amount = params[:amount].to_f
+    amount = raw_params[:amount].to_f
     if amount <= 0 || amount > 50000.00 # TMCP transaction limit
       return render json: { error: "invalid_amount", message: "Amount must be between 0.01 and 50,000.00" }, status: :bad_request
     end
 
     # Validate currency
-    currency = params[:currency].to_s.upcase
+    currency = raw_params[:currency].to_s.upcase
     unless %w[USD EUR GBP].include?(currency) # TMCP supported currencies
       return render json: { error: "invalid_currency", message: "Unsupported currency: #{currency}" }, status: :bad_request
     end
 
     # Validate callback URL format
-    callback_url = params[:callback_url]
+    callback_url = raw_params[:callback_url]
     begin
       uri = URI.parse(callback_url)
       unless uri.scheme == "https"
@@ -38,18 +40,18 @@ class Api::V1::PaymentsController < ApplicationController
     end
 
     # Validate merchant_order_id format
-    merchant_order_id = params[:merchant_order_id].to_s
+    merchant_order_id = raw_params[:merchant_order_id].to_s
     unless merchant_order_id.match?(/\A[A-Z0-9\-_]{1,100}\z/)
       return render json: { error: "invalid_merchant_order_id", message: "Merchant order ID must be 1-100 alphanumeric characters, hyphens, or underscores" }, status: :bad_request
     end
 
     # Validate optional items array if provided
-    if params[:items].present?
-      unless params[:items].is_a?(Array)
+    if raw_params[:items].present?
+      unless raw_params[:items].is_a?(Array)
         return render json: { error: "invalid_items", message: "Items must be an array" }, status: :bad_request
       end
 
-      params[:items].each do |item|
+      raw_params[:items].each do |item|
         unless item.is_a?(Hash) && item["item_id"].present? && item["name"].present? && item["quantity"].present? && item["unit_price"].present?
           return render json: { error: "invalid_item", message: "Each item must have item_id, name, quantity, and unit_price" }, status: :bad_request
         end
@@ -57,8 +59,8 @@ class Api::V1::PaymentsController < ApplicationController
     end
 
     # Extract validated parameters
-    description = params[:description].to_s
-    items = params[:items] || []
+    description = raw_params[:description].to_s
+    items = raw_params[:items] || []
 
     # Check if MFA is required (TMCP Protocol Section 7.4)
     mfa_required = amount > 50.00 # Configurable threshold
@@ -85,7 +87,8 @@ class Api::V1::PaymentsController < ApplicationController
 
   # POST /api/v1/payments/:payment_id/authorize - TMCP Protocol Section 7.3.2
   def authorize
-    payment_id = params[:payment_id]
+    raw_params = request.request_parameters.to_h
+    payment_id = raw_params["payment_id"]
     payment_data = Rails.cache.read("payment:#{payment_id}")
 
     unless payment_data
@@ -107,7 +110,8 @@ class Api::V1::PaymentsController < ApplicationController
 
   # POST /api/v1/payments/:payment_id/refund - TMCP Protocol Section 7.4
   def refund
-    payment_id = params[:payment_id]
+    raw_params = request.request_parameters.to_h
+    payment_id = raw_params["payment_id"]
     payment_data = Rails.cache.read("payment:#{payment_id}")
 
     unless payment_data
@@ -118,13 +122,13 @@ class Api::V1::PaymentsController < ApplicationController
       return render json: { error: "invalid_status", message: "Only completed payments can be refunded" }, status: :bad_request
     end
 
-    amount = params[:amount]&.to_f || payment_data["amount"]
+    amount = raw_params["amount"]&.to_f || payment_data["amount"]
     if amount > payment_data["amount"]
       return render json: { error: "invalid_amount", message: "Refund amount cannot exceed payment amount" }, status: :bad_request
     end
 
     # Process refund with WalletService
-    refund_result = WalletService.refund_payment(payment_id, amount, params[:reason] || "customer_request")
+    refund_result = WalletService.refund_payment(payment_id, amount, raw_params["reason"] || "customer_request")
 
     render json: refund_result.merge(
       refunded_at: Time.current.iso8601
@@ -133,7 +137,8 @@ class Api::V1::PaymentsController < ApplicationController
 
   # POST /api/v1/payments/:payment_id/mfa/challenge - TMCP Protocol Section 7.4.2
   def mfa_challenge
-    payment_id = params[:payment_id]
+    raw_params = request.request_parameters.to_h
+    payment_id = raw_params["payment_id"]
     payment_data = Rails.cache.read("payment:#{payment_id}")
 
     unless payment_data && payment_data["mfa_required"]
@@ -155,15 +160,16 @@ class Api::V1::PaymentsController < ApplicationController
 
   # POST /api/v1/payments/:payment_id/mfa/verify - TMCP Protocol Section 7.4.3
   def mfa_verify
-    challenge_id = params[:challenge_id]
+    raw_params = request.request_parameters.to_h
+    challenge_id = raw_params["challenge_id"]
     challenge_data = Rails.cache.read("mfa_challenge:#{challenge_id}")
 
     unless challenge_data
       return render json: { error: "invalid_challenge", message: "MFA challenge not found or expired" }, status: :not_found
     end
 
-    method = params[:method]
-    credentials = params[:credentials]
+    method = raw_params["method"]
+    credentials = raw_params["credentials"]
 
     unless %w[transaction_pin biometric totp].include?(method)
       return render json: { error: "invalid_method", message: "Unsupported MFA method" }, status: :bad_request

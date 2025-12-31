@@ -12,7 +12,7 @@ require "action_mailbox/engine"
 require "action_text/engine"
 require "action_view/railtie"
 require "action_cable/engine"
-# require "rails/test_unit/railtie"
+require "rails/test_unit/railtie"
 
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
@@ -58,7 +58,7 @@ module TmcpServer
     }
 
     # Session store for OAuth flow
-    config.session_store :cookie_store, key: "_tmcp_session"
+    config.session_store :active_record_store, key: "_tmcp_session"
 
     # CORS configuration for mini-app access
     config.middleware.insert_before 0, Rack::Cors do

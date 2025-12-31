@@ -1,6 +1,6 @@
 # Tween Mini-App Communication Protocol (TMCP)
 
-**TRFC:** 1001  
+**Document ID:** TMCP-001  
 **Category:** Proposed Standard  
 **Date:** December 2025  
 **Authors:** Ezeani Emmanuel
@@ -10,7 +10,7 @@
 
 ## Abstract
 
-This document specifies the Tween Mini-App Communication Protocol (TMCP), a comprehensive protocol for secure communication between instant messaging applications and third-party mini-applications. Built as an isolated Application Service layer on the Matrix protocol, TMCP provides authentication, authorization, and wallet-based payment processing without modifying Matrix/Synapse core code. The protocol enables a super-app ecosystem with integrated wallet services, instant peer-to-peer transfers, mini-app payments, and social commerce within a closed federation environment.
+This document specifies the Tween Mini-App Communication Protocol (TMCP), a comprehensive protocol for secure communication between instant messaging applications and third-party mini-applications. Built as an isolated Application Service layer on the Matrix protocol, TMCP provides authentication, authorization, and wallet-based payment processing without modifying Matrix/Synapse core code. The protocol enables a super-app ecosystem with integrated wallet services, instant peer-to-peer transfers, mini-app payments, and social commerce. TMCP operates within Matrix's federation framework but assumes deployment in controlled federation environments for enhanced security.
 
 ---
 
@@ -45,6 +45,10 @@ Copyright (c) 2025 Tween IM. All rights reserved.
 15. [References](#15-references)
 16. [Official and Preinstalled Mini-Apps](#16-official-and-preinstalled-mini-apps)
 17. [Appendices](#17-appendices)
+    - [Appendix A: Complete Protocol Flow Example](#appendix-a-complete-protocol-flow-example)
+    - [Appendix B: SDK Interface Definitions](#appendix-b-sdk-interface-definitions)
+    - [Appendix C: WebView Implementation Details](#appendix-c-webview-implementation-details)
+    - [Appendix D: Webhook Signature Verification](#appendix-d-webhook-signature-verification)
 
 ---
 
@@ -60,7 +64,7 @@ The Tween Mini-App Communication Protocol (TMCP) addresses the following require
 - **Wallet-Centric Architecture**: Integrated financial services as first-class citizens
 - **Peer-to-Peer Transactions**: Direct value transfer between users within conversations
 - **Mini-Application Ecosystem**: Third-party application integration with standardized APIs
-- **Closed Federation**: Internal server infrastructure with centralized wallet management
+- **Controlled Federation**: Internal server infrastructure with centralized wallet management
 
 ### 1.2 Design Goals
 
@@ -105,7 +109,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 ### 2.2 Matrix Protocol Terms
 
 **Homeserver**  
-A Matrix server instance responsible for maintaining user state and federating events. In TMCP deployments, homeservers exist within a closed federation environment.
+A Matrix server instance responsible for maintaining user state and federating events. In TMCP deployments, homeservers exist within a controlled federation environment.
 
 **User ID**  
 Matrix user identifier in the format `@localpart:domain`. Example: `@alice:tween.example`
@@ -215,7 +219,7 @@ The client application is a forked version of Element that implements the TMCP B
 
 #### 3.1.2 TMCP Server (Application Service)
 
-Server-side component that implements the Matrix Application Service API and provides TMCP-specific functionality:
+Server-side component that implements the Matrix Application Service API and provides TMCP-specific functionality. The TMCP Server integrates with MAS for authentication while maintaining TMCP-specific authorization logic.
 
 **Registration with Homeserver:**
 ```yaml
@@ -238,13 +242,155 @@ namespaces:
 rate_limited: false
 ```
 
-**Functional Modules:**
+**TMCP Server Architecture:**
 
-1. **OAuth Service** - Issues TEP tokens, manages scopes
-2. **Payment Processor** - Coordinates wallet transactions
-3. **Mini-App Registry** - Stores application metadata
-4. **Event Router** - Routes Matrix events to mini-apps
-5. **Webhook Manager** - Dispatches notifications to mini-apps
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      TMCP Server Components                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                    TMCP Server Core                           │  │
+│  │                                                               │  │
+│  │  ┌─────────────────────────────────────────────────────────┐ │  │
+│  │  │              Authentication Middleware                   │ │  │
+│  │  │                                                          │ │  │
+│  │  │  - Validates TEP tokens (JWT)                           │ │  │
+│  │  │  - Extracts user_id, wallet_id, scopes                  │ │  │
+│  │  │  - Validates scope-based authorization                  │ │  │
+│  │  │  - Gets MAS tokens for Matrix operations                │ │  │
+│  │  └─────────────────────────────────────────────────────────┘ │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                    Functional Modules                         │  │
+│  │                                                               │  │
+│  │  ┌─────────────────┐    ┌──────────────────────────────────┐ │  │
+│  │  │ OAuth Service   │    │ MAS Client                       │ │  │
+│  │  │                 │    │                                  │ │  │
+│  │  │ - Issues TEP    │    │ - Client credentials grant       │ │  │
+│  │  │ - Manages       │    │ - Token introspection           │ │  │
+│  │  │   scopes       │    │ - Token refresh                  │ │  │
+│  │  │ - TEP validation│    │ - Session management             │ │  │
+│  │  └─────────────────┘    └──────────────────────────────────┘ │  │
+│  │                                                               │  │
+│  │  ┌─────────────────┐    ┌──────────────────────────────────┐ │  │
+│  │  │ Payment         │    │ Mini-App Registry                │ │  │
+│  │  │ Processor       │    │                                  │ │  │
+│  │  │ - Validates     │    │ - Stores app metadata            │ │  │
+│  │  │   wallet scopes │    │ - Manages client credentials     │ │  │
+│  │  │ - Coordinates   │    │ - Tracks permissions             │ │  │
+│  │  │   with Wallet   │    │ - Validates registration         │ │  │
+│  │  └─────────────────┘    └──────────────────────────────────┘ │  │
+│  │                                                               │  │
+│  │  ┌─────────────────┐    ┌──────────────────────────────────┐ │  │
+│  │  │ Event Router    │    │ Webhook Manager                  │ │  │
+│  │  │                 │    │                                  │ │  │
+│  │  │ - Routes Matrix │    │ - Dispatches notifications       │ │  │
+│  │  │   events        │    │ - Handles callbacks              │ │  │
+│  │  │ - Sends webhook │    │ - Manages delivery retry         │ │  │
+│  │  │   payloads      │    │ - Validates signatures           │ │  │
+│  │  └─────────────────┘    └──────────────────────────────────┘ │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                    External Integrations                      │  │
+│  │                                                               │  │
+│  │  ┌─────────────────┐    ┌──────────────────────────────────┐ │  │
+│  │  │ MAS Integration │    │ Wallet Service                   │ │  │
+│  │  │                 │    │                                  │ │  │
+│  │  │ - OAuth 2.0     │    │ - gRPC/REST interface            │ │  │
+│  │  │ - Token mgmt    │    │ - Balance queries                │ │  │
+│  │  │ - User session  │    │ - Transaction processing         │ │  │
+│  │  │ - Scope policy  │    │ - Payment authorization          │ │  │
+│  │  └─────────────────┘    └──────────────────────────────────┘ │  │
+│  │                                                               │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**MAS Client Configuration:**
+
+```python
+class MASClientConfig:
+    """Configuration for MAS client integration."""
+    
+    def __init__(self):
+        self.token_url = "https://mas.tween.example/oauth2/token"
+        self.introspection_url = "https://mas.tween.example/oauth2/introspect"
+        self.revocation_url = "https://mas.tween.example/oauth2/revoke"
+        self.client_id = "ma_tmcp_server"
+        self.client_secret_file = "/run/secrets/mas_client_secret"
+        self.default_scopes = [
+            "urn:matrix:org.matrix.msc2967.client:api:*"
+        ]
+        
+        # Token caching
+        self.token_cache_ttl = 240  # 4 minutes (expire 1 min early)
+        
+        # Load client secret
+        with open(self.client_secret_file) as f:
+            self.client_secret = f.read().strip()
+```
+
+**TMCP Server Authentication Endpoint:**
+
+```python
+@app.post("/oauth2/token")
+async def token_endpoint(request: TokenRequest):
+    """
+    OAuth 2.0 token endpoint for TEP token issuance.
+    
+    This endpoint is used by MAS to issue TEP tokens during the
+    initial authentication flow.
+    """
+    # Validate client credentials
+    client = await validate_client(request.client_id, request.client_secret)
+    
+    # Get user info from MAS
+    mas_user_info = await get_mas_user_info(request.matrix_access_token)
+    
+    # Generate TEP token
+    tep_claims = {
+        "iss": "https://tmcp.tween.example",
+        "sub": mas_user_info["user_id"],
+        "aud": request.client_id,
+        "exp": datetime.utcnow() + timedelta(hours=24),
+        "iat": datetime.utcnow(),
+        "nbf": datetime.utcnow(),
+        "jti": generate_unique_id(),
+        "token_type": "tep_access_token",
+        "client_id": request.client_id,
+        "azp": request.client_id,
+        "scope": " ".join(request.scopes or get_default_scopes()),
+        "wallet_id": await get_or_create_wallet(mas_user_info["user_id"]),
+        "session_id": generate_session_id(),
+        "user_context": {
+            "display_name": mas_user_info.get("display_name"),
+            "avatar_url": mas_user_info.get("avatar_url")
+        },
+        "miniapp_context": request.miniapp_context or {},
+        "mas_session": {
+            "active": True,
+            "refresh_token_id": request.refresh_token_id
+        }
+    }
+    
+    tep_token = jwt.encode(tep_claims, TMCP_PRIVATE_KEY, algorithm="RS256")
+    
+    return {
+        "access_token": f"tep.{tep_token}",
+        "token_type": "Bearer",
+        "expires_in": 86400,
+        "refresh_token": f"rt_{generate_unique_id()}",
+        "scope": " ".join(tep_claims["scope"].split()),
+        "user_id": mas_user_info["user_id"],
+        "wallet_id": tep_claims["wallet_id"]
+    }
+```
 
 #### 3.1.3 Matrix Homeserver
 
@@ -252,7 +398,7 @@ Standard Synapse homeserver with Application Service support. Responsibilities:
 
 - Event persistence and ordering
 - Room state management
-- Federation (disabled in closed federation mode)
+- Federation (controlled within trusted infrastructure)
 - Access control and authentication
 
 #### 3.1.4 Tween Wallet Service
@@ -313,7 +459,7 @@ Mini-App receives webhook notification
 **Layer 1: Transport**
 - HTTPS/TLS 1.3 (REQUIRED)
 - WebSocket for real-time bidirectional communication
-- Matrix federation protocol (closed federation only)
+- Matrix federation protocol (controlled federation)
 
 **Layer 2: Authentication**
 - OAuth 2.0 with PKCE for mini-app authorization
@@ -338,228 +484,1196 @@ Mini-App receives webhook notification
 
 ### 4.1 Authentication Architecture
 
-TMCP implements a dual-token system that separates Matrix identity from mini-app authorization:
+TMCP implements a dual-token architecture that separates concerns between TMCP operations and Matrix operations while maintaining unified user identity:
 
-1. **Matrix Access Token**: Used for Matrix client-server API calls
-2. **TEP Token**: Used for mini-app-specific operations
+1. **TEP Token (JWT)**: Long-lived token for TMCP-specific operations, contains custom claims (wallet_id, scopes, miniapp_context)
+2. **MAS Access Token**: Short-lived opaque token for Matrix operations, stored in memory only, never persisted
 
-This separation ensures mini-apps never access the user's primary Matrix credentials or encryption keys.
+This separation ensures:
+- Mini-apps have rich authorization claims for TMCP operations
+- Matrix operations use standard OAuth 2.0 tokens managed by MAS
+- Security is maintained with memory-only storage for sensitive Matrix tokens
+- Token refresh is handled transparently without complex client logic
 
-### 4.2 Mini-App Authentication Flow
+### 4.2 Authentication Overview
 
-#### 4.2.1 Authorization Code Flow with PKCE
-
-TMCP implements OAuth 2.0 Authorization Code Flow with Proof Key for Code Exchange (PKCE) as defined in RFC 7636 [RFC7636].
-
-**Step 1: Generate Code Verifier and Challenge**
-
-The client MUST generate a code verifier and code challenge:
-
-```javascript
-// Generate code verifier (43-128 characters)
-const codeVerifier = base64url(randomBytes(32));
-
-// Generate code challenge
-const codeChallenge = base64url(sha256(codeVerifier));
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         TMCP Authentication                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                         Client Side                            │  │
+│  │                                                                │  │
+│  │  ┌────────────────┐    ┌──────────────────────────────────┐   │  │
+│  │  │ TEP Token      │    │ MAS Access Token                 │   │  │
+│  │  │ (JWT)          │    │ (Opaque, memory-only)            │   │  │
+│  │  │                │    │                                  │   │  │
+│  │  │ Stored in:     │    │ Stored in:                       │   │  │
+│  │  │ - Keychain     │    │ - JavaScript memory              │   │  │
+│  │  │ - EncryptedSP  │    │ - Swift variables                │   │  │
+│  │  │ - HTTP cookie │    │ - Kotlin variables               │   │  │
+│  │  │                │    │                                  │   │  │
+│  │  │ Lifetime:      │    │ Lifetime:                        │   │  │
+│  │  │ hours/days     │    │ 5 minutes (auto-expires)         │   │  │
+│  │  │                │    │                                  │   │  │
+│  │  │ Claims:        │    │ Usage:                           │   │  │
+│  │  │ - user_id      │    │ - Matrix C-S API calls           │   │  │
+│  │  │ - wallet_id    │    │ - Room operations                │   │  │
+│  │  │ - scopes       │    │ - Event sending                  │   │  │
+│  │  │ - miniapp_ctx  │    │                                  │   │  │
+│  │  └────────┬───────┘    └──────────────┬───────────────────┘   │  │
+│  │           │                            │                        │  │
+│  │           ▼                            ▼                        │  │
+│  │  ┌──────────────────────────────────────────────┐              │  │
+│  │  │         TMCP Server Middleware               │              │  │
+│  │  │                                              │              │  │
+│  │  │  1. Validate TEP for TMCP operations         │              │  │
+│  │  │  2. Use TEP claims for authorization         │              │  │
+│  │  │  3. Get MAS token for Matrix operations      │              │  │
+│  │  │  4. Proxy requests with proper credentials   │              │  │
+│  │  └──────────────────────────────────────────────┘              │  │
+│  │                                                                │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                    MAS (Matrix Authentication Service)         │  │
+│  │                                                                │  │
+│  │  - Issues TEP tokens via OAuth 2.0 authorization              │  │
+│  │  - Issues MAS tokens for Matrix API access                    │  │
+│  │  - Manages user sessions and refresh tokens                   │  │
+│  │  - Token introspection and validation                         │  │
+│  │                                                                │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Step 2: Authorization Request**
+### 4.3 Initial Authentication Flow
+
+#### 4.3.1 Device Authorization Grant (Recommended for Mini-Apps)
+
+The Device Authorization Grant ([RFC 8628](https://datatracker.ietf.org/doc/html/rfc8628)) is recommended for mini-apps as it separates user authentication from device constraints.
+
+**Step 1: Request Device Authorization**
 
 ```http
+POST /oauth2/device/authorization HTTP/1.1
+Host: mas.tween.example
+Content-Type: application/x-www-form-urlencoded
+
+client_id=ma_shop_001
+&scope=urn:matrix:org.matrix.msc2967.client:api:*
+```
+
+**Step 2: Receive Authorization Details**
+
+```json
+{
+  "device_code": "GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS",
+  "user_code": "WDJB-MJHR",
+  "verification_uri": "https://mas.tween.example/oauth2/device",
+  "verification_uri_complete": "https://mas.tween.example/oauth2/device?user_code=WDJB-MJHR",
+  "expires_in": 900,
+  "interval": 5
+}
+```
+
+**Step 3: Display User Code to User**
+
+The client displays the `user_code` and `verification_uri` to the user:
+
+```
+┌─────────────────────────────────────┐
+│     Sign in to Tween Mini-App       │
+├─────────────────────────────────────┤
+│                                     │
+│  1. Open: mas.tween.example         │
+│                                     │
+│  2. Enter code: WDJB-MJHR           │
+│                                     │
+│  3. Complete sign-in                │
+│                                     │
+│  [Loading...]                       │
+└─────────────────────────────────────┘
+```
+
+**Step 4: Poll for Token**
+
+```http
+POST /oauth2/token HTTP/1.1
+Host: mas.tween.example
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:device_code
+&device_code=GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS
+&client_id=ma_shop_001
+&client_secret=<CLIENT_SECRET>
+```
+
+**Step 5: Token Response**
+
+```json
+{
+  "access_token": "opaque_mas_token_abc123",
+  "token_type": "Bearer",
+  "expires_in": 300,
+  "refresh_token": "refresh_mas_token_xyz789",
+  "scope": "urn:matrix:org.matrix.msc2967.client:api:*",
+  "tep_token": "tep.eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user_id": "@alice:tween.example"
+}
+```
+
+**Step 6: Client Token Storage**
+
+```javascript
+await secureStorage.set('tep_token', 'tep.eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...');
+await secureStorage.set('mas_refresh_token', 'refresh_mas_token_xyz789');
+await secureStorage.set('tep_expires_at', Date.now() + 86400000);
+
+let masAccessToken = 'opaque_mas_token_abc123';
+let masAccessTokenExpiry = Date.now() + 300000;
+```
+
+#### 4.3.2 Authorization Code Grant (For Web Mini-Apps)
+
+For web-based mini-apps running in browser, use Authorization Code Flow with PKCE ([RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636)).
+
+**Step 1: Generate PKCE Parameters**
+
+```javascript
+function generateCodeVerifier() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return base64urlEncode(array);
+}
+
+function generateCodeChallenge(verifier) {
+  return base64urlEncode(sha256(verifier));
+}
+
+const codeVerifier = generateCodeVerifier();
+const codeChallenge = generateCodeChallenge(codeVerifier);
+const state = generateRandomString(16);
+```
+
+**Step 2: Redirect to Authorization Endpoint**
+
+```
 GET /oauth2/authorize?
     response_type=code&
     client_id=ma_shop_001&
     redirect_uri=https://miniapp.example.com/callback&
-    scope=user:read+wallet:pay&
-    state=random_state_string&
+    scope=openid urn:matrix:org.matrix.msc2967.client:api:*&
     code_challenge=BASE64URL(SHA256(code_verifier))&
-    code_challenge_method=S256
-    
-Host: tmcp.example.com
-```
-
-**Parameters:**
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| response_type | Yes | MUST be "code" |
-| client_id | Yes | Mini-App ID |
-| redirect_uri | Yes | HTTPS callback URL |
-| scope | Yes | Space-separated scope list |
-| state | Yes | CSRF protection token |
-| code_challenge | Yes | Base64URL encoded SHA256 hash |
-| code_challenge_method | Yes | MUST be "S256" |
-
-**Step 3: User Consent**
-
-The TMCP Server redirects to the client application, which displays a native consent screen showing:
-
-```json
-{
-  "miniapp": {
-    "id": "ma_shop_001",
-    "name": "Shopping Assistant",
-    "developer": "Example Corp",
-    "icon_url": "https://cdn.example.com/icon.png",
-    "verified": true
-  },
-  "requested_scopes": [
-    {
-      "scope": "user:read",
-      "description": "Access your profile information",
-      "sensitivity": "low"
-    },
-    {
-      "scope": "wallet:pay",
-      "description": "Process payments from your wallet",
-      "sensitivity": "high",
-      "note": "You'll confirm each payment"
-    }
-  ]
-}
-```
-
-**Step 4: Authorization Response**
-
-Upon user approval:
-
-```http
-HTTP/1.1 302 Found
-Location: https://miniapp.example.com/callback?
-    code=auth_abc123xyz&
+    code_challenge_method=S256&
     state=random_state_string
 ```
 
-**Step 5: Token Request**
-
-The mini-app backend exchanges the authorization code for tokens:
+**Step 3: Exchange Code for Token**
 
 ```http
 POST /oauth2/token HTTP/1.1
-Host: tmcp.example.com
+Host: mas.tween.example
 Content-Type: application/x-www-form-urlencoded
 
-grant_type=authorization_code&
-code=auth_abc123xyz&
-redirect_uri=https://miniapp.example.com/callback&
-client_id=ma_shop_001&
-client_secret=<CLIENT_SECRET>&
-code_verifier=<CODE_VERIFIER>
+grant_type=authorization_code
+&code=auth_code_from_redirect
+&redirect_uri=https://miniapp.example.com/callback
+&client_id=ma_shop_001
+&client_secret=<CLIENT_SECRET>
+&code_verifier=<CODE_VERIFIER>
 ```
 
-**Step 6: Token Response**
+**Step 4: Token Response (Same as Device Flow)**
 
-```json
-{
-  "access_token": "tep.eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "Bearer",
-  "expires_in": 3600,
-  "refresh_token": "rt_abc123...",
-  "scope": "user:read wallet:pay",
-  "user_id": "@alice:tween.example",
-  "wallet_id": "tw_user_12345"
-}
-```
+### 4.4 TEP Token Structure
 
-### 4.3 TEP Token Structure
-
-TEP tokens are JSON Web Tokens (JWT) as defined in RFC 7519 [RFC7519].
+TEP tokens are JSON Web Tokens (JWT) as defined in RFC 7519 [RFC7519], issued by the TMCP Server (acting as OAuth 2.0 authorization server for TMCP-specific operations).
 
 **Header:**
 ```json
 {
   "alg": "RS256",
   "typ": "JWT",
-  "kid": "tmcp-2024-12"
+  "kid": "tmcp-2025-12"
 }
 ```
 
 **Payload:**
 ```json
 {
-  "iss": "https://tmcp.example.com",
+  "iss": "https://tmcp.tween.example",
   "sub": "@alice:tween.example",
   "aud": "ma_shop_001",
-  "exp": 1704067200,
-  "iat": 1704063600,
-  "jti": "unique-token-id",
-  "scope": "user:read wallet:pay",
-  "wallet_id": "tw_user_12345",
+  "exp": 1735689600,
+  "iat": 1735603200,
+  "nbf": 1735603200,
+  "jti": "unique-token-id-abc123",
+  "token_type": "tep_access_token",
+  "client_id": "ma_shop_001",
+  "azp": "ma_shop_001",
+  "scope": "user:read wallet:pay wallet:balance storage:write messaging:send",
+  "wallet_id": "tw_alice_123",
   "session_id": "session_xyz789",
+  "user_context": {
+    "display_name": "Alice",
+    "avatar_url": "mxc://tween.example/avatar123"
+  },
   "miniapp_context": {
     "launch_source": "chat_bubble",
     "room_id": "!abc123:tween.example"
+  },
+  "mas_session": {
+    "active": true,
+    "refresh_token_id": "rt_abc123"
   }
 }
 ```
 
-**Claims:**
+**Claims Reference:**
 
-| Claim | Description |
-|-------|-------------|
-| iss | Issuer (TMCP Server URL) |
-| sub | Subject (Matrix User ID) |
-| aud | Audience (Mini-App ID) |
-| exp | Expiration time (Unix timestamp) |
-| iat | Issued at (Unix timestamp) |
-| jti | JWT ID (unique identifier) |
-| scope | Granted scopes |
-| wallet_id | User's wallet identifier |
-| session_id | Session identifier |
-| miniapp_context | Launch context information |
+| Claim | Required | Description |
+|-------|----------|-------------|
+| `iss` | Yes | Issuer (TMCP Server URL) |
+| `sub` | Yes | Subject (Matrix User ID) |
+| `aud` | Yes | Audience (Mini-App ID) |
+| `exp` | Yes | Expiration time (Unix timestamp) |
+| `iat` | Yes | Issued at (Unix timestamp) |
+| `nbf` | Yes | Not Before (Unix timestamp) |
+| `jti` | Yes | Unique token identifier |
+| `token_type` | Yes | Must be `tep_access_token` |
+| `client_id` | Yes | Mini-App client ID |
+| `azp` | Yes | Authorized party (same as client_id) |
+| `scope` | Yes | Space-separated granted scopes |
+| `wallet_id` | Yes | User's wallet identifier |
+| `session_id` | Yes | Session identifier |
+| `user_context` | No | User display info for UI |
+| `miniapp_context` | No | Launch context information |
+| `mas_session` | No | Matrix session reference |
 
-### 4.4 Token Refresh
+### 4.5 Client-Side Token Management
 
-```http
-POST /oauth2/token HTTP/1.1
-Host: tmcp.example.com
-Content-Type: application/x-www-form-urlencoded
+#### 4.5.1 Secure Storage Requirements
 
-grant_type=refresh_token&
-refresh_token=rt_abc123...&
-client_id=ma_shop_001&
-client_secret=<CLIENT_SECRET>
+**iOS Applications:**
+
+```swift
+import Security
+
+struct TokenStorage {
+    static func storeTEP(_ token: String) throws {
+        let data = token.data(using: .utf8)!
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "tep_token",
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecAttrSynchronizable as String: false
+        ]
+        
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw TokenStorageError.osStatus(status)
+        }
+    }
+    
+    static func getTEP() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "tep_token",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let token = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        
+        return token
+    }
+}
 ```
 
-Response:
+**Android Applications:**
+
+```kotlin
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+
+class TokenStorage(context: Context) {
+    private val masterKey = MasterKey.Builder(context)
+        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+        .build()
+    
+    private val sharedPreferences = EncryptedSharedPreferences.create(
+        context,
+        "tmcp_secure_prefs",
+        masterKey,
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+    
+    fun storeTEP(token: String) {
+        sharedPreferences.edit()
+            .putString("tep_token", token)
+            .apply()
+    }
+    
+    fun getTEP(): String? {
+        return sharedPreferences.getString("tep_token", null)
+    }
+    
+    fun storeRefreshToken(token: String) {
+        sharedPreferences.edit()
+            .putString("mas_refresh_token", token)
+            .apply()
+    }
+    
+    fun getRefreshToken(): String? {
+        return sharedPreferences.getString("mas_refresh_token", null)
+    }
+}
+```
+
+**Web Applications:**
+
+```javascript
+// TEP stored in localStorage
+localStorage.setItem('tep_token', 'tep.eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...');
+
+// Refresh token stored in HTTP-only cookie
+Set-Cookie: mas_refresh_token=refresh_token_abc123;
+  HttpOnly;
+  Secure;
+  SameSite=Strict;
+  Path=/;
+  Max-Age=2592000
+```
+
+#### 4.5.2 In-Memory MAS Token Management
+
+```javascript
+class MASAuthenticator {
+    constructor(config) {
+        this.tokenUrl = config.tokenUrl;
+        this.clientId = config.clientId;
+        this.clientSecret = config.clientSecret;
+        this.accessToken = null;
+        this.accessTokenExpiry = null;
+        this.refreshToken = null;
+    }
+    
+    initialize(tokens) {
+        this.accessToken = tokens.access_token;
+        this.accessTokenExpiry = Date.now() + (tokens.expires_in * 1000);
+        this.refreshToken = tokens.refresh_token;
+    }
+    
+    async getAccessToken() {
+        if (this.isTokenExpired()) {
+            await this.refresh();
+        }
+        return this.accessToken;
+    }
+    
+    isTokenExpired() {
+        return Date.now() >= (this.accessTokenExpiry - 30000);
+    }
+    
+    async refresh() {
+        const response = await fetch(this.tokenUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                grant_type: 'urn:ietf:params:oauth:grant-type:refresh_token',
+                refresh_token: this.refreshToken,
+                client_id: this.clientId,
+                client_secret: this.clientSecret
+            })
+        });
+        
+        if (!response.ok) {
+            throw new AuthenticationError('Token refresh failed');
+        }
+        
+        const tokens = await response.json();
+        this.initialize(tokens);
+        
+        return this.accessToken;
+    }
+    
+    clearMemoryToken() {
+        this.accessToken = null;
+        this.accessTokenExpiry = null;
+    }
+}
+
+const masAuth = new MASAuthenticator({
+    tokenUrl: 'https://mas.tween.example/oauth2/token',
+    clientId: 'ma_shop_001',
+    clientSecret: '<CLIENT_SECRET>'
+});
+
+masAuth.initialize({
+    access_token: 'opaque_mas_token',
+    expires_in: 300,
+    refresh_token: 'refresh_token_xyz'
+});
+
+async function sendMatrixMessage(roomId, message) {
+    const accessToken = await masAuth.getAccessToken();
+    
+    return fetch(`https://matrix.tween.example/_matrix/client/v3/rooms/${roomId}/send/m.room.message`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            msgtype: 'm.text',
+            body: message
+        })
+    });
+}
+```
+
+#### 4.5.3 Token Lifecycle Management
+
+**On Initialization:**
+
+```javascript
+async function initializeAuth() {
+    const tepToken = await secureStorage.getTEP();
+    
+    if (!tepToken) {
+        await startDeviceAuthorizationFlow();
+        return;
+    }
+    
+    const tepClaims = decodeTEP(tepToken);
+    if (tepClaims.exp * 1000 < Date.now()) {
+        await startDeviceAuthorizationFlow();
+        return;
+    }
+    
+    const refreshToken = await secureStorage.getRefreshToken();
+    if (refreshToken) {
+        masAuth.refreshToken = refreshToken;
+        await masAuth.refresh();
+    }
+}
+```
+
+**On TEP Expiration:**
+
+```javascript
+async function handleTEPExpired() {
+    // TEP expired, need full re-authentication
+    // Cannot refresh TEP (it's intentionally short-lived for security)
+    await startDeviceAuthorizationFlow();
+}
+```
+
+**On Logout:**
+
+```javascript
+async function logout() {
+    await fetch('https://mas.tween.example/oauth2/revoke', {
+        method: 'POST',
+        body: new URLSearchParams({
+            token: await secureStorage.getRefreshToken(),
+            client_id: 'ma_shop_001',
+            client_secret: '<CLIENT_SECRET>'
+        })
+    });
+    
+    await secureStorage.delete('tep_token');
+    await secureStorage.delete('mas_refresh_token');
+    
+    masAuth.clearMemoryToken();
+}
+```
+
+### 4.6 TMCP Server Authentication Middleware
+
+```python
+import jwt
+import httpx
+from typing import Optional, Dict, Any
+
+class TMCPAuthMiddleware:
+    def __init__(self, config):
+        self.jwt_public_key = config.jwt_public_key
+        self.mas_token_url = config.mas_token_url
+        self.mas_client_id = config.mas_client_id
+        self.mas_client_secret = config.mas_client_secret
+        self.http_client = httpx.AsyncClient()
+    
+    async def authenticate_request(self, request) -> Dict[str, Any]:
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer tep.'):
+            raise Unauthorized("Missing TEP token")
+        
+        tep_token = auth_header[7:]
+        
+        tep_claims = await self._validate_tep(tep_token)
+        
+        required_scope = self._get_required_scope(request)
+        if required_scope and required_scope not in tep_claims.get('scope', ''):
+            raise Forbidden(f"Missing required scope: {required_scope}")
+        
+        return {
+            'user_id': tep_claims['sub'],
+            'wallet_id': tep_claims.get('wallet_id'),
+            'miniapp_id': tep_claims['client_id'],
+            'scopes': tep_claims.get('scope', '').split(),
+            'session_id': tep_claims.get('session_id'),
+            'miniapp_context': tep_claims.get('miniapp_context', {}),
+            'tep_claims': tep_claims
+        }
+    
+    async def _validate_tep(self, token: str) -> Dict[str, Any]:
+        try:
+            claims = jwt.decode(
+                token,
+                self.jwt_public_key,
+                algorithms=['RS256'],
+                audience='tmcp-server',
+                issuer='https://tmcp.tween.example',
+                options={
+                    'verify_exp': True,
+                    'verify_nbf': True,
+                    'verify_iat': True,
+                    'verify_iss': True,
+                    'verify_aud': True
+                }
+            )
+            return claims
+        except jwt.ExpiredSignatureError:
+            raise Unauthorized("TEP token expired")
+        except jwt.InvalidTokenError as e:
+            raise Unauthorized(f"Invalid TEP token: {e}")
+    
+    async def get_matrix_token(self, refresh_token: str) -> str:
+        """Get fresh Matrix access token using refresh token."""
+        response = await self.http_client.post(
+            self.mas_token_url,
+            data={
+                'grant_type': 'urn:ietf:params:oauth:grant-type:refresh_token',
+                'refresh_token': refresh_token,
+                'client_id': self.mas_client_id,
+                'client_secret': self.mas_client_secret
+            }
+        )
+        
+        if response.status_code != 200:
+            raise Unauthorized("Failed to refresh Matrix token")
+        
+        return response.json()['access_token']
+    
+    async def proxy_matrix_request(
+        self,
+        matrix_token: str,
+        method: str,
+        endpoint: str,
+        **kwargs
+    ) -> httpx.Response:
+        """Proxy request to Matrix homeserver."""
+        headers = kwargs.get('headers', {})
+        headers['Authorization'] = f'Bearer {matrix_token}'
+        
+        return await self.http_client.request(
+            method,
+            f"https://matrix.tween.example{endpoint}",
+            headers=headers,
+            json=kwargs.get('json'),
+            params=kwargs.get('params')
+        )
+```
+
+### 4.7 MAS Integration Requirements
+
+#### 4.7.1 MAS Client Registration
+
+The TMCP Server must be registered as a client in MAS with client credentials grant:
+
+```yaml
+# MAS configuration (config.yaml)
+clients:
+  - client_id: ma_tmcp_server
+    client_auth_method: client_secret_post
+    client_secret_file: /run/secrets/mas_client_secret
+    grant_types:
+      - authorization_code
+      - urn:ietf:params:oauth:grant-type:device_code
+      - refresh_token
+      - urn:ietf:params:oauth:grant-type:reverse_1
+    scope:
+      - openid
+      - urn:matrix:org.matrix.msc2967.client:api:*
+      - urn:synapse:admin:*
+```
+
+#### 4.7.2 Mini-App Client Registration
+
+Each mini-app must be registered in MAS with appropriate scopes:
+
+```yaml
+clients:
+  - client_id: ma_shop_001
+    client_auth_method: client_secret_post
+    client_secret_file: /run/secrets/ma_shop_001_secret
+    redirect_uris:
+      - https://shop.miniapp.example.com/callback
+    grant_types:
+      - authorization_code
+      - urn:ietf:params:oauth:grant-type:device_code
+      - refresh:
+      - open_token
+    scopeid
+      - urn:matrix:org.matrix.msc2967.client:api:*
+```
+
+### 4.8 Token Refresh Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                       Token Refresh Sequence                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  TEP Token (JWT)           MAS Access Token (Opaque)                 │
+│  ┌──────────────┐         ┌─────────────────────┐                   │
+│  │ Lifetime:     │         │ Lifetime:           │                   │
+│  │ 24 hours      │         │ 5 minutes           │                   │
+│  │              │         │                     │                   │
+│  │ Refresh:     │         │ Refresh:            │                   │
+│  │ Full OAuth   │         │ OAuth refresh_token │                   │
+│  │ flow         │         │                     │                   │
+│  └──────┬───────┘         └──────────┬──────────┘                   │
+│         │                             │                               │
+│         ▼                             ▼                               │
+│  ┌──────────────┐             ┌─────────────────────┐               │
+│  │ Re-auth with │             │ Auto-refresh on     │               │
+│  │ device code  │             │ 401 response        │               │
+│  │ or auth code │             │                     │               │
+│  └──────────────┘             └─────────────────────┘               │
+│                                                                      │
+│  Timeline:                                                           │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  TEP (24h) ──────────────────────────────────────────────────  │ │
+│  │      │                                                          │ │
+│  │      │  MAS (5m) ───┬── MAS ───┬── MAS ───┬── MAS ───        │ │
+│  │      │              │          │          │          │         │ │
+│  │      ▼              ▼          ▼          ▼          ▼         │ │
+│  │    Initial      Refresh     Refresh    Refresh    Refresh    │ │
+│  │    Auth         (5min)      (5min)     (5min)     (5min)     │ │
+│  │                                                                │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  Operations:                                                         │
+│  - Every 5 min: MAS token auto-refreshed via refresh_token          │
+│  - Every 24h: Full re-authentication required for new TEP           │
+│  - On TEP expiry: User must complete device code flow again         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.9 Security Considerations
+
+**Token Storage Security:**
+
+| Token | Storage Location | Protection Mechanism |
+|-------|-----------------|---------------------|
+| TEP JWT | Secure storage (Keychain/EncryptedSharedPrefs/localStorage) | Platform-specific encryption |
+| MAS Access Token | Memory only (JavaScript variable, Swift/Kotlin variable) | Never persisted |
+| MAS Refresh Token | Secure storage | Same as TEP |
+
+**Security Properties:**
+
+1. **TEP Token**: 
+   - Signed with RS256 (asymmetric)
+   - Contains all authorization claims
+   - Long-lived but revocable server-side
+   - Stored encrypted at rest
+
+2. **MAS Access Token**:
+   - Opaque string (no claims exposed)
+   - Short-lived (5 minutes)
+   - Never written to disk or storage
+   - Automatically refreshed
+   - Memory-only access prevents XSS extraction
+
+3. **Refresh Tokens**:
+   - Long-lived (30 days)
+   - Same storage security as TEP
+   - Rotated on each use
+
+**Attack Mitigation:**
+
+| Attack Vector | Mitigation |
+|---------------|------------|
+| XSS stealing tokens | MAS token never persisted, only in memory |
+| Local storage theft | TEP encrypted via platform security (Keychain/EncryptedSharedPrefs) |
+| Token replay | Short-lived MAS tokens, TEP validated server-side |
+| Replay attacks | JWT `jti` claim for deduplication |
+| Token confusion | Explicit `token_type` claim in TEP |
+
+### 4.10 Matrix Integration
+
+TMCP Server proxies Matrix operations using the user's MAS credentials:
+
+```python
+async def handle_matrix_operation(
+    self,
+    auth_context: Dict[str, Any],
+    operation: str,
+    endpoint: str,
+    **kwargs
+) -> Dict[str, Any]:
+    """Handle Matrix operation proxy."""
+    refresh_token_id = auth_context['tep_claims']['mas_session']['refresh_token_id']
+    
+    refresh_token = await self.token_store.get(refresh_token_id)
+    
+    matrix_token = await self.get_matrix_token(refresh_token)
+    
+    response = await self.proxy_matrix_request(
+        matrix_token,
+        method=kwargs.get('method', 'GET'),
+        endpoint=endpoint,
+        **kwargs
+    )
+    
+    return response.json()
+```
+
+### 4.11 In-Chat Payment Architecture
+
+TMCP implements in-chat payment notifications where payment events appear natively in Matrix rooms. This approach provides a seamless user experience where payments feel integrated with the conversation rather than external notifications.
+
+#### 4.11.1 Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    In-Chat Payment Architecture                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐   │
+│  │ Mini-App    │────▶│ TMCP Server │────▶│ Wallet Service      │   │
+│  │             │     │             │     │ (Third Party)       │   │
+│  └─────────────┘     │             │     └─────────────────────┘   │
+│                      │             │                               │
+│                      │ Payment     │                               │
+│                      │ Confirmed   │                               │
+│                      │             │                               │
+│                      └──────┬──────┘                               │
+│                             │                                      │
+│                             ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │              Payment Event Flow                              │   │
+│  │                                                              │   │
+│  │  1. Wallet Service sends payment callback to TMCP Server    │   │
+│  │  2. TMCP Server creates m.tween.payment event               │   │
+│  │  3. TMCP Server sends event as @_tmcp_payments:tween.example│   │
+│  │  4. Matrix Homeserver persists and distributes event        │   │
+│  │  5. Client renders as rich payment card in chat             │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 4.11.2 Virtual Payment Bot User
+
+TMCP Server registers a virtual payment bot user in the Matrix namespace `@_tmcp_payments:*`:
+
+```yaml
+# Application Service Registration
+id: tween-miniapps
+url: https://tmcp.tween.example
+as_token: <AS_TOKEN>
+hs_token: <HS_TOKEN>
+sender_localpart: _tmcp_payments
+namespaces:
+  users:
+    - exclusive: true
+      regex: "@_tmcp_payments:tween\\.example"
+```
+
+**Payment Bot Characteristics:**
+
+| Attribute | Value |
+|-----------|-------|
+| User ID | `@_tmcp_payments:tween.example` |
+| Display Name | "Tween Payments" |
+| Avatar | Payment icon (consistent across all payments) |
+| Purpose | Send payment receipts and status updates to rooms |
+| Permissions | Can send events to any room where payment occurs |
+
+**Why Virtual Bot User:**
+- Consistent sender identity for all payment notifications
+- No user credentials needed (uses AS token)
+- Clear distinction from user messages
+- Follows industry patterns where payments appear from the payment system
+
+#### 4.11.3 Payment Event Types
+
+TMCP defines payment event types in the `m.tween.payment.*` namespace:
+
+| Event Type | Purpose | Direction |
+|------------|---------|-----------|
+| `m.tween.payment.sent` | Payment sent notification | Sender → Room |
+| `m.tween.payment.completed` | Payment received confirmation | Recipient → Room |
+| `m.tween.payment.failed` | Payment failure notification | System → Room |
+| `m.tween.payment.refunded` | Refund processed | System → Room |
+| `m.tween.p2p.transfer` | P2P transfer notification | System → Room |
+
+#### 4.11.4 Rich Payment Event Structure
+
+Payment events use a structured content format for rich rendering:
+
 ```json
 {
-  "access_token": "tep.newtoken...",
-  "token_type": "Bearer",
-  "expires_in": 3600,
-  "refresh_token": "rt_newtoken...",
-  "scope": "user:read wallet:pay"
-}
-```
-
-**Token Rotation:**
-- Refresh tokens MUST be single-use
-- Old refresh token MUST be invalidated upon successful rotation
-- Access token expiration: 1 hour (RECOMMENDED)
-- Refresh token expiration: 30 days (RECOMMENDED)
-
-### 4.5 Matrix Integration
-
-TMCP creates virtual Matrix users for mini-app bots to send messages:
-
-```http
-POST /_matrix/client/v3/login HTTP/1.1
-Authorization: Bearer <APP_SERVICE_TOKEN>
-Content-Type: application/json
-
-{
-  "type": "m.login.application_service",
-  "identifier": {
-    "type": "m.id.user",
-    "user": "@ma_shop_001_bot:tween.example"
+  "type": "m.tween.payment.completed",
+  "sender": "@_tmcp_payments:tween.example",
+  "room_id": "!chat123:tween.example",
+  "content": {
+    "msgtype": "m.tween.payment",
+    "payment_type": "completed",
+    "visual": {
+      "card_type": "payment_receipt",
+      "icon": "payment_completed",
+      "background_color": "#4CAF50"
+    },
+    "transaction": {
+      "txn_id": "txn_abc123",
+      "amount": 5000.00,
+      "currency": "USD"
+    },
+    "sender": {
+      "user_id": "@alice:tween.example",
+      "display_name": "Alice",
+      "avatar_url": "mxc://tween.example/avatar123"
+    },
+    "recipient": {
+      "user_id": "@bob:tween.example",
+      "display_name": "Bob",
+      "avatar_url": "mxc://tween.example/avatar456"
+    },
+    "note": "Lunch money",
+    "timestamp": "2025-12-18T14:30:00Z",
+    "actions": [
+      {
+        "type": "view_receipt",
+        "label": "View Details",
+        "endpoint": "/wallet/v1/transactions/txn_abc123"
+      }
+    ]
   }
 }
 ```
 
-This allows mini-apps to:
-- Send rich messages to rooms
-- Participate in conversations as automated agents
-- Create room state events for payment confirmations
+#### 4.11.5 Client Rendering Requirements
+
+Clients MUST render payment events as rich cards for in-chat payment notifications:
+
+**Payment Receipt Card:**
+
+```
+┌─────────────────────────────────────┐
+│ 💰 Payment Completed                │
+├─────────────────────────────────────┤
+│                                     │
+│  From: Alice                        │
+│  Amount: $5,000.00 USD              │
+│                                     │
+│  Note: Lunch money                  │
+│                                     │
+│  ────────────────────────────────   │
+│  Transaction ID: txn_abc123         │
+│  Dec 18, 2025 2:30 PM               │
+│                                     │
+│  [View Details]                     │
+└─────────────────────────────────────┘
+```
+
+**P2P Transfer Card:**
+
+```
+┌─────────────────────────────────────┐
+│ 💸 Transfer Sent                    │
+├─────────────────────────────────────┤
+│                                     │
+│  To: Bob                            │
+│  Amount: $5,000.00 USD              │
+│                                     │
+│  Note: Lunch money                  │
+│                                     │
+│  ────────────────────────────────   │
+│  Status: Completed                  │
+│  Transaction ID: p2p_abc123         │
+│                                     │
+│  [View Receipt]  [Send Again]       │
+└─────────────────────────────────────┘
+```
+
+**Client Implementation:**
+
+```typescript
+interface PaymentEventRenderer {
+    canRender(eventType: string): boolean;
+    
+    render(event: MatrixEvent): PaymentCardView;
+    
+    handleAction(action: string, event: MatrixEvent): void;
+}
+
+class PaymentEventHandler implements PaymentEventRenderer {
+    canRender(eventType: string): boolean {
+        return eventType.startsWith('m.tween.payment.');
+    }
+    
+    render(event: MatrixEvent): PaymentCardView {
+        const content = event.content;
+        
+        switch (content.payment_type) {
+            case 'completed':
+                return this.renderCompletedPayment(content);
+            case 'sent':
+                return this.renderSentPayment(content);
+            case 'failed':
+                return this.renderFailedPayment(content);
+            default:
+                return this.renderGenericPayment(content);
+        }
+    }
+    
+    private renderCompletedPayment(content: any): PaymentCardView {
+        return {
+            type: 'payment_receipt',
+            title: '💰 Payment Completed',
+            sections: [
+                {
+                    type: 'user_info',
+                    user_id: content.sender.user_id,
+                    display_name: content.sender.display_name,
+                    avatar_url: content.sender.avatar_url
+                },
+                {
+                    type: 'amount',
+                    amount: content.transaction.amount,
+                    currency: content.transaction.currency
+                },
+                {
+                    type: 'note',
+                    text: content.note
+                },
+                {
+                    type: 'metadata',
+                    items: [
+                        { label: 'Transaction ID', value: content.transaction.txn_id },
+                        { label: 'Time', value: content.timestamp }
+                    ]
+                }
+            ],
+            actions: content.actions
+        };
+    }
+}
+```
+
+#### 4.11.6 Payment Event Flow Sequence
+
+```
+User A sends payment to User B in chat room
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│ 1. Mini-app calls tween.wallet.pay      │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│ 2. Client displays payment confirmation │
+│    User authorizes with biometric/PIN   │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│ 3. Client signs and sends to TMCP       │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│ 4. TMCP Server validates, forwards to   │
+│    Wallet Service                       │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│ 5. Wallet Service processes payment     │
+│    Sends callback to TMCP Server        │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│ 6. TMCP Server creates payment event    │
+│    Sender: @_tmcp_payments:tween.example│
+│    Room: !chat123:tween.example         │
+│    Event: m.tween.payment.completed     │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│ 7. TMCP Server sends event using AS     │
+│    Authorization: Bearer <AS_TOKEN>     │
+│                                          │
+│    POST /_matrix/client/v3/rooms/       │
+│        !chat123:tween.example/send/     │
+│        m.tween.payment.completed        │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│ 8. Matrix Homeserver persists event     │
+│    Distributes to all room members      │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│ 9. Client receives and renders as       │
+│    rich payment card in chat              │
+└─────────────────────────────────────────┘
+```
+
+#### 4.11.7 Third-Party Wallet Integration
+
+For third-party wallet providers, TMCP Server acts as the integration layer:
+
+**Wallet Provider Requirements:**
+
+1. **Payment Callback Endpoint:**
+   ```http
+   POST /api/v1/wallet/callback HTTP/1.1
+   Host: tmcp.tween.example
+   Content-Type: application/json
+   
+   {
+     "event": "payment.completed",
+     "transaction_id": "txn_wallet_123",
+     "amount": 5000.00,
+     "currency": "USD",
+     "sender": {
+       "user_id": "@alice:tween.example",
+       "wallet_id": "tw_alice_123"
+     },
+     "recipient": {
+       "user_id": "@bob:tween.example",
+       "wallet_id": "tw_bob_456"
+     },
+     "room_id": "!chat123:tween.example",
+     "note": "Lunch money",
+     "timestamp": "2025-12-18T14:30:00Z",
+     "signature": "base64_signature"
+   }
+   ```
+
+2. **Signature Verification:**
+   ```python
+   async def verify_wallet_callback(
+       self,
+       payload: dict,
+       signature: str,
+       wallet_id: str
+   ) -> bool:
+       """Verify wallet provider callback signature."""
+       wallet = await self.wallet_registry.get(wallet_id)
+       
+       return verify_signature(
+           payload,
+           signature,
+           wallet.webhook_secret
+       )
+   ```
+
+3. **Event Creation from Callback:**
+   ```python
+   async def create_payment_event(
+       self,
+       callback_data: dict
+   ) -> str:
+       """Create Matrix event from wallet callback."""
+       event_content = {
+           "msgtype": "m.tween.payment",
+           "payment_type": self._map_event_type(callback_data['event']),
+           "visual": self._get_payment_visual(callback_data),
+           "transaction": {
+               "txn_id": callback_data['transaction_id'],
+               "amount": callback_data['amount'],
+               "currency": callback_data['currency']
+           },
+           "sender": callback_data['sender'],
+           "recipient": callback_data['recipient'],
+           "note": callback_data.get('note', ''),
+           "timestamp": callback_data['timestamp']
+       }
+       
+       # Send event as payment bot
+       response = await self.matrix_client.send_event(
+           access_token=self.as_token,
+           room_id=callback_data['room_id'],
+           event_type="m.tween.payment.completed",
+           event_content=event_content
+       )
+       
+       return response['event_id']
+   ```
+
+#### 4.11.8 Payment Event IDempotency
+
+To prevent duplicate payment events from wallet callbacks:
+
+```python
+class PaymentEventService:
+    def __init__(self, matrix_client, redis_client):
+        self.matrix_client = matrix_client
+        self.idempotency_store = redis_client
+    
+    async def handle_wallet_callback(
+        self,
+        callback_data: dict
+    ) -> str:
+        txn_id = callback_data['transaction_id']
+        
+        # Check idempotency key
+        existing_event_id = await self.idempotency_store.get(
+            f"payment_event:{txn_id}"
+        )
+        if existing_event_id:
+            return existing_event_id
+        
+        # Create and send event
+        event_id = await self.create_payment_event(callback_data)
+        
+        # Store idempotency key (24 hour TTL)
+        await self.idempotency_store.setex(
+            f"payment_event:{txn_id}",
+            86400,
+            event_id
+        )
+        
+        return event_id
+```
 
 ---
 
@@ -567,41 +1681,146 @@ This allows mini-apps to:
 
 ### 5.1 Scope Definitions
 
-Scopes define the permissions granted to mini-apps. Each scope MUST be explicitly requested during authorization and approved by the user.
+Scopes define the permissions granted to mini-apps. TMCP uses two types of scopes:
+
+1. **TMCP Scopes**: Custom authorization for wallet, storage, messaging
+2. **Matrix Scopes**: Standard Matrix API access (managed by MAS)
+
+Each scope MUST be explicitly requested during authorization and approved by the user.
 
 **Scope Naming Convention:**
 ```
 <category>:<action>[:<resource>]
 ```
 
-**Standard Scopes:**
+**Scope Sources:**
 
-| Scope | Description | Sensitivity | User Approval Required |
-|-------|-------------|-------------|------------------------|
+| Scope Type | Issuer | Purpose |
+|------------|--------|---------|
+| TMCP Scopes | TMCP Server | Wallet, storage, custom mini-app operations |
+| Matrix Scopes | MAS | Matrix C-S API access, device management |
+| Admin Scopes | MAS | Synapse admin API, MAS admin API |
+
+### 5.2 TMCP Scopes
+
+**Standard TMCP Scopes:**
+
+| Scope | Description | Sensitivity | User Approval |
+|-------|-------------|-------------|---------------|
 | `user:read` | Read basic profile (name, avatar) | Low | Yes |
 | `user:read:extended` | Read extended profile (status, bio) | Medium | Yes |
 | `user:read:contacts` | Read friend list | High | Yes |
 | `wallet:balance` | Read wallet balance | High | Yes |
 | `wallet:pay` | Process payments | Critical | Yes (per transaction) |
 | `wallet:history` | Read transaction history | High | Yes |
+| `wallet:request` | Request payments from users | High | Yes |
 | `messaging:send` | Send messages to rooms | High | Yes |
 | `messaging:read` | Read message history | High | Yes |
 | `storage:read` | Read mini-app storage | Low | No |
 | `storage:write` | Write to mini-app storage | Low | No |
+| `webhook:send` | Receive webhook callbacks | Medium | Yes |
+| `room:create` | Create new rooms | High | Yes |
+| `room:invite` | Invite users to rooms | High | Yes |
 
-### 5.2 Scope Validation
+### 5.3 Matrix Scopes
+
+Matrix scopes are issued by MAS and follow the naming convention defined in [MSC2967](https://github.com/matrix-org/matrix-spec-proposals/pull/2967).
+
+**Standard Matrix Scopes:**
+
+| Scope | Description | Issuer | Usage |
+|-------|-------------|--------|-------|
+| `urn:matrix:org.matrix.msc2967.client:api:*` | Full Matrix C-S API access | MAS | All Matrix operations |
+| `urn:matrix:org.matrix.msc2967.client:device:[device_id]` | Device identification | MAS | Device-specific operations |
+| `urn:synapse:admin:*` | Synapse admin API access | MAS | Admin operations |
+| `urn:mas:admin` | MAS admin API access | MAS | MAS administration |
+
+**Scope Mapping:**
+
+| TMCP Operation | Requires TMCP Scope | Requires Matrix Scope |
+|----------------|---------------------|----------------------|
+| Send message | `messaging:send` | `urn:matrix:org.matrix.msc2967.client:api:*` |
+| Read wallet | `wallet:balance` | (none) |
+| Create room | `room:create` | `urn:matrix:org.matrix.msc2967.client:api:*` |
+| Get user profile | `user:read` | `urn:matrix:org.matrix.msc2967.client:api:*` |
+
+### 5.4 Scope Request Format
+
+When requesting authorization, mini-apps specify both TMCP and Matrix scopes:
+
+```http
+POST /oauth2/device/authorization HTTP/1.1
+Host: mas.tween.example
+Content-Type: application/x-www-form-urlencoded
+
+client_id=ma_shop_001
+&scope=urn:matrix:org.matrix.msc2967.client:api:*+wallet:pay+messaging:send+storage:write
+&miniapp_context={"launch_source": "chat_bubble", "room_id": "!abc123:tween.example"}
+```
+
+**Scope Parameter Format:**
+- Space-separated list of scopes
+- Both TMCP and Matrix scopes in same parameter
+- TMCP scopes are validated by TMCP Server
+- Matrix scopes are validated by MAS
+
+### 5.5 Scope Validation
 
 The TMCP Server MUST validate that all requested scopes are:
-1. Syntactically valid
-2. Registered for the requesting mini-app
-3. Not escalated beyond initial registration
 
-### 5.3 Permission Revocation
+1. **Syntactically valid**: Follow scope naming conventions
+2. **Registered**: Mini-app is approved for requested scopes
+3. **Not escalated**: No more permissions than initial registration
+4. **User-approved**: Sensitive scopes require user consent
+
+**Validation Flow:**
+
+```python
+async def validate_scopes(
+    self,
+    requested_scopes: List[str],
+    miniapp_id: str,
+    user_id: str
+) -> ValidationResult:
+    """Validate requested scopes against mini-app registration."""
+    
+    # Get mini-app registered scopes
+    registered_scopes = await self.get_registered_scopes(miniapp_id)
+    
+    # Check each requested scope
+    valid_scopes = []
+    denied_scopes = []
+    
+    for scope in requested_scopes:
+        if scope in registered_scopes:
+            # Check if user already approved this scope
+            if self.is_user_sensitive_scope(scope) and \
+               not await self.is_scope_approved(user_id, miniapp_id, scope):
+                denied_scopes.append({
+                    "scope": scope,
+                    "reason": "user_approval_required"
+                })
+            else:
+                valid_scopes.append(scope)
+        else:
+            denied_scopes.append({
+                "scope": scope,
+                "reason": "not_registered"
+            })
+    
+    return ValidationResult(
+        valid=valid_scopes,
+        denied=denied_scopes
+    )
+```
+
+### 5.6 Permission Revocation
 
 Users MAY revoke permissions at any time. When permissions are revoked:
 
 1. TMCP Server MUST invalidate all TEP tokens for that mini-app/user pair
-2. A Matrix state event MUST be created documenting the revocation:
+2. MAS MUST revoke Matrix access tokens for that session
+3. A Matrix state event MUST be created documenting the revocation:
 
 ```json
 {
@@ -609,14 +1828,76 @@ Users MAY revoke permissions at any time. When permissions are revoked:
   "state_key": "ma_shop_001",
   "content": {
     "authorized": false,
-    "revoked_at": 1704067200,
-    "revoked_scopes": ["wallet:pay"],
-    "reason": "user_initiated"
+    "revoked_at": 1735689600,
+    "revoked_scopes": ["wallet:pay", "messaging:send"],
+    "reason": "user_initiated",
+    "tmcp_scopes": ["wallet:pay", "messaging:send"],
+    "matrix_scopes": ["urn:matrix:org.matrix.msc2967.client:api:*"]
   }
 }
 ```
 
-3. A webhook notification MUST be sent to the mini-app
+4. A webhook notification MUST be sent to the mini-app
+
+**Revocation Flow:**
+
+```
+User Revokes Permission
+         │
+         ▼
+┌─────────────────────────────────────┐
+│ Client deletes local tokens         │
+│ - Clear TEP from secure storage     │
+│ - Clear MAS token from memory       │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│ Notify TMCP Server                  │
+│ POST /api/v1/auth/revoke            │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│ TMCP Server:                        │
+│ - Invalidate TEP tokens             │
+│ - Create revocation event           │
+│ - Send webhook notification         │
+└───────────────┬─────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────┐
+│ Notify MAS:                         │
+│ - Revoke Matrix access tokens       │
+│ - Revoke refresh tokens             │
+└─────────────────────────────────────┘
+```
+
+### 5.7 Authorization Context
+
+The TEP token includes authorization context for granular permissions:
+
+```json
+{
+  "scope": "wallet:pay messaging:send storage:write",
+  "authorization_context": {
+    "room_id": "!abc123:tween.example",
+    "roles": ["member"],
+    "permissions": {
+      "can_send_messages": true,
+      "can_invite_users": false,
+      "can_edit_messages": false
+    }
+  },
+  "approval_history": [
+    {
+      "scope": "wallet:pay",
+      "approved_at": "2025-12-30T10:00:00Z",
+      "approval_method": "transaction"
+    }
+  ]
+}
+```
 
 ---
 
@@ -1003,46 +2284,14 @@ Authorization: Bearer <TEP_TOKEN>
 
 The `room_id` parameter is OPTIONAL but RECOMMENDED for explicit room context validation.
 
-#### 6.3.8 Client Implementation Example
+#### 6.3.8 Client Implementation
 
-**P2P Payment Button in Chat:**
+Clients implementing P2P payments SHOULD:
 
-```typescript
-// Client-side implementation
-class PaymentButton {
-  async sendMoney(recipientUserId: string, roomId: string) {
-    try {
-      // Step 1: Resolve recipient's wallet
-      const resolution = await tweenSDK.wallet.resolveUser(recipientUserId);
-      
-      if (!resolution.wallet_id) {
-        // Show "Invite to Wallet" dialog
-        this.showInviteDialog(recipientUserId);
-        return;
-      }
-      
-      // Step 2: Show payment dialog with recipient info
-      const payment = await tweenSDK.wallet.requestPayment({
-        recipient: recipientUserId,
-        room_id: roomId,
-        // UI will populate amount
-      });
-      
-      // Step 3: Process payment
-      await this.processPayment(payment);
-      
-    } catch (error) {
-      if (error.code === 'RECIPIENT_NO_WALLET') {
-        this.showInviteDialog(recipientUserId);
-      } else if (error.code === 'WALLET_SUSPENDED') {
-        this.showError('Recipient wallet is suspended');
-      } else {
-        this.showError(error.message);
-      }
-    }
-  }
-}
-```
+1. Resolve recipient wallet status before showing payment UI
+2. Handle cases where recipient has no wallet or suspended wallet
+3. Include room_id for proper context validation
+4. Provide user-friendly error messages for different failure scenarios
 
 #### 6.3.9 Matrix Room Member Wallet Status
 
@@ -1090,9 +2339,83 @@ When a user attempts to send money to someone without a wallet:
 }
 ```
 
-### 6.4 External Account Interface
+### 6.4 Wallet Verification Interface
 
 #### 6.4.1 Overview
+
+The TMCP protocol defines the **interface** for verification status queries. Wallet Service implementations MUST provide verification information via this interface but MAY implement verification levels according to local banking regulations and business requirements.
+
+#### 6.4.2 Verification Status Endpoint
+
+**Get Verification Status:**
+
+```http
+GET /wallet/v1/verification HTTP/1.1
+Host: tmcp.example.com
+Authorization: Bearer <TEP_TOKEN>
+```
+
+**Response Format (Protocol-Defined):**
+```json
+{
+  "level": <integer>,
+  "level_name": <string>,
+  "verified_at": <ISO8601_timestamp>,
+  "limits": {
+    "daily_limit": <decimal>,
+    "transaction_limit": <decimal>,
+    "monthly_limit": <decimal>,
+    "currency": <string>
+  },
+  "features": {
+    "p2p_send": <boolean>,
+    "p2p_receive": <boolean>,
+    "miniapp_payments": <boolean>
+  },
+  "can_upgrade": <boolean>
+}
+```
+
+**Implementation Note:**
+The specific verification levels, KYC requirements, and limit amounts are determined by Wallet Service implementations based on:
+- Local banking regulations (e.g., CBN rules for Nigeria, FinCEN for US)
+- Anti-money laundering (AML) requirements
+- Business risk tolerance
+- Jurisdiction-specific compliance frameworks
+
+TMCP Server acts as a **protocol coordinator**, proxying requests to Wallet Service and forwarding responses to clients.
+
+#### 6.4.3 Verification Status Validation
+
+TMCP Server MUST validate verification status before allowing operations:
+
+```javascript
+async function validatePaymentEligibility(userId, amount, operation) {
+  const verification = await getVerificationStatus(userId);
+  
+  // Check if operation is allowed
+  if (operation === 'p2p_send' && !verification.features.p2p_send) {
+    throw new Error('P2P_SEND_NOT_ALLOWED');
+  }
+  
+  // Check amount limits
+  if (amount > verification.limits.transaction_limit) {
+    throw new Error('AMOUNT_EXCEEDS_LIMIT');
+  }
+  
+  // Check daily limits (tracked by TMCP Server)
+  const dailyUsed = await getDailyUsage(userId);
+  if (dailyUsed + amount > verification.limits.daily_limit) {
+    throw new Error('DAILY_LIMIT_EXCEEDED');
+  }
+  
+  return true;
+}
+```
+
+### 6.5 External Account Interface
+
+#### 6.5.1 Overview
 
 The TMCP protocol defines interfaces for external account operations, which are implemented by Wallet Service. These interfaces enable wallet funding and withdrawals through external financial accounts.
 
@@ -1102,7 +2425,7 @@ The TMCP protocol defines interfaces for external account operations, which are 
 - Digital wallets
 - Mobile money providers
 
-#### 6.4.2 External Account Interface
+#### 6.5.2 External Account Interface
 
 The Wallet Service MUST implement these interfaces for external account operations:
 
@@ -1113,17 +2436,17 @@ FundWallet(user_id, source_account_id, amount) → funding_id
 WithdrawToAccount(user_id, destination_account_id, amount) → withdrawal_id
 ```
 
-#### 6.4.3 Protocol Response Format
+#### 6.5.3 Protocol Response Format
 
 All external account operations follow the standard response format defined in Section 12.1.
 
-### 6.5 Withdrawal Interface
+### 6.6 Withdrawal Interface
 
-#### 6.5.1 Overview
+#### 6.6.1 Overview
 
 The TMCP protocol defines interfaces for withdrawal operations, which are implemented by Wallet Service. These interfaces enable users to withdraw funds from their wallets.
 
-#### 6.5.2 Withdrawal Interface
+#### 6.6.2 Withdrawal Interface
 
 The Wallet Service MUST implement these interfaces for withdrawal operations:
 
@@ -1133,13 +2456,15 @@ ApproveWithdrawal(withdrawal_id, approval_data) → status
 GetWithdrawalStatus(withdrawal_id) → withdrawal_details
 ```
 
-#### 6.5.3 Protocol Response Format
+#### 6.6.3 Protocol Response Format
 
 All withdrawal operations follow the standard response format defined in Section 12.1.
 
 ---
 
 ## 7. Payment Protocol
+
+This section defines the complete payment flow from initiation through completion, including peer-to-peer transfers, mini-app payments, and advanced features like multi-factor authentication and group gifts.
 
 ### 7.1 Payment State Machine
 
@@ -1731,223 +3056,210 @@ Content-Type: application/json
   "amount": 15000.00,
   "reason": "customer_request",
   "notes": "User requested refund"
+
 }
 ```
 
-### 7.4 Multi-Factor Authentication for Payments
+#### 7.5.6 Group Gift Atomicity
 
-#### 7.4.1 Overview
+**Problem:** Multiple users opening gift simultaneously can cause race conditions and inconsistent state.
 
-When Wallet Service implementations include multi-factor authentication requirements, the TMCP protocol provides a standardized challenge-response mechanism. The Wallet Service determines MFA policy; TMCP Server coordinates the challenge delivery and response validation.
+**Solution:** Database-level locking and atomic operations.
 
-**Protocol Flow:**
+```sql
+-- PostgreSQL Example
+BEGIN;
 
+-- Lock the gift row
+SELECT * FROM group_gifts
+WHERE gift_id = 'gift_abc123'
+FOR UPDATE;
+
+-- Check remaining count
+IF remaining_count > 0 THEN
+    -- Assign random amount
+    UPDATE group_gifts
+    SET remaining_count = remaining_count - 1
+    WHERE gift_id = 'gift_abc123';
+
+    -- Record opening
+    INSERT INTO gift_openings (gift_id, user_id, amount)
+    VALUES ('gift_abc123', '@bob:tween.example', 1250.00);
+END IF;
+
+COMMIT;
 ```
-Client → TMCP Server: Payment Authorization
-         ↓
-TMCP Server → Wallet Service: Validate Payment
-         ↓
-Wallet Service → TMCP Server: MFA Required (if configured)
-         ↓
-TMCP Server → Client: MFA Challenge
-         ↓
-Client → User: Present MFA UI
-         ↓
-User → Client: Provide MFA Credentials
-         ↓
-Client → TMCP Server: MFA Response
-         ↓
-TMCP Server → Wallet Service: Validate MFA
-         ↓
-Wallet Service → TMCP Server: Validation Result
-         ↓
-TMCP Server → Client: Proceed or Retry
-```
 
-#### 7.4.2 MFA Challenge Request/Response
+**Race Condition Prevention:**
+- Use SELECT FOR UPDATE to lock gift row
+- Validate remaining_count within transaction
+- Return 409 CONFLICT if gift fully opened during request processing
 
-When a payment authorization is submitted and the Wallet Service requires additional authentication, the TMCP Server MUST return an MFA challenge:
+**Concurrent Opening Handling:**
+```javascript
+async function openGift(giftId, userId) {
+  try {
+    const result = await db.transaction(async (trx) => {
+      // Lock and check gift
+      const gift = await trx('group_gifts')
+        .where({ gift_id: giftId })
+        .forUpdate()
+        .first();
 
-**Challenge Response Format:**
-
-```json
-{
-  "payment_id": "pay_abc123",
-  "status": "mfa_required",
-  "mfa_challenge": {
-    "challenge_id": "mfa_ch_xyz789",
-    "methods": [
-      {
-        "type": "transaction_pin",
-        "enabled": true,
-        "display_name": "Transaction PIN"
-      },
-      {
-        "type": "biometric",
-        "enabled": true,
-        "display_name": "Biometric Authentication",
-        "biometric_types": ["fingerprint", "face_recognition"]
-      },
-      {
-        "type": "totp",
-        "enabled": true,
-        "display_name": "Authenticator Code"
+      if (!gift || gift.remaining_count <= 0) {
+        throw new Error('GIFT_EMPTY');
       }
-    ],
-    "required_method": "any",
-    "expires_at": "2025-12-18T14:32:15Z",
-    "max_attempts": 3
+
+      // Calculate amount
+      const amount = calculateRandomAmount(gift);
+
+      // Update gift
+      await trx('group_gifts')
+        .where({ gift_id: giftId })
+        .decrement('remaining_count', 1);
+
+      // Record opening
+      await trx('gift_openings').insert({
+        gift_id: giftId,
+        user_id: userId,
+        amount: amount,
+        opened_at: new Date()
+      });
+
+      return { amount, remaining: gift.remaining_count - 1 };
+    });
+
+    return result;
+  } catch (error) {
+    if (error.code === '23505') { // Unique constraint violation
+      throw new Error('ALREADY_OPENED');
+    }
+    if (error.message === 'GIFT_EMPTY') {
+      throw new Error('GIFT_EMPTY');
+    }
+    throw error;
   }
 }
 ```
 
-**Standard MFA Method Types:**
-
-| Type | Description | Credential Format |
-|------|-------------|-------------------|
-| `transaction_pin` | Numeric PIN | `{"pin": "1234"}` |
-| `biometric` | Device biometric verification | `{"attestation": "...", "biometric_type": "fingerprint"}` |
-| `totp` | Time-based one-time password | `{"code": "123456"}` |
-
-Wallet Service implementations MAY support additional method types through extension.
-
-#### 7.4.3 MFA Response Submission
-
-**Request Format:**
-
-```http
-POST /api/v1/payments/{payment_id}/mfa/verify HTTP/1.1
-Host: tmcp.example.com
-Authorization: Bearer <TEP_TOKEN>
-Content-Type: application/json
-
-{
-  "challenge_id": "mfa_ch_xyz789",
-  "method": "transaction_pin",
-  "credentials": {
-    "pin": "1234"
-  },
-  "device_id": "device_xyz789",
-  "timestamp": "2025-12-18T14:30:15Z"
-}
-```
-
-**Success Response:**
-
+**Error Responses:**
 ```json
 {
-  "payment_id": "pay_abc123",
-  "challenge_id": "mfa_ch_xyz789",
-  "status": "verified",
-  "proceed_to_processing": true
-}
-```
-
-**Failure Response:**
-
-```json
-{
-  "payment_id": "pay_abc123",
-  "challenge_id": "mfa_ch_xyz789",
-  "status": "failed",
   "error": {
-    "code": "INVALID_CREDENTIALS",
-    "message": "Invalid credentials provided",
-    "attempts_remaining": 2
-  },
-  "retry_allowed": true
-}
-```
-
-#### 7.4.4 Biometric Authentication Protocol
-
-For biometric methods, clients MUST use platform-native biometric APIs and submit a cryptographic attestation rather than biometric data.
-
-**Attestation Requirements:**
-
-1. Client generates a signature over the payment challenge using a device-bound private key
-2. Payload format: `{payment_id}:{challenge_id}:{timestamp}`
-3. Signature algorithm: ECDSA P-256 or RSA-2048 minimum
-4. Timestamp MUST be within 30 seconds of current time
-
-**Example Request:**
-
-```json
-{
-  "challenge_id": "mfa_ch_xyz789",
-  "method": "biometric",
-  "credentials": {
-    "attestation": "MEUCIQDXz8fK...",
-    "biometric_type": "fingerprint",
-    "platform": "ios",
-    "device_id": "device_xyz789",
-    "timestamp": "2025-12-18T14:30:15Z"
+    "code": "GIFT_EMPTY",
+    "message": "Gift has already been fully opened"
   }
 }
 ```
 
-The TMCP Server forwards the attestation to the Wallet Service for verification. Wallet Service implementations MUST validate:
-- Device is registered for the user
-- Signature is valid for the registered public key
-- Timestamp is recent
-
-#### 7.4.5 Device Registration Protocol
-
-Before biometric MFA can be used, devices MUST register their public keys.
-
-**Registration Endpoint:**
-
-```http
-POST /wallet/v1/devices/register HTTP/1.1
-Host: tmcp.example.com
-Authorization: Bearer <TEP_TOKEN>
-Content-Type: application/json
-
+```json
 {
-  "device_id": "device_xyz789",
-  "device_name": "Alice's iPhone 15",
-  "platform": "ios",
-  "public_key": {
-    "algorithm": "ECDSA_P256",
-    "format": "SPKI",
-    "key_data": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE..."
-  },
-  "biometric_capabilities": ["face_id", "touch_id"]
+  "error": {
+    "code": "ALREADY_OPENED",
+    "message": "You have already opened this gift"
+  }
 }
 ```
 
-**Response:**
+### 7.6 Multi-Factor Authentication for Payments
+
+#### 7.6.1 Overview
+
+#### 7.6.2 MFA Challenge Request/Response
+
+#### 7.6.3 MFA Response Submission
+
+#### 7.6.4 Wallet Service MFA Interface
+
+Wallet Service implementations that support MFA MUST provide challenge-response interfaces. TMCP Server acts as protocol coordinator and delegates MFA policy and validation to the Wallet Service.
+
+**Interface Requirements:**
+- Challenge generation and validation
+- Method support negotiation (PIN, biometric, TOTP)
+- Attempt limiting and lockout handling
+
+The protocol defines standard credential formats but implementation details are Wallet Service specific.
+
+### 7.7 Circuit Breaker Pattern for Payment Failures
+
+#### 7.7.1 Overview
+
+TMCP Servers MUST implement circuit breakers for Wallet Service calls to prevent cascade failures during payment processing. Circuit breakers provide resilience against temporary service outages and prevent system overload.
+
+#### 7.7.2 Circuit States
+
+**CLOSED** (Normal Operation):
+- Requests pass through to Wallet Service
+- Failure count monitored (sliding window of 10 requests)
+- Success responses reset failure count
+
+**OPEN** (Service Degraded):
+- Triggered after 5 failures in 10 consecutive requests (50% threshold)
+- All subsequent requests fail-fast with `503 SERVICE_UNAVAILABLE`
+- Duration: 60 seconds before transitioning to HALF-OPEN
+
+**HALF-OPEN** (Testing Recovery):
+- After timeout, allow limited test requests (1 request per 10 seconds)
+- If test requests succeed, transition to CLOSED
+- If test requests fail, return to OPEN
+
+#### 7.7.3 Circuit Breaker Algorithm
+
+Circuit breakers operate in three states:
+
+- **CLOSED**: Normal operation, requests pass through
+- **OPEN**: Service degraded, requests fail fast after threshold failures
+- **HALF_OPEN**: Testing recovery with limited requests
+
+**Configuration Parameters:**
+- Failure threshold: 5 failures in 10 requests
+- Recovery timeout: 60 seconds
+- Monitoring window: 10 requests
+
+Implementation details are service-specific and not defined by this protocol.
+
+#### 7.7.4 Circuit Breaker Metrics
+
+TMCP Servers SHOULD expose circuit breaker metrics for monitoring:
 
 ```json
 {
-  "device_id": "device_xyz789",
-  "registered_at": "2025-12-18T14:30:00Z",
-  "status": "active",
-  "public_key_hash": "sha256:abcd1234..."
+  "circuit_breakers": {
+    "wallet_payments": {
+      "state": "CLOSED",
+      "failures_last_10_requests": 2,
+      "total_requests": 1456,
+      "success_rate": 0.987,
+      "last_state_change": "2025-12-18T10:30:00Z"
+    },
+    "wallet_balance": {
+      "state": "CLOSED",
+      "failures_last_10_requests": 0,
+      "total_requests": 8934,
+      "success_rate": 0.999,
+      "last_state_change": "2025-12-15T08:15:00Z"
+    }
+  }
 }
 ```
 
-#### 7.4.6 Wallet Service MFA Interface Requirements
+#### 7.7.5 Error Response Format
 
-Wallet Service implementations that support MFA MUST implement the following gRPC interface (or REST equivalent):
+When circuit breaker is open:
 
-**GetMFARequirements:**
-- Input: wallet_id, payment_id, amount, currency
-- Output: mfa_required (bool), available_methods, requirement_type, max_attempts
+```http
+HTTP/1.1 503 Service Unavailable
+Retry-After: 60
 
-**VerifyMFAChallenge:**
-- Input: wallet_id, challenge_id, method, credentials, device_id
-- Output: verified (bool), attempts_remaining, locked (bool), locked_until
-
-**RegisterDevice:**
-- Input: wallet_id, device_id, public_key, biometric_capabilities
-- Output: registration_status, public_key_hash
-
-**ValidateBiometricAttestation:**
-- Input: device_id, attestation, payload
-- Output: valid (bool), error_reason
-
-The TMCP Server acts as protocol coordinator but delegates all MFA policy and validation logic to the Wallet Service.
+{
+  "error": {
+    "code": "SERVICE_UNAVAILABLE",
+    "message": "Payment service temporarily unavailable",
+    "retry_after": 60,
+    "circuit_state": "OPEN"
+  }
+}
+```
 
 ---
 
@@ -2185,9 +3497,107 @@ DRAFT → SUBMITTED → UNDER_REVIEW → APPROVED → ACTIVE
                     REJECTED
 ```
 
+### 9.3 Mini-App Review Process
+
+#### 9.3.1 Automated Checks
+
+**Static Analysis:**
+1. CSP header validation
+2. HTTPS-only resource loading
+3. No hardcoded credentials
+4. No obfuscated code (for non-commercial apps)
+5. Dependency vulnerability scanning
+
+**Example Report:**
+```json
+{
+  "miniapp_id": "ma_shop_001",
+  "status": "automated_review_complete",
+  "checks": {
+    "csp_valid": true,
+    "https_only": true,
+    "no_credentials": true,
+    "no_obfuscation": false,  // ⚠️ Warning
+    "dependencies_clean": true
+  },
+  "warnings": [
+    {
+      "type": "OBFUSCATED_CODE",
+      "file": "main.js",
+      "line": 1,
+      "severity": "medium",
+      "message": "Code appears obfuscated. Provide source maps for verification."
+    }
+  ]
+}
+```
+
+#### 9.3.2 Manual Review Criteria
+
+**Security Review:**
+- [ ] Permissions justified (no excessive scope requests)
+- [ ] Payment flows clearly disclosed to users
+- [ ] Data collection minimized and disclosed
+- [ ] No attempts to fingerprint devices
+- [ ] No social engineering patterns
+
+**Content Review:**
+- [ ] Complies with platform policies
+- [ ] No illegal content or services
+- [ ] Age-appropriate content
+- [ ] Clear privacy policy
+- [ ] Terms of service provided
+
+**Business Review:**
+- [ ] Legitimate business entity
+- [ ] Contact information verified
+- [ ] Payment processor approved (if applicable)
+- [ ] Refund policy clear
+
+#### 9.3.3 Review Timeline
+
+| Mini-App Type | Automated | Manual | Total |
+|---------------|-----------|--------|-------|
+| Official | Instant | N/A | Instant |
+| Verified | 1 hour | 2-5 days | 2-5 days |
+| Community | 1 hour | 5-10 days | 5-10 days |
+| Beta | 1 hour | Priority | 1-2 days |
+
+#### 9.3.4 Appeal Process
+
+If mini-app rejected:
+
+```http
+POST /mini-apps/v1/{miniapp_id}/appeal HTTP/1.1
+Authorization: Bearer <DEVELOPER_TOKEN>
+Content-Type: multipart/form-data
+
+{
+  "reason": "We have addressed the CSP issues and resubmit for review",
+  "changes_made": [
+    "Added strict CSP with nonce support",
+    "Removed inline event handlers",
+    "Updated privacy policy"
+  ],
+  "evidence": [<FILES>]
+}
+```
+
+**Response:**
+```json
+{
+  "appeal_id": "appeal_abc123",
+  "status": "under_review",
+  "estimated_resolution": "2025-12-20T10:00:00Z",
+  "contact_email": "appeals@tween.example"
+}
+```
+
 ---
 
 ## 10. Communication Verbs
+
+Having established the security and architectural foundations, this section defines the JSON-RPC communication protocol between mini-apps and the host application, along with supporting APIs for storage, capabilities, and WebView security.
 
 ### 10.1 JSON-RPC 2.0 Bridge
 
@@ -2202,9 +3612,22 @@ Communication between mini-apps and the host application uses JSON-RPC 2.0 [RFC4
     "amount": 5000.00,
     "description": "Product purchase"
   },
+  "context": {
+    "room_id": "!abc123:tween.example",
+    "space_id": "!workspace:tween.example",
+    "launch_source": "chat_bubble"
+  },
   "id": 1
 }
 ```
+
+**Context Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `room_id` | String | Yes | Matrix room where mini-app was launched |
+| `space_id` | String | No | Parent space/workspace identifier |
+| `launch_source` | String | No | How mini-app was launched (chat_bubble, direct_link, etc.) |
 
 **Response Format:**
 ```json
@@ -2441,6 +3864,220 @@ These scopes are automatically granted to all mini-apps and do not require expli
 - Storage MUST be deleted when user account is deleted
 - TTL expiration MUST be enforced
 
+### 10.4 WebView Security Requirements
+
+Mini-apps execute within sandboxed WebViews that MUST implement security hardening to prevent XSS attacks, unauthorized resource access, and data leakage.
+
+#### 10.4.1 Mandatory Security Controls
+
+**File and Network Access:**
+- File access MUST be disabled (`allowFileAccess: false`)
+- Universal file access MUST be disabled
+- Mixed content MUST be blocked
+- External navigation MUST be validated against whitelist
+
+**JavaScript and Content:**
+- JavaScript execution MUST be controlled by mini-app manifest
+- Content Security Policy (CSP) MUST be enforced
+- Inline scripts and eval() MUST be prohibited
+- Safe browsing checks MUST be enabled
+
+**Platform-Specific Requirements:**
+- iOS: `limitsNavigationsToAppBoundDomains` MUST be enabled
+- Android: `setMixedContentMode(MIXED_CONTENT_NEVER_ALLOW)` MUST be set
+- Debugging features MUST be disabled in production builds
+
+Implementation details for each platform are provided in Appendix C.
+
+#### 10.4.2 Content Security Policy
+
+**ALL mini-apps MUST include CSP meta tag with minimum requirements:**
+
+```html
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://cdn.tween.example;
+  connect-src 'self' https://tmcp.example.com;
+  frame-ancestors 'none';
+  upgrade-insecure-requests;
+">
+```
+
+**Host Application Responsibilities:**
+1. Generate unique nonce for script-src when JavaScript is enabled
+2. Validate mini-app CSP meets minimum security requirements
+3. Reject mini-apps with overly permissive policies
+
+#### 10.4.3 JavaScript Bridge Security
+
+**postMessage Communication MUST:**
+
+1. **Origin Validation:** Mini-apps MUST specify target origin in postMessage calls
+2. **Source Validation:** Host application MUST validate message source and origin
+3. **Input Sanitization:** All message data MUST be treated as untrusted input
+4. **Rate Limiting:** Host application MUST implement per-origin rate limiting
+
+Message format and validation requirements are defined in Section 10.1.
+
+#### 10.4.4 Additional Security Requirements
+
+**URL Validation:** All navigation requests MUST be validated against domain whitelist and HTTPS requirements.
+
+**Sensitive Data Protection:** Tokens and sensitive data MUST NOT be injected into WebView JavaScript context.
+
+**Certificate Pinning:** RECOMMENDED for high-security deployments to prevent man-in-the-middle attacks.
+
+**Lifecycle Management:** Sensitive data MUST be cleared when WebView is paused or destroyed.
+
+Detailed implementation examples for all platforms are provided in Appendix C.
+
+#### 10.4.5 Secure Communication Patterns
+
+**NEVER inject sensitive data into WebView:**
+
+```java
+// ❌ WRONG - Exposes token to JavaScript
+webView.loadUrl("javascript:window.tepToken = '" + tepToken + "';");
+
+// ✓ CORRECT - Use secure postMessage
+JSONObject message = new JSONObject();
+message.put("type", "TMCP_INIT_SUCCESS");
+message.put("user_id", userId);
+// Do NOT include token in message
+
+webView.evaluateJavascript(
+    "window.postMessage(" + message.toString() + ", '*');",
+    null
+);
+```
+
+#### 10.4.6 Certificate Pinning
+
+**For high-security mini-apps, implement certificate pinning:**
+
+```kotlin
+val certificatePinner = CertificatePinner.Builder()
+    .add("tmcp.example.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+    .add("api.example.com", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
+    .build()
+
+val client = OkHttpClient.Builder()
+    .certificatePinner(certificatePinner)
+    .build()
+```
+
+#### 10.4.7 WebView Lifecycle Management
+
+**Clear sensitive data on lifecycle events:**
+
+```java
+@Override
+protected void onPause() {
+    super.onPause();
+
+    // Clear cache on pause
+    webView.clearCache(true);
+    webView.clearFormData();
+
+    // Clear history if mini-app handles payments
+    if (isSensitiveApp) {
+        webView.clearHistory();
+    }
+}
+
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+
+    // Complete cleanup
+    webView.clearCache(true);
+    webView.clearHistory();
+    webView.clearFormData();
+    webView.removeAllViews();
+    webView.destroy();
+}
+```
+
+### 10.5 Capability Negotiation
+
+#### 10.5.1 Overview
+
+Capability negotiation allows mini-apps to discover available host application features and APIs before attempting to use them. This prevents runtime errors and enables graceful degradation for missing features.
+
+#### 10.5.2 Get Supported Features
+
+**Request:**
+```http
+GET /api/v1/capabilities HTTP/1.1
+Host: tmcp.example.com
+Authorization: Bearer <TEP_TOKEN>
+```
+
+**Response:**
+```json
+{
+  "capabilities": {
+    "camera": {
+      "available": true,
+      "requires_permission": true,
+      "supported_modes": ["photo", "qr_scan", "video"]
+    },
+    "location": {
+      "available": true,
+      "requires_permission": true,
+      "accuracy": "high"
+    },
+    "payment": {
+      "available": true,
+      "providers": ["wallet", "card"],
+      "max_amount": 50000.00
+    },
+    "storage": {
+      "available": true,
+      "quota_bytes": 10485760,
+      "persistent": true
+    },
+    "messaging": {
+      "available": true,
+      "rich_cards": true,
+      "file_upload": true
+    },
+    "biometric": {
+      "available": true,
+      "types": ["fingerprint", "face", "pin"]
+    }
+  },
+  "platform": {
+    "client_version": "2.1.0",
+    "platform": "ios",
+    "tmcp_version": "1.0"
+  },
+  "features": {
+    "group_gifts": true,
+    "p2p_transfers": true,
+    "miniapp_payments": true
+  }
+}
+```
+
+#### 10.5.3 Capability Categories
+
+| Category | Description | Example Use Cases |
+|----------|-------------|-------------------|
+| `camera` | Camera access for QR codes, photos | Payment QR codes, identity verification |
+| `location` | GPS/location services | Location-based services, delivery tracking |
+| `payment` | Payment processing capabilities | E-commerce, service payments |
+| `storage` | Local data persistence | Shopping carts, user preferences |
+| `messaging` | Rich messaging features | Interactive cards, file sharing |
+| `biometric` | Biometric authentication | Payment authorization, secure login |
+
+#### 10.5.4 Server-Side Validation
+
+TMCP Servers SHOULD validate capability requests against:
+1. **TEP Token Scope**: Ensure mini-app has required OAuth scopes
+2. **Platform Support**: Check if client platform supports requested features
+3. **Rate Limits**: Apply rate limiting to capability queries (100 per minute recommended)
+
 ---
 
 ## 11. Security Considerations
@@ -2454,10 +4091,12 @@ These scopes are automatically granted to all mini-apps and do not require expli
 ### 11.2 Authentication Security
 
 **Token Security:**
-- Access tokens: 1 hour validity (RECOMMENDED)
+- TEP tokens (JWT): 24 hours validity (RECOMMENDED)
+- MAS access tokens: 5 minutes validity (per MAS specification)
 - Refresh tokens: 30 days validity (RECOMMENDED)
 - Tokens MUST be stored in secure storage (Keychain/KeyStore)
 - Tokens MUST NOT be logged
+- MAS access tokens MUST be stored in memory only, never persisted
 
 **PKCE Requirements:**
 - `code_challenge_method` MUST be `S256`
@@ -2474,39 +4113,168 @@ These scopes are automatically granted to all mini-apps and do not require expli
 - All payment requests MUST include idempotency keys
 - Servers MUST cache idempotency keys for 24 hours minimum
 
-### 11.4 Rate Limiting
+### 11.4 Enhanced Rate Limiting
 
-Rate limits SHOULD be enforced using token bucket or sliding window algorithms.
+#### 11.4.1 Per-Endpoint Rate Limits
 
-**Required Rate Limit Headers:**
+| Endpoint Category | Limit | Window | Burst | HTTP Status |
+|-------------------|-------|--------|-------|-------------|
+| **Authentication** |
+| Device code request | 20 | 1 min | 5 | 429 |
+| Token generation | 10 | 1 min | 3 | 429 |
+| Token refresh | 20 | 1 hour | 5 | 429 |
+| TEP validation | 1000 | 1 min | 100 | 429 |
+| **Payments** |
+| Payment initiation | 5 | 1 min | 0 | 429 |
+| Payment authorization | 3 | 1 min | 0 | 429 |
+| Failed payments | 5 | 5 min | 0 | 429 → 403 (locked) |
+| P2P transfers | 10 | 1 hour | 3 | 429 |
+| **Wallet Operations** |
+| Balance query | 60 | 1 min | 10 | 429 |
+| Transaction history | 30 | 1 min | 5 | 429 |
+| User resolution | 100 | 1 min | 20 | 429 |
+| **Storage Operations** |
+| GET/SET/DELETE | 100 | 1 min | 20 | 429 |
+| Batch operations | 10 | 1 min | 2 | 429 |
+| **Mini-App Registry** |
+| App registration | 5 | 1 day | 0 | 429 |
+| App updates | 10 | 1 hour | 0 | 429 |
+
+#### 11.4.2 Rate Limiting Algorithm
+
+**Token Bucket Implementation:**
+
+```python
+import time
+from collections import defaultdict
+
+class RateLimiter:
+    def __init__(self, rate, capacity, burst=0):
+        self.rate = rate  # tokens per second
+        self.capacity = capacity
+        self.burst = burst
+        self.buckets = defaultdict(lambda: {
+            'tokens': capacity + burst,
+            'last_update': time.time()
+        })
+
+    def allow_request(self, key):
+        now = time.time()
+        bucket = self.buckets[key]
+
+        # Refill tokens based on time elapsed
+        elapsed = now - bucket['last_update']
+        bucket['tokens'] = min(
+            self.capacity + self.burst,
+            bucket['tokens'] + elapsed * self.rate
+        )
+        bucket['last_update'] = now
+
+        # Check if request allowed
+        if bucket['tokens'] >= 1:
+            bucket['tokens'] -= 1
+            return True, self.capacity + self.burst - bucket['tokens']
+        else:
+            retry_after = (1 - bucket['tokens']) / self.rate
+            return False, retry_after
+
+# Usage
+payment_limiter = RateLimiter(rate=5/60, capacity=5, burst=0)  # 5 per minute
+
+def process_payment(user_id, payment_data):
+    allowed, info = payment_limiter.allow_request(user_id)
+
+    if not allowed:
+        raise RateLimitError(f"Retry after {info:.1f} seconds")
+
+    # Process payment
+    return execute_payment(payment_data)
+```
+
+#### 11.4.3 Distributed Rate Limiting
+
+For multi-instance TMCP Server deployments, use Redis:
+
+```python
+import redis
+
+class DistributedRateLimiter:
+    def __init__(self, redis_client, key_prefix, rate, window):
+        self.redis = redis_client
+        self.key_prefix = key_prefix
+        self.rate = rate
+        self.window = window
+
+    def allow_request(self, identifier):
+        key = f"{self.key_prefix}:{identifier}"
+        now = time.time()
+        window_start = now - self.window
+
+        # Remove old entries
+        self.redis.zremrangebyscore(key, 0, window_start)
+
+        # Count requests in current window
+        count = self.redis.zcard(key)
+
+        if count < self.rate:
+            # Add new request
+            self.redis.zadd(key, {str(now): now})
+            self.redis.expire(key, int(self.window) + 1)
+            return True, self.rate - count - 1
+        else:
+            # Get oldest request in window
+            oldest = self.redis.zrange(key, 0, 0, withscores=True)[0]
+            retry_after = oldest[1] + self.window - now
+            return False, retry_after
+```
+
+#### 11.4.4 Rate Limit Response Headers
 
 ```http
 HTTP/1.1 200 OK
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 87
 X-RateLimit-Reset: 1704067260
-```
+X-RateLimit-Reset-After: 42
+X-RateLimit-Burst: 20
+X-RateLimit-Burst-Remaining: 15
 
-When rate limit is exceeded:
+HTTP/1.1 429 Too Many Requests
+Retry-After: 42
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 0
+X-RateLimit-Reset: 1704067302
 
-```json
 {
   "error": {
     "code": "RATE_LIMIT_EXCEEDED",
     "message": "Too many requests",
-    "retry_after": 45
+    "retry_after": 42,
+    "limit": 100,
+    "window": "1 minute"
   }
 }
 ```
 
-**Status Code:** 429 Too Many Requests
+#### 11.4.5 Account Suspension on Abuse
 
-| Operation | Limit | Window |
-|-----------|-------|--------|
-| Token generation | 10 | 1 minute |
-| Payment requests | 20 | 1 minute |
-| API calls | 100 | 1 minute |
-| Webhook delivery | 1000 | 1 hour |
+**Trigger Conditions:**
+- 10+ rate limit violations in 1 hour
+- 50+ failed payment attempts in 24 hours
+- Suspected automated abuse patterns
+
+**Response:**
+```json
+{
+  "error": {
+    "code": "ACCOUNT_SUSPENDED",
+    "message": "Account temporarily suspended due to abuse",
+    "suspended_until": "2025-12-18T16:00:00Z",
+    "reason": "repeated_rate_limit_violations",
+    "appeal_url": "https://tween.example/appeal"
+  }
+}
+```
 
 ---
 
@@ -2557,11 +4325,11 @@ When rate limit is exceeded:
 
 ## 13. Federation Considerations
 
-### 13.1 Closed Federation Model
+### 13.1 Controlled Federation Model
 
-TMCP deployments typically operate in closed federation mode:
+TMCP deployments typically operate in controlled federation environments:
 
-- No external Matrix server federation
+- Federation limited to trusted infrastructure
 - All homeservers within controlled infrastructure
 - Shared wallet backend
 - Centralized TMCP Server instances
@@ -3024,11 +4792,11 @@ Official apps MUST implement additional security measures:
 - Secure storage of privileged credentials
 - Regular security reviews by Tween
 
-### 16.10 OAuth Server Implementation with Keycloak
+### 16.10 OAuth Server Implementation with MAS
 
-**Recommended Implementation: Keycloak Integration**
+**Recommended Implementation: Matrix Authentication Service (MAS)**
 
-For production deployments, TMCP implementations are RECOMMENDED to use Keycloak as the OAuth 2.0 authorization server. Keycloak provides enterprise-grade identity and access management with the following advantages:
+For production deployments, TMCP implementations MUST use Matrix Authentication Service (MAS) as the OAuth 2.0 authorization server, as defined in MSC3861. MAS provides native Matrix integration with the following advantages:
 
 **Integration Architecture:**
 
@@ -3040,128 +4808,102 @@ For production deployments, TMCP implementations are RECOMMENDED to use Keycloak
 │  │ (Element)    │◄───────►│ (Mini-App Runtime)   │    │
 │  └──────────────┘         └──────────────────────┘    │
 └────────────┬──────────────────────┬───────────────────┘
-              │                      │
-              │ Matrix Client-       │ TMCP Protocol
-              │ Server API           │ (JSON-RPC 2.0)
-              │                      │
-              ↓                      ↓
+             │                      │
+             │ Matrix Client-       │ TMCP Protocol
+             │ Server API           │ (JSON-RPC 2.0)
+             │                      │
+             ↓                      ↓
 ┌──────────────────┐     ┌──────────────────────────┐
 │ Matrix Homeserver│◄───►│   TMCP Server            │
 │ (Synapse)        │     │   (Application Service)  │
 └──────────────────┘     └──────────────────────────┘
-         │                          │
-         │ OAuth 2.0              ├──→ Keycloak Realm
-         │ Authorization              │   (TMCP Apps)
-         │                          ├──→ Client Registry
-         │                          └──→ Token Validation
-         │
-         ↓
+          │                          │
+          │ OAuth 2.0              ├──→ MAS (Authentication)
+          │ Delegation                │   Token Management
+          │                          ├──→ User Sessions
+          │                          └──→ Scope Policy
+          │
+          ↓
 ┌──────────────────────────────────────────────────┐
-│            KEYCLOAK SERVER                │
-│  ┌────────────────────────────────────┐   │
-│  │ TMCP Realm Configuration      │   │
-│  │ Client Registration           │   │
-│  │ Token Service               │   │
-│  │ MFA Service                │   │
-│  └────────────────────────────────────┘   │
+│            MATRIX AUTHENTICATION SERVICE          │
+│  ┌────────────────────────────────────────────┐  │
+│  │ OAuth 2.0 / OIDC Provider              │  │
+│  │ Token Issuance & Refresh                │  │
+│  │ User Authentication (Device/Auth Code)  │  │
+│  │ Scope Management                        │  │
+│  └────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────┘
 ```
 
-**Keycloak Configuration for TMCP:**
+**MAS Configuration for TMCP:**
 
-**Realm Configuration:**
-```json
-{
-  "realm": "tmcp",
-  "displayName": "TMCP Mini-Apps",
-  "enabled": true,
-  "sslRequired": "external",
-  "registrationAllowed": true,
-  "loginWithEmailAllowed": false,
-  "duplicateEmailsAllowed": false,
-  "resetPasswordAllowed": false,
-  "editUsernameAllowed": false,
-  "bruteForceProtection": true,
-  "maxFailureCount": 5,
-  "failureResetTimeInSeconds": 900,
-  "notBefore": 1704067200,
-  "accessTokenLifespan": 3600,
-  "ssoSessionMaxLifespan": 86400,
-  "accessTokenLifespanRememberMe": 2592000,
-  "refreshTokenLifespan": 2592000,
-  "refreshTokenMaxReuse": 0,
-  "otpPolicy": {
-    "type": "totp",
-    "digits": 6,
-    "period": 30,
-    "algorithm": "HmacSHA256"
-  },
-  "webAuthnPasswordPolicy": {
-    "minLength": 8,
-    "maxLength": 128,
-    "hashAlgorithm": "pbkdf2-sha256"
-  },
-  "clientScopes": [
-    "user:read",
-    "user:read:extended",
-    "user:read:contacts",
-    "wallet:balance",
-    "wallet:pay",
-    "wallet:history",
-    "messaging:send",
-    "messaging:read",
-    "storage:read",
-    "storage:write"
-  ],
-  "officialAppScopes": [
-    "system:notifications",
-    "wallet:admin",
-    "messaging:broadcast",
-    "analytics:detailed"
-  ]
-}
+**TMCP Server Client Registration:**
+
+```yaml
+# MAS configuration (config.yaml)
+clients:
+  - client_id: ma_tmcp_server
+    client_auth_method: client_secret_post
+    client_secret_file: /run/secrets/mas_client_secret
+    grant_types:
+      - authorization_code
+      - urn:ietf:params:oauth:grant-type:device_code
+      - refresh_token
+      - urn:ietf:params:oauth:grant-type:reverse_1
+    scope:
+      - openid
+      - urn:matrix:org.matrix.msc2967.client:api:*
+      - urn:synapse:admin:*
 ```
 
-**Client Registration:**
-Each mini-app is registered as a Keycloak client with:
-- Client ID matching mini-app ID
-- Standard OAuth 2.0 flow with PKCE
-- Redirect URIs configured for each mini-app
-- Access type: confidential
-- Valid redirect URIs enforced
-- Service accounts enabled for privileged operations
+**Mini-App Client Registration:**
 
-**Token Service Configuration:**
-- JWT signing with TMCP realm keys
-- Custom claims for mini-app context and classification
-- Standard and privileged scope enforcement
-- Token introspection endpoint for TMCP Server validation
+Each mini-app MUST be registered in MAS:
 
-**MFA Service Integration:**
-- MFA policies enforced at Keycloak level
-- Device registration and management
-- Biometric attestation validation
-- Integration with Wallet Service for MFA verification
+```yaml
+clients:
+  - client_id: ma_shop_001
+    client_auth_method: client_secret_post
+    client_secret_file: /run/secrets/ma_shop_001_secret
+    redirect_uris:
+      - https://shop.miniapp.example.com/callback
+    grant_types:
+      - authorization_code
+      - urn:ietf:params:oauth:grant-type:device_code
+      - refresh_token
+    scope:
+      - openid
+      - urn:matrix:org.matrix.msc2967.client:api:*
+```
 
-**Benefits of Keycloak Integration:**
+**Token Flow:**
 
-1. **Enterprise Security**: Advanced security features, brute force protection, MFA policies
-2. **Centralized Management**: Single admin console for all OAuth clients and scopes
-3. **Audit Capabilities**: Comprehensive audit logging for compliance
-4. **Scalability**: Horizontal scaling with clustering support
-5. **Protocol Compliance**: Full OAuth 2.0 and OpenID Connect compliance
-6. **Extensibility**: Custom protocol mappers for TMCP-specific requirements
-7. **Multi-tenancy**: Support for multiple TMCP deployments from single Keycloak instance
+1. Mini-app initiates OAuth 2.0 device authorization or authorization code flow
+2. User authenticates via MAS (includes MFA if required)
+3. MAS issues access token and refresh token to mini-app
+4. Mini-app exchanges token for TEP via TMCP Server
+5. TEP used for TMCP-specific operations
+6. Matrix operations use MAS access token via proxy
+
+**Benefits of MAS Integration:**
+
+1. **Native Matrix Support**: OAuth 2.0 designed for Matrix protocol
+2. **User Identity**: Unified Matrix user identity across all operations
+3. **Token Management**: Automatic token rotation and refresh
+4. **Security**: Industry-standard OAuth 2.0 / OIDC compliance
+5. **Scalability**: Horizontal scaling with PostgreSQL backend
+6. **Device Authorization**: Native support for login via QR code
+7. **Session Management**: Comprehensive session lifecycle control
 
 **Implementation Notes:**
 
-- TMCP Server acts as a Resource Owner in OAuth 2.0 terms
-- Keycloak handles Authorization Server responsibilities
-- Token validation and introspection endpoints proxy to Keycloak
-- Privileged scopes mapped to Keycloak client-level permissions
-- MFA challenges proxied through Keycloak's authentication flows
+- TMCP Server acts as OAuth 2.0 resource server
+- MAS handles authorization server responsibilities
+- Token validation via MAS introspection endpoint
+- TMCP-specific scopes managed by TMCP Server
+- MFA policies enforced at MAS level
 
-This integration maintains TMCP's security model while leveraging Keycloak's enterprise-grade identity management capabilities.
+This integration maintains TMCP's security model while leveraging MAS's native Matrix authentication capabilities.
 
 ---
 
@@ -3169,25 +4911,133 @@ This integration maintains TMCP's security model while leveraging Keycloak's ent
 
 ### Appendix A: Complete Protocol Flow Example
 
-**Scenario:** User purchases item from mini-app
+**Scenario:** User purchases item from mini-app in chat
 
-1. User opens mini-app from chat
-2. Mini-app requests `tween.auth.getUserInfo`
-3. Client returns cached user info
-4. User adds item to cart, clicks "Buy"
-5. Mini-app calls `tween.wallet.pay`
-6. Client displays payment confirmation UI
-7. User authorizes with biometric
-8. Client signs payment with hardware key
-9. Client sends signed payment to TMCP Server
-10. TMCP Server validates signature
-11. TMCP Server coordinates with Wallet Service
-12. Wallet Service executes transfer
-13. TMCP Server creates Matrix event
-14. Homeserver distributes event to room
-15. Client renders payment receipt
-16. TMCP Server sends webhook to mini-app
-17. Mini-app processes order
+**In-Chat Payment Flow:**
+
+```
+Step 1: Authentication (Device Authorization Grant)
+─────────────────────────────────────────────────
+1. Mini-app initiates device authorization
+   POST /oauth2/device/authorization
+   client_id=ma_shop_001
+
+2. MAS returns device code and user code
+   { "device_code": "...", "user_code": "WDJB-MJHR", ... }
+
+3. User visits MAS, enters code, authenticates
+
+4. Mini-app polls for token
+   POST /oauth2/token grant_type=device_code
+
+5. MAS returns tokens
+   {
+     "access_token": "opaque_mas_token",
+     "refresh_token": "refresh_token_xyz",
+     "tep_token": "tep.jwt.token..."
+   }
+
+Step 2: Payment Request
+───────────────────────
+6. User adds item to cart, clicks "Buy"
+7. Mini-app calls `tween.wallet.pay`
+8. Client displays payment confirmation UI
+9. User authorizes with biometric/PIN
+10. Client signs payment with hardware key
+11. Client sends signed payment to TMCP Server
+    Authorization: Bearer tep.jwt.token
+
+Step 3: Payment Processing
+──────────────────────────
+12. TMCP Server validates TEP token and signature
+13. TMCP Server forwards payment to Wallet Service
+14. Wallet Service executes transfer
+15. Wallet Service sends callback to TMCP Server
+    {
+      "event": "payment.completed",
+      "transaction_id": "txn_wallet_123",
+      "amount": 15000.00,
+      "currency": "USD",
+      "sender": { "user_id": "@alice:tween.example" },
+      "recipient": { "miniapp_id": "ma_shop_001" },
+      "room_id": "!chat123:tween.example",
+      "note": "Order #12345"
+    }
+
+Step 4: Payment Receipt in Chat
+──────────────────────────────────────────────
+16. TMCP Server creates payment event
+    Event Type: m.tween.payment.completed
+    Sender: @_tmcp_payments:tween.example (Virtual Payment Bot)
+    Room: !chat123:tween.example
+
+17. TMCP Server sends event to Matrix
+    POST /_matrix/client/v3/rooms/!chat123:tween.example/send/m.tween.payment.completed
+    Authorization: Bearer <AS_TOKEN>
+
+    {
+      "type": "m.tween.payment.completed",
+      "content": {
+        "msgtype": "m.tween.payment",
+        "payment_type": "completed",
+        "visual": { "card_type": "payment_receipt", "icon": "payment_completed" },
+        "transaction": { "txn_id": "txn_wallet_123", "amount": 15000.00, "currency": "USD" },
+        "sender": { "user_id": "@alice:tween.example", "display_name": "Alice" },
+        "recipient": { "miniapp_id": "ma_shop_001", "name": "Shopping Assistant" },
+        "note": "Order #12345",
+        "timestamp": "2025-12-18T14:30:00Z"
+      }
+    }
+
+18. Matrix Homeserver persists and distributes event
+
+19. Client renders as rich payment card
+
+Step 5: Webhook Notification
+────────────────────────────
+20. TMCP Server sends webhook to mini-app
+    POST https://miniapp.example.com/webhooks/payment
+    {
+      "payment_id": "pay_abc123",
+      "status": "completed",
+      "transaction_id": "txn_wallet_123",
+      "amount": 15000.00
+    }
+
+21. Mini-app processes order and confirms completion
+```
+
+**Visual Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         CHAT ROOM                                    │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │ [Message History]                                           │    │
+│  │                                                             │    │
+│  │  Alice: Hey, check out this product!                       │    │
+│  │                                                             │    │
+│  │  ┌─────────────────────────────────────────────────────┐   │    │
+│  │  │ 💰 Payment Completed                                │   │    │
+│  │  │ ─────────────────────────────────────────────────  │   │    │
+│  │  │                                                       │   │    │
+│  │  │  To: Shopping Assistant                              │   │    │
+│  │  │  Amount: $15,000.00 USD                             │   │    │
+│  │  │                                                       │   │    │
+│  │  │  Note: Order #12345                                  │   │    │
+│  │  │                                                       │   │    │
+│  │  │  ───────────────────────────────                      │   │    │
+│  │  │  Transaction ID: txn_wallet_123                      │   │    │
+│  │  │  Dec 18, 2025 2:30 PM                                │   │    │
+│  │  │                                     [View Details]   │   │    │
+│  │  └─────────────────────────────────────────────────────┘   │    │
+│  │                                                             │    │
+│  │  Bob: Nice! Looks great!                                   │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ### Appendix B: SDK Interface Definitions
 
@@ -3215,7 +5065,154 @@ interface TweenSDK {
 }
 ```
 
-### Appendix C: Webhook Signature Verification
+### Appendix C: WebView Implementation Details
+
+#### Android WebView Configuration
+```java
+WebView miniAppWebView = findViewById(R.id.miniapp_webview);
+WebSettings settings = miniAppWebView.getSettings();
+
+// JavaScript - ONLY if mini-app explicitly requires it
+settings.setJavaScriptEnabled(true);  // Default: false
+
+// File Access - ALWAYS disable
+settings.setAllowFileAccess(false);
+settings.setAllowContentAccess(false);
+settings.setAllowFileAccessFromFileURLs(false);
+settings.setAllowUniversalAccessFromFileURLs(false);
+
+// Geolocation - Require explicit permission
+settings.setGeolocationEnabled(false);  // Enable only after user grants permission
+
+// Database - Disable unless needed
+settings.setDatabaseEnabled(false);
+settings.setDomStorageEnabled(false);  // LocalStorage disabled by default
+
+// Mixed Content - ALWAYS block
+settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+
+// WebView Debugging - MUST be disabled in production
+if (!BuildConfig.DEBUG) {
+    WebView.setWebContentsDebuggingEnabled(false);
+}
+
+// Safe Browsing - ALWAYS enable
+SafeBrowsingApiHandler.initSafeBrowsing(context);
+miniAppWebView.startSafeBrowsing(context, isSuccess -> {
+    if (!isSuccess) {
+        Log.e("TMCP", "Safe Browsing initialization failed");
+    }
+});
+```
+
+#### iOS WebView Configuration
+```swift
+let config = WKWebViewConfiguration()
+let prefs = WKPreferences()
+
+// JavaScript - ONLY if required
+prefs.javaScriptEnabled = true  // Default: true on iOS
+prefs.javaScriptCanOpenWindowsAutomatically = false
+
+config.preferences = prefs
+
+// File access - Restrict to specific domains
+config.limitsNavigationsToAppBoundDomains = true
+
+// Inline media playback
+config.allowsInlineMediaPlayback = true
+config.mediaTypesRequiringUserActionForPlayback = .all
+
+let webView = WKWebView(frame: .zero, configuration: config)
+```
+
+#### URL Validation Example (Android)
+```java
+public boolean shouldOverrideUrlLoading(WebView view, String url) {
+    Uri uri = Uri.parse(url);
+
+    // Whitelist allowed domains
+    List<String> allowedDomains = Arrays.asList(
+        "miniapp.example.com",
+        "cdn.tween.example",
+        "tmcp.example.com"
+    );
+
+    String host = uri.getHost();
+    if (host == null || !allowedDomains.contains(host)) {
+        Log.w("TMCP", "Blocked unauthorized domain: " + host);
+        return true;  // Prevent navigation
+    }
+
+    // Only allow HTTPS
+    if (!"https".equals(uri.getScheme())) {
+        Log.w("TMCP", "Blocked non-HTTPS URL: " + url);
+        return true;
+    }
+
+    return false;  // Allow navigation
+}
+```
+
+#### Sensitive Data Protection (Android)
+```java
+// ❌ WRONG - Exposes token to JavaScript
+webView.loadUrl("javascript:window.tepToken = '" + tepToken + "';");
+
+// ✓ CORRECT - Use secure postMessage
+JSONObject message = new JSONObject();
+message.put("type", "TMCP_INIT_SUCCESS");
+message.put("user_id", userId);
+// Do NOT include token in message
+
+webView.evaluateJavascript(
+    "window.postMessage(" + message.toString() + ", '*');",
+    null
+);
+```
+
+#### Certificate Pinning (Android)
+```kotlin
+val certificatePinner = CertificatePinner.Builder()
+    .add("tmcp.example.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+    .add("api.example.com", "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=")
+    .build()
+
+val client = OkHttpClient.Builder()
+    .certificatePinner(certificatePinner)
+    .build()
+```
+
+#### WebView Lifecycle Management (Android)
+```java
+@Override
+protected void onPause() {
+    super.onPause();
+
+    // Clear cache on pause
+    webView.clearCache(true);
+    webView.clearFormData();
+
+    // Clear history if mini-app handles payments
+    if (isSensitiveApp) {
+        webView.clearHistory();
+    }
+}
+
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+
+    // Complete cleanup
+    webView.clearCache(true);
+    webView.clearHistory();
+    webView.clearFormData();
+    webView.removeAllViews();
+    webView.destroy();
+}
+```
+
+### Appendix D: Webhook Signature Verification
 
 **Python Example:**
 ```python
@@ -3233,4 +5230,4 @@ def verify_webhook(payload, signature, secret):
 
 ---
 
-**End of TRFC 1001**
+**End of TMCP-001**

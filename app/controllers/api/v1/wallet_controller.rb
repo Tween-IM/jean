@@ -20,6 +20,12 @@ class Api::V1::WalletController < ApplicationController
     render json: transactions_data
   end
 
+  # GET /wallet/v1/verification - TMCP Protocol Section 6.4.2
+  def verification
+    verification_data = WalletService.get_verification_status(@current_user.matrix_user_id)
+    render json: verification_data
+  end
+
   # GET /wallet/v1/resolve/:user_id - TMCP Protocol Section 6.3.2
   def resolve
     target_user_id = params[:user_id]
@@ -37,6 +43,35 @@ class Api::V1::WalletController < ApplicationController
     else
       render json: resolution_result
     end
+  end
+
+  # POST /wallet/v1/resolve/batch - TMCP Protocol Section 6.3.3
+  def resolve_batch
+    user_ids = params[:user_ids] || []
+    room_id = params[:room_id]
+
+    if user_ids.size > 100
+      return render json: { error: "too_many_users", message: "Maximum 100 users per batch request" }, status: :bad_request
+    end
+
+    results = user_ids.map do |user_id|
+      # Check room membership for privacy (TMCP Protocol Section 6.3.7)
+      if room_id && !user_in_room?(@current_user.matrix_user_id, user_id, room_id)
+        { user_id: user_id, error: { code: "FORBIDDEN", message: "Users do not share a room" } }
+      else
+        resolution_result = WalletService.resolve_user(user_id)
+        resolution_result.merge(user_id: user_id)
+      end
+    end
+
+    resolved_count = results.count { |r| !r.key?(:error) }
+    total_count = results.size
+
+    render json: {
+      results: results,
+      resolved_count: resolved_count,
+      total_count: total_count
+    }
   end
 
   # POST /wallet/v1/p2p/initiate - TMCP Protocol Section 7.2.1
@@ -111,6 +146,48 @@ class Api::V1::WalletController < ApplicationController
       refund_initiated: true,
       refund_expected_at: (Time.current + 30.seconds).iso8601
     )
+  end
+
+  # POST /wallet/v1/external/link - TMCP Protocol Section 6.5.2
+  def link_external_account
+    account_type = params[:account_type]
+    account_details = params[:account_details]
+
+    unless %w[bank_account debit_card credit_card digital_wallet mobile_money].include?(account_type)
+      return render json: { error: "invalid_account_type", message: "Unsupported account type" }, status: :bad_request
+    end
+
+    result = WalletService.link_external_account(@current_user.wallet_id, account_type, account_details)
+    render json: result, status: :created
+  end
+
+  # POST /wallet/v1/external/verify - TMCP Protocol Section 6.5.2
+  def verify_external_account
+    account_id = params[:account_id]
+    verification_data = params[:verification_data]
+
+    result = WalletService.verify_external_account(account_id, verification_data)
+    render json: result
+  end
+
+  # POST /wallet/v1/funding - TMCP Protocol Section 6.5.2
+  def fund_wallet
+    source_account_id = params[:source_account_id]
+    amount = params[:amount].to_f
+    currency = params[:currency] || "USD"
+
+    result = WalletService.fund_wallet(@current_user.wallet_id, source_account_id, amount, currency)
+    render json: result, status: :accepted
+  end
+
+  # POST /wallet/v1/withdrawals - TMCP Protocol Section 6.6.2
+  def create_withdrawal
+    destination_account_id = params[:destination_account_id]
+    amount = params[:amount].to_f
+    currency = params[:currency] || "USD"
+
+    result = WalletService.initiate_withdrawal(@current_user.wallet_id, destination_account_id, amount, currency)
+    render json: result, status: :accepted
   end
 
   private

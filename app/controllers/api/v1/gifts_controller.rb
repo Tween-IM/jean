@@ -6,8 +6,69 @@ class Api::V1::GiftsController < ApplicationController
 
   # POST /wallet/v1/gift/create - TMCP Protocol Section 7.5.2
   def create
-    # Validate required parameters
-    required_params = %w[total_amount currency count distribution message idempotency_key]
+    gift_type = params[:type] || "group"
+
+    if gift_type == "individual"
+      handle_individual_gift
+    else
+      handle_group_gift
+    end
+  end
+
+  def handle_individual_gift
+    required_params = %w[recipient amount currency idempotency_key]
+    missing_params = required_params.select { |param| params[param].blank? }
+
+    if missing_params.any?
+      return render json: { error: "invalid_request", message: "Missing required parameters: #{missing_params.join(', ')}" }, status: :bad_request
+    end
+
+    amount = params[:amount].to_f
+
+    if amount <= 0 || amount > 50000.00
+      return render json: { error: "invalid_amount", message: "Amount must be between 0.01 and 50,000.00" }, status: :bad_request
+    end
+
+    cache_key = "gift_idempotent:#{@current_user.id}:#{params[:idempotency_key]}"
+    if Rails.cache.read(cache_key)
+      return render json: { error: "duplicate_request", message: "Duplicate request with same idempotency key" }, status: :conflict
+    end
+
+    gift_id = "gift_#{SecureRandom.alphanumeric(12)}"
+    expires_at = Time.current + (params[:expires_in_seconds] || 86400).to_i.seconds
+
+    gift_data = {
+      gift_id: gift_id,
+      type: "individual",
+      status: "active",
+      total_amount: amount,
+      currency: params[:currency],
+      count: 1,
+      remaining: 1,
+      distribution: "equal",
+      message: params[:message],
+      recipient: params[:recipient],
+      creator: {
+        user_id: @current_user.matrix_user_id,
+        wallet_id: @current_user.wallet_id
+      },
+      room_id: params[:room_id],
+      expires_at: expires_at.iso8601,
+      opened_by: [],
+      created_at: Time.current.iso8601,
+      event_id: "$event_#{gift_id}:tween.example"
+    }
+
+    Rails.cache.write("gift:#{gift_id}", gift_data, expires_in: expires_at - Time.current)
+    Rails.cache.write(cache_key, gift_id, expires_in: 24.hours)
+
+    MatrixEventService.publish_gift_created(gift_data)
+
+    render json: gift_data, status: :created
+  end
+
+  def handle_group_gift
+    required_params = %w[total_amount currency count distribution idempotency_key]
     missing_params = required_params.select { |param| params[param].blank? }
 
     if missing_params.any?
@@ -17,7 +78,6 @@ class Api::V1::GiftsController < ApplicationController
     amount = params[:total_amount].to_f
     count = params[:count].to_i
 
-    # Validate gift parameters
     if amount <= 0 || amount > 50000.00
       return render json: { error: "invalid_amount", message: "Total amount must be between 0.01 and 50,000.00" }, status: :bad_request
     end
@@ -27,16 +87,14 @@ class Api::V1::GiftsController < ApplicationController
     end
 
     unless %w[random equal].include?(params[:distribution])
-      return render json: { error: "invalid_distribution", message: 'Distribution must be "random" or "equal"' }, status: :bad_request
+      return render json: { error: "invalid_distribution", message: "Distribution must be \"random\" or \"equal\"" }, status: :bad_request
     end
 
-    # Validate idempotency key
     cache_key = "gift_idempotent:#{@current_user.id}:#{params[:idempotency_key]}"
     if Rails.cache.read(cache_key)
       return render json: { error: "duplicate_request", message: "Duplicate request with same idempotency key" }, status: :conflict
     end
 
-    # Generate gift distribution
     distribution = case params[:distribution]
     when "equal"
       equal_distribution(amount, count)
@@ -44,9 +102,8 @@ class Api::V1::GiftsController < ApplicationController
       random_distribution(amount, count)
     end
 
-    # Create gift (mock implementation)
     gift_id = "gift_#{SecureRandom.alphanumeric(12)}"
-    expires_at = Time.current + (params[:expires_in_seconds] || 86400).seconds # Default 24 hours
+    expires_at = Time.current + (params[:expires_in_seconds] || 86400).to_i.seconds
 
     gift_data = {
       gift_id: gift_id,
@@ -69,11 +126,9 @@ class Api::V1::GiftsController < ApplicationController
       event_id: "$event_#{gift_id}:tween.example"
     }
 
-    # Cache gift data
     Rails.cache.write("gift:#{gift_id}", gift_data, expires_in: expires_at - Time.current)
     Rails.cache.write(cache_key, gift_id, expires_in: 24.hours)
 
-    # Publish Matrix event (PROTO Section 7.5.4)
     MatrixEventService.publish_gift_created(gift_data)
 
     render json: gift_data, status: :created
@@ -88,16 +143,31 @@ class Api::V1::GiftsController < ApplicationController
       return render json: { error: "gift_not_found", message: "Gift not found or expired" }, status: :not_found
     end
 
-    if gift_data["status"] != "active"
+    # Check if user already opened this gift
+    if gift_data[:opened_by].any? { |entry| entry["user_id"] == @current_user.matrix_user_id }
+      return render json: { error: "already_opened", message: "You have already opened this gift" }, status: :conflict
+    end
+
+    # Check if remaining is 0 (gift is empty)
+    if gift_data[:remaining] <= 0
+      return render json: { error: "gift_empty", message: "All gifts have been claimed" }, status: :gone
+    end
+
+    # Check if status is not "active" (gift is inactive)
+    if gift_data[:status] != "active"
       return render json: { error: "gift_inactive", message: "Gift is no longer active" }, status: :gone
     end
 
-    if gift_data["remaining"] <= 0
+    if gift_data[:status] != "active"
+      return render json: { error: "gift_inactive", message: "Gift is no longer active" }, status: :gone
+    end
+
+    if gift_data[:remaining] <= 0
       return render json: { error: "gift_empty", message: "All gifts have been claimed" }, status: :gone
     end
 
     # Check if user already opened this gift
-    if gift_data["opened_by"].any? { |entry| entry["user_id"] == @current_user.matrix_user_id }
+    if gift_data[:opened_by].any? { |entry| entry[:user_id] == @current_user.matrix_user_id }
       return render json: { error: "already_opened", message: "You have already opened this gift" }, status: :conflict
     end
 
@@ -105,46 +175,46 @@ class Api::V1::GiftsController < ApplicationController
     amount_received = calculate_user_amount(gift_data, @current_user.matrix_user_id)
 
     # Update gift data
-    gift_data["opened_by"] << {
+    gift_data[:opened_by] << {
       "user_id" => @current_user.matrix_user_id,
       "amount" => amount_received,
       "opened_at" => Time.current.iso8601
     }
-    gift_data["remaining"] -= 1
+    gift_data[:remaining] -= 1
 
     # Check if gift is fully opened
-    if gift_data["remaining"] <= 0
-      gift_data["status"] = "fully_opened"
+    if gift_data[:remaining] <= 0
+      gift_data[:status] = "fully_opened"
     end
 
     # Save updated gift data
-    Rails.cache.write("gift:#{gift_id}", gift_data, expires_in: Time.parse(gift_data["expires_at"]) - Time.current)
+    Rails.cache.write("gift:#{gift_id}", gift_data, expires_in: Time.parse(gift_data[:expires_at]) - Time.current)
 
     # Publish Matrix event (PROTO Section 7.5.4)
     MatrixEventService.publish_gift_opened(gift_id, {
       user_id: @current_user.matrix_user_id,
       amount: amount_received,
       opened_at: Time.current.iso8601,
-      remaining_count: gift_data["remaining"],
-      room_id: gift_data["room_id"],
-      leaderboard: gift_data["opened_by"].sort_by { |entry| -entry["amount"] }.map do |entry|
+      remaining_count: gift_data[:remaining],
+      room_id: gift_data[:room_id],
+      leaderboard: gift_data[:opened_by].sort_by { |entry| -entry["amount"] }.map do |entry|
         { user: entry["user_id"], amount: entry["amount"] }
       end
     })
 
     # Calculate stats
-    total_opened = gift_data["opened_by"].size
-    your_rank = gift_data["opened_by"].sort_by { |entry| -entry["amount"] }.index { |entry| entry["user_id"] == @current_user.matrix_user_id } + 1
+    total_opened = gift_data[:opened_by].size
+    your_rank = gift_data[:opened_by].sort_by { |entry| -entry["amount"] }.index { |entry| entry["user_id"] == @current_user.matrix_user_id } + 1
 
     render json: {
       gift_id: gift_id,
       amount_received: amount_received,
-      message: gift_data["message"],
-      sender: gift_data["creator"],
+      message: gift_data[:message],
+      sender: gift_data[:creator],
       opened_at: Time.current.iso8601,
       stats: {
         total_opened: total_opened,
-        total_remaining: gift_data["remaining"],
+        total_remaining: gift_data[:remaining],
         your_rank: your_rank
       }
     }
@@ -217,12 +287,12 @@ class Api::V1::GiftsController < ApplicationController
   def calculate_user_amount(gift_data, user_id)
     # For demo, assign amounts sequentially
     # In production, this would be pre-calculated during gift creation
-    opened_count = gift_data["opened_by"].size
-    distribution = case gift_data["distribution"]
+    opened_count = gift_data[:opened_by].size
+    distribution = case gift_data[:distribution]
     when "equal"
-      equal_distribution(gift_data["total_amount"], gift_data["count"])
+      equal_distribution(gift_data[:total_amount], gift_data[:count])
     when "random"
-      random_distribution(gift_data["total_amount"], gift_data["count"])
+      random_distribution(gift_data[:total_amount], gift_data[:count])
     end
 
     distribution[opened_count] || 0.00

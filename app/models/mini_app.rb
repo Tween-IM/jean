@@ -4,7 +4,7 @@ class MiniApp < ApplicationRecord
   enum :status, { active: 0, deprecated: 1, removed: 2 }
 
   # Relationships
-  has_many :miniapp_installations
+  has_many :miniapp_installations, foreign_key: :miniapp_id
   has_many :installed_users, through: :miniapp_installations, source: :user
 
   # Validations
