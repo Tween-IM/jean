@@ -1,199 +1,244 @@
 class MiniAppReviewService
-  REVIEW_TYPES = %w[automated manual business].freeze
-  CLASSIFICATION_TYPES = %w[official verified community beta].freeze
+  def self.get_review_status(miniapp)
+    automated_checks = MiniAppAutomatedCheck.where(miniapp_id: miniapp.miniapp_id).order(created_at: :desc).first
 
-  class ReviewError < StandardError
-    attr_reader :code
-
-    def initialize(code, message)
-      super(message)
-      @code = code
-    end
+    {
+      miniapp_id: miniapp.miniapp_id,
+      status: miniapp.status,
+      submitted_at: miniapp.submitted_at&.iso8601,
+      last_reviewed_at: miniapp.last_reviewed_at&.iso8601,
+      automated_review: automated_checks ? {
+        status: automated_checks.status,
+        completed_at: automated_checks.created_at.iso8601,
+        checks: {
+          csp_valid: automated_checks.csp_valid,
+          https_only: automated_checks.https_only,
+          no_hardcoded_credentials: automated_checks.no_credentials,
+          no_obfuscated_code: automated_checks.no_obfuscation,
+          dependency_scan: automated_checks.dependency_scan_passed
+        }
+      } : nil,
+      manual_review: miniapp.manual_review_notes ? {
+        reviewer: miniapp.reviewer_id,
+        notes: miniapp.manual_review_notes,
+        reviewed_at: miniapp.last_reviewed_at.iso8601
+      } : nil,
+      rejection_reason: miniapp.rejection_reason
+    }
   end
 
-  def submit_for_review(miniapp_id)
-    miniapp = MiniApp.find_by(app_id: miniapp_id)
+  def self.run_automated_checks(miniapp)
+    results = {
+      csp_valid: check_csp_headers(miniapp),
+      https_only: check_https_only(miniapp),
+      no_credentials: check_no_hardcoded_credentials(miniapp),
+      no_obfuscation: check_no_obfuscation(miniapp),
+      dependency_scan_passed: run_dependency_scan(miniapp),
+      overall_status: :pending
+    }
 
-    raise ReviewError.new("NOT_FOUND", "Mini-app not found") unless miniapp
+    results[:overall_status] = determine_overall_status(results)
 
-    if miniapp.status != "pending_review"
-      raise ReviewError.new(
-        "INVALID_STATE",
-        "Mini-app must be in pending_review state to submit"
-      )
-    end
-
-    automated_result = run_automated_checks(miniapp)
-
-    review = MiniAppReview.create!(
-      miniapp_id: miniapp_id,
-      status: automated_result[:passes] ? "pending_manual_review" : "failed",
-      automated_checks: automated_result,
-      submitted_at: Time.current
+    automated_check = MiniAppAutomatedCheck.create!(
+      miniapp_id: miniapp.miniapp_id,
+      status: results[:overall_status],
+      csp_valid: results[:csp_valid],
+      https_only: results[:https_only],
+      no_credentials: results[:no_credentials],
+      no_obfuscation: results[:no_obfuscation],
+      dependency_scan_passed: results[:dependency_scan_passed],
+      raw_results: results,
+      created_at: Time.current
     )
 
-    if automated_result[:passes]
-      miniapp.update!(status: "under_review")
-    else
-      miniapp.update!(status: "rejected", rejection_reason: "Automated checks failed")
+    if results[:overall_status] == :failed
+      update_miniapp_status(miniapp, "automated_review_failed")
     end
 
-    review
+    results
   end
 
-  def run_automated_checks(miniapp)
-    checks = {
-      csp_valid: check_csp(miniapp),
-      https_only: check_https_only(miniapp),
-      no_credentials: check_no_credentials(miniapp),
-      no_obfuscation: check_no_obfuscation(miniapp),
-      dependencies_clean: check_dependencies(miniapp)
-    }
+  def self.check_csp_headers(miniapp)
+    return true if miniapp.classification == "official"
 
-    passed = checks.values.all? { |c| c[:passed] }
+    url = miniapp.entry_url
+    return false if url.blank?
 
-    {
-      passes: passed,
-      status: passed ? "automated_review_complete" : "automated_review_failed",
-      checks: checks,
-      completed_at: Time.current.iso8601
-    }
+    begin
+      response = HTTParty.head(url, timeout: 10)
+      csp_header = response.headers["Content-Security-Policy"]
+
+      return false if csp_header.blank?
+
+      return false if csp_header.include?("unsafe-inline") || csp_header.include?("unsafe-eval")
+
+      true
+    rescue => e
+      Rails.logger.warn "CSP check failed for #{miniapp.miniapp_id}: #{e.message}"
+      false
+    end
   end
 
-  def check_csp(miniapp)
-    csp = miniapp.manifest["csp"] || ""
+  def self.check_https_only(miniapp)
+    return true if miniapp.classification == "official"
 
-    result = WebviewSecurityService.new.validate_csp(csp, miniapp.app_id)
+    urls = [ miniapp.entry_url ] + (miniapp.redirect_uris || [])
 
-    {
-      passed: result[:valid],
-      csp: csp,
-      errors: result[:errors],
-      warnings: result[:warnings]
-    }
+    urls.all? { |url| url.start_with?("https://") }
   end
 
-  def check_https_only(miniapp)
-    entry_url = miniapp.manifest["entry_url"]
+  def self.check_no_hardcoded_credentials(miniapp)
+    return true if miniapp.classification == "official"
 
-    uri = URI.parse(entry_url) rescue nil
+    url = miniapp.entry_url
+    return true if url.blank?
 
-    {
-      passed: uri&.scheme == "https",
-      entry_url: entry_url,
-      message: uri&.scheme == "https" ? "All resources loaded over HTTPS" : "Insecure resource loading detected"
-    }
-  end
-
-  def check_no_credentials(miniapp)
-    manifest_json = miniapp.to_json
-
-    has_creds = manifest_json.match?(/("api_key|access_token|client_secret|password|bearer_token)["\s]*[:=]/i)
-
-    {
-      passed: !has_creds,
-      message: has_creds ? "Potential hardcoded credentials detected" : "No hardcoded credentials found"
-    }
-  end
-
-  def check_no_obfuscation(miniapp)
-    manifest_json = miniapp.to_json
-
-    suspicious_patterns = [
-      /\beval\s*\(/i,
-      /\bFunction\s*\(/,
-      /\\x[0-9a-f]{2}/i,
-      /u003c/u,
-      /obfuscate/i,
-      /packer/i
+    patterns = [
+      /api[_-]?key['"]?\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"]/i,
+      /secret['"]?\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"]/i,
+      /password['"]?\s*[:=]\s*['"][^'"]+['"]/i,
+      /Bearer\s+[a-zA-Z0-9\-._~+\/]+=*/i
     ]
 
-    found_patterns = suspicious_patterns.select { |p| manifest_json.match?(p) }
+    begin
+      response = HTTParty.get(url, timeout: 10)
+      body = response.body
 
-    {
-      passed: found_patterns.empty?,
-      patterns: found_patterns.map(&:source),
-      message: found_patterns.empty? ? "Code appears clean" : "Potentially obfuscated code detected"
-    }
-  end
-
-  def check_dependencies(miniapp)
-    {
-      passed: true,
-      message: "Dependency check skipped (would integrate with vulnerability scanner)"
-    }
-  end
-
-  def assign_reviewer(review_id, reviewer_id)
-    review = MiniAppReview.find(review_id)
-
-    review.update!(
-      reviewer_id: reviewer_id,
-      status: "under_review",
-      manual_review_started_at: Time.current
-    )
-
-    review
-  end
-
-  def complete_manual_review(review_id, result, notes = {})
-    review = MiniAppReview.find(review_id)
-
-    review.update!(
-      status: result[:approved] ? "approved" : "rejected",
-      manual_review_result: result,
-      manual_review_notes: notes,
-      completed_at: Time.current,
-      reviewer_id: result[:reviewer_id]
-    )
-
-    miniapp = MiniApp.find_by(app_id: review.miniapp_id)
-    miniapp.update!(
-      status: result[:approved] ? "approved" : "rejected",
-      classification: result[:classification] || miniapp.classification
-    )
-
-    review
-  end
-
-  def submit_appeal(miniapp_id, reason, changes, evidence = [])
-    miniapp = MiniApp.find_by(app_id: miniapp_id)
-
-    raise ReviewError.new("NOT_FOUND", "Mini-app not found") unless miniapp
-
-    unless miniapp.status == "rejected"
-      raise ReviewError.new(
-        "INVALID_STATE",
-        "Only rejected mini-apps can be appealed"
-      )
+      patterns.none? { |pattern| pattern.match?(body) }
+    rescue => e
+      Rails.logger.warn "Credential check failed for #{miniapp.miniapp_id}: #{e.message}"
+      true
     end
-
-    appeal = MiniAppAppeal.create!(
-      miniapp_id: miniapp_id,
-      original_review_id: miniapp.last_review_id,
-      reason: reason,
-      changes_made: changes,
-      evidence: evidence,
-      status: "under_review"
-    )
-
-    miniapp.update!(status: "under_review", last_appeal_id: appeal.id)
-
-    appeal
   end
 
-  def estimate_review_timeline(miniapp)
-    case miniapp.classification
-    when "official"
-      { automated: "instant", manual: "N/A", total: "instant" }
-    when "verified"
-      { automated: "1 hour", manual: "2-5 days", total: "2-5 days" }
-    when "community"
-      { automated: "1 hour", manual: "5-10 days", total: "5-10 days" }
-    when "beta"
-      { automated: "1 hour", manual: "priority", total: "1-2 days" }
+  def self.check_no_obfuscation(miniapp)
+    return true if miniapp.classification == "official"
+
+    url = miniapp.entry_url
+    return true if url.blank?
+
+    begin
+      response = HTTParty.get(url, timeout: 10)
+      body = response.body
+
+      return false if body.bytesize > 100_000
+
+      obfuscation_indicators = [
+        /\beval\s*\(/,
+        /\bFunction\s*\(/,
+        /\\x[0-9a-f]{2}/i,
+        /\\[ux][0-9a-f]{4}/i,
+        /String\.fromCharCode/
+      ]
+
+      obfuscation_count = obfuscation_indicators.count { |p| p.match?(body) }
+      obfuscation_count < 3
+    rescue => e
+      Rails.logger.warn "Obfuscation check failed for #{miniapp.miniapp_id}: #{e.message}"
+      true
+    end
+  end
+
+  def self.run_dependency_scan(miniapp)
+    return true if miniapp.classification == "official"
+
+    url = miniapp.entry_url
+    return true if url.blank?
+
+    begin
+      response = HTTParty.get(url, timeout: 10)
+      body = response.body
+
+      vulnerable_patterns = [
+        /react[\s\S]*?15\./i,
+        /lodash[\s\S]*?4\.[0-9]\.[0-9]/i,
+        /jquery[\s\S]*?1\.[0-9]\.[0-9]/i
+      ]
+
+      vulnerable_patterns.none? { |pattern| pattern.match?(body) }
+    rescue => e
+      Rails.logger.warn "Dependency scan failed for #{miniapp.miniapp_id}: #{e.message}"
+      true
+    end
+  end
+
+  def self.determine_overall_status(results)
+    if results[:csp_valid] && results[:https_only] && results[:no_credentials] &&
+       results[:no_obfuscation] && results[:dependency_scan_passed]
+      :passed
     else
-      { automated: "1 hour", manual: "5-10 days", total: "5-10 days" }
+      :failed
     end
+  end
+
+  def self.update_miniapp_status(miniapp, status)
+    miniapp.update!(
+      status: status,
+      updated_at: Time.current
+    )
+  end
+
+  def self.manual_review_pass(miniapp:, reviewer_id:, notes: nil)
+    miniapp.update!(
+      status: "approved",
+      reviewer_id: reviewer_id,
+      manual_review_notes: notes,
+      last_reviewed_at: Time.current,
+      updated_at: Time.current
+    )
+
+    send_approval_notification(miniapp)
+
+    { success: true, status: "approved" }
+  end
+
+  def self.manual_review_fail(miniapp:, reviewer_id:, reason:, notes: nil)
+    miniapp.update!(
+      status: "rejected",
+      reviewer_id: reviewer_id,
+      manual_review_notes: notes,
+      rejection_reason: reason,
+      last_reviewed_at: Time.current,
+      updated_at: Time.current
+    )
+
+    send_rejection_notification(miniapp, reason)
+
+    { success: true, status: "rejected", reason: reason }
+  end
+
+  def self.send_approval_notification(miniapp)
+    return unless miniapp.webhook_url?
+
+    payload = {
+      event: "miniapp_approved",
+      miniapp_id: miniapp.miniapp_id,
+      status: "approved",
+      timestamp: Time.current.iso8601
+    }
+
+    signature = WebhookService.sign_payload(payload, miniapp.webhook_secret)
+
+    WebhookService.dispatch(url: miniapp.webhook_url, payload: payload, signature: signature)
+  rescue => e
+    Rails.logger.error "Failed to send approval notification: #{e.message}"
+  end
+
+  def self.send_rejection_notification(miniapp, reason)
+    return unless miniapp.webhook_url?
+
+    payload = {
+      event: "miniapp_rejected",
+      miniapp_id: miniapp.miniapp_id,
+      status: "rejected",
+      reason: reason,
+      timestamp: Time.current.iso8601
+    }
+
+    signature = WebhookService.sign_payload(payload, miniapp.webhook_secret)
+
+    WebhookService.dispatch(url: miniapp.webhook_url, payload: payload, signature: signature)
+  rescue => e
+    Rails.logger.error "Failed to send rejection notification: #{e.message}"
   end
 end

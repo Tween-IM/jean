@@ -10,7 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_28_114203) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_06_075137) do
+  create_table "authorization_approvals", force: :cascade do |t|
+    t.string "approval_method"
+    t.datetime "approved_at"
+    t.datetime "created_at", null: false
+    t.string "miniapp_id"
+    t.string "scope"
+    t.datetime "updated_at", null: false
+    t.string "user_id"
+    t.index ["miniapp_id"], name: "index_authorization_approvals_on_miniapp_id"
+    t.index ["user_id"], name: "index_authorization_approvals_on_user_id"
+  end
+
   create_table "mfa_methods", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "device_id"
@@ -20,6 +32,31 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_114203) do
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["user_id"], name: "index_mfa_methods_on_user_id"
+  end
+
+  create_table "mini_app_appeals", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "miniapp_id"
+    t.text "reason"
+    t.string "status"
+    t.text "supporting_info"
+    t.datetime "updated_at", null: false
+    t.string "user_id"
+    t.index ["miniapp_id"], name: "index_mini_app_appeals_on_miniapp_id"
+    t.index ["user_id"], name: "index_mini_app_appeals_on_user_id"
+  end
+
+  create_table "mini_app_automated_checks", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "csp_valid"
+    t.boolean "dependency_scan_passed"
+    t.boolean "https_only"
+    t.string "miniapp_id"
+    t.boolean "no_credentials"
+    t.boolean "no_obfuscation"
+    t.string "status"
+    t.datetime "updated_at", null: false
+    t.index ["miniapp_id"], name: "index_mini_app_automated_checks_on_miniapp_id"
   end
 
   create_table "mini_apps", force: :cascade do |t|
@@ -121,6 +158,19 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_28_114203) do
     t.datetime "updated_at", null: false
     t.string "wallet_id"
     t.index ["matrix_user_id"], name: "index_users_on_matrix_user_id"
+  end
+
+  create_table "wallet_invitations", force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "invitee_user_id"
+    t.string "inviter_user_id"
+    t.string "room_id"
+    t.string "status"
+    t.datetime "updated_at", null: false
+    t.index ["invitee_user_id"], name: "index_wallet_invitations_on_invitee_user_id"
+    t.index ["inviter_user_id"], name: "index_wallet_invitations_on_inviter_user_id"
   end
 
   add_foreign_key "mfa_methods", "users"

@@ -25,11 +25,9 @@ Rails.application.routes.draw do
        get "wallet/resolve/:user_id", to: "wallet#resolve"
        post "wallet/resolve/batch", to: "wallet#resolve_batch"
 
-       # External account endpoints (TMCP Protocol Section 6.5)
-       post "wallet/external/link", to: "wallet#link_external_account"
-       post "wallet/external/verify", to: "wallet#verify_external_account"
-       post "wallet/funding", to: "wallet#fund_wallet"
-       post "wallet/withdrawals", to: "wallet#create_withdrawal"
+        # External account endpoints (TMCP Protocol Section 6.5)
+        post "wallet/external/link", to: "wallet#link_external_account"
+        post "wallet/external/verify", to: "wallet#verify_external_account"
 
        # Payment endpoints (TMCP Section 7.3-7.4)
        post "payments/request", to: "payments#create"
@@ -60,6 +58,23 @@ Rails.application.routes.draw do
         get "capabilities/:capability", to: "client#check_capability"
         post "client/bootstrap", to: "client#bootstrap"
         post "client/check-updates", to: "client#check_updates"
+
+        # Permission Revocation endpoints (TMCP Protocol Section 5.6)
+        post "auth/revoke", to: "auth_revocation#create"
+        delete "auth/revoke", to: "auth_revocation#user_revoke"
+        post "auth/revoke/webhook", to: "auth_revocation#webhook"
+
+        # Mini-App Registration endpoints (TMCP Protocol Section 9.1)
+        post "mini-apps/register", to: "mini_app_registration#create"
+        get "mini-apps/:miniapp_id", to: "mini_app_registration#show"
+        patch "mini-apps/:miniapp_id", to: "mini_app_registration#update"
+        post "mini-apps/:miniapp_id/submit", to: "mini_app_registration#submit_for_review"
+        post "mini-apps/:miniapp_id/appeal", to: "mini_app_registration#appeal"
+        get "mini-apps/:miniapp_id/status", to: "mini_app_registration#check_status"
+        get "mini-apps/:miniapp_id/automated-review", to: "mini_app_registration#automated_review"
+
+         # Room Member Wallet Status (TMCP Protocol Section 6.3.9)
+         get "wallet/room/:room_id/members", to: "wallet#room_member_wallets"
     end
   end
   use_doorkeeper

@@ -170,24 +170,50 @@ class Api::V1::WalletController < ApplicationController
     render json: result
   end
 
-  # POST /wallet/v1/funding - TMCP Protocol Section 6.5.2
-  def fund_wallet
-    source_account_id = params[:source_account_id]
-    amount = params[:amount].to_f
-    currency = params[:currency] || "USD"
+  # GET /wallet/v1/room/:room_id/members - TMCP Protocol Section 6.3.9
+  def room_member_wallets
+    room_id = params[:room_id]
 
-    result = WalletService.fund_wallet(@current_user.wallet_id, source_account_id, amount, currency)
-    render json: result, status: :accepted
-  end
+    if room_id.blank?
+      return render json: { error: "invalid_request", message: "room_id is required" }, status: :bad_request
+    end
 
-  # POST /wallet/v1/withdrawals - TMCP Protocol Section 6.6.2
-  def create_withdrawal
-    destination_account_id = params[:destination_account_id]
-    amount = params[:amount].to_f
-    currency = params[:currency] || "USD"
+    # Get room members from Matrix
+    member_user_ids = get_room_members(room_id)
 
-    result = WalletService.initiate_withdrawal(@current_user.wallet_id, destination_account_id, amount, currency)
-    render json: result, status: :accepted
+    if member_user_ids.empty?
+      return render json: { error: "not_found", message: "Room not found or empty" }, status: :not_found
+    end
+
+    # Resolve wallets for all members
+    wallet_info = member_user_ids.map do |user_id|
+      resolution = WalletService.resolve_user(user_id)
+
+      if resolution.key?(:error)
+        {
+          user_id: user_id,
+          has_wallet: false,
+          can_invite: true
+        }
+      else
+        verification = WalletService.get_verification_status(user_id)
+
+        {
+          user_id: user_id,
+          has_wallet: true,
+          wallet_id: resolution[:wallet_id],
+          verification_level: verification[:level] || 0,
+          verification_name: verification[:level_name] || "None"
+        }
+      end
+    end
+
+    render json: {
+      room_id: room_id,
+      member_count: wallet_info.count { |m| m[:has_wallet] },
+      non_wallet_count: wallet_info.count { |m| !m[:has_wallet] },
+      members: wallet_info
+    }
   end
 
   private
@@ -231,5 +257,11 @@ class Api::V1::WalletController < ApplicationController
     # Mock room membership validation
     # In production, query Matrix homeserver
     true # Simplified for demo
+  end
+
+  def get_room_members(room_id)
+    # Mock room members - in production, query Matrix homeserver
+    # Returns array of Matrix user IDs
+    [ "@alice:tween.example", "@bob:tween.example", "@charlie:tween.example" ]
   end
 end

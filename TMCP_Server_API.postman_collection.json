@@ -1,0 +1,1244 @@
+{
+  "info": {
+    "name": "TMCP Server API - Verified Implementation",
+    "description": "Tween Mini-App Communication Protocol Server - Complete API Collection\n\n**Protocol Specification:** [TMCP-Proto](https://github.com/Tween-IM/TMCP-Proto)\n\n## PROTO.md Compliance Summary\n\n| Component | Status | PROTO.md Reference |\n|-----------|--------|-------------------|\n| OAuth 2.0 + PKCE | ✓ Compliant | Section 4 (Identity and Authentication) |\n| Authorization Scopes | ✓ Compliant | Section 5.2 (TMCP Scopes) |\n| Wallet Integration | ✓ Compliant | Section 6 (Wallet Integration Layer) |\n| External Accounts | ✓ Compliant | Section 6.5 (External Account Interface) |\n| Withdrawals | ✓ Compliant | Section 6.6 (Withdrawal Interface) |\n| Payment Processing | ✓ Compliant | Section 7.1 (Payment State Machine) |\n| P2P Transfers | ✓ Compliant | Section 7.2 (P2P Transfer Flow) |\n| Group Gifts | ✓ EXACT MATCH | Section 7.5 (Gift Distribution Algorithms) |\n| Storage | ✓ Compliant | Section 10.3 (Mini-App Storage) |\n| Matrix Events | ✓ Compliant | Section 8 (Event System) |\n\n## Protocol References by Endpoint\n\n### OAuth 2.0 (Section 4)\n- Authorization Request → Section 4.1, 4.2\n- Token Exchange → Section 4.3, 4.4\n- Device Authorization → Section 4.5\n\n### Wallet Operations (Section 6)\n- Balance/Transactions → Section 6.1\n- User Resolution → Section 6.2.3\n- External Accounts → Section 6.5\n- Withdrawals → Section 6.6\n\n### Payments (Section 7.1)\n- Payment Request → Section 7.1.1\n- MFA Challenge → Section 7.1.4\n- Authorization → Section 7.1.2\n- Refund → Section 7.1.3\n\n### P2P Transfers (Section 7.2)\n- Initiate → Section 7.2.1\n- Accept/Reject → Section 7.2.2\n\n### Group Gifts (Section 7.5)\n- Create → Section 7.5.1-7.5.4\n- Distribution Algorithms → Section 7.5.5\n- Open → Section 7.5.6\n\n### Storage (Section 10.3)\n- CRUD Operations → Section 10.3.2\n- Batch Operations → Section 10.3.3\n\n### Matrix Events (Section 8)\n- Event Types → Section 8.1-8.6\n- Payment Events → Section 8.3\n- Gift Events → Section 8.4\n\n**Based on actual codebase implementation** (routes.rb and controller files)\n\n## API Coverage\n\n| Category | Endpoints |\n|----------|-----------|\n| **OAuth 2.0 + PKCE** | Authorize, Token, Device Auth |\n| **Wallet Operations** | Balance, Transactions, Verification, User Resolution |\n| **P2P Transfers** | Initiate, Accept, Reject |\n| **Payments** | Create, Authorize, MFA, Refund |\n| **Group Gifts** | Create (Individual/Group), Open |\n| **Mini-App Storage** | CRUD, Batch, List, Info |\n| **Mini-App Store** | Categories, Apps, Install, Uninstall |\n| **Client Capabilities** | Get All, Check Single |\n| **Matrix AS** | Transaction, User, Room, Ping, ThirdParty |\n| **External Accounts** | Link, Verify, Fund, Withdraw |\n\n## Routes Verified Against\n- `config/routes.rb` - Complete route definitions\n- `app/controllers/api/v1/oauth_controller.rb` - OAuth implementation\n- `app/controllers/api/v1/oauth/device_authorization_controller.rb` - Device auth\n- `app/controllers/api/v1/oauth/device_token_controller.rb` - Device token\n- `app/controllers/api/v1/wallet_controller.rb` - Wallet operations\n- `app/controllers/api/v1/payments_controller.rb` - Payment processing\n- `app/controllers/api/v1/gifts_controller.rb` - Gift operations\n- `app/controllers/api/v1/storage_controller.rb` - Storage operations\n- `app/controllers/api/v1/store_controller.rb` - Mini-app store\n- `app/controllers/api/v1/client/capabilities_controller.rb` - Capabilities\n- `app/controllers/matrix_controller.rb` - Matrix AS endpoints\n\n## Authentication\n- Most endpoints require `Authorization: Bearer <TEP_TOKEN>`\n- OAuth endpoints use `application/x-www-form-urlencoded`\n- Matrix AS endpoints use HS token from `MATRIX_HS_TOKEN` env var\n\n## Environment Variables Required\n| Variable | Description | Example |\n|----------|-------------|---------|\n| baseUrl | Server base URL | `http://localhost:3000` |\n| clientId | Doorkeeper app UID | `ma_shop_001` |\n| clientSecret | Doorkeeper app secret | `secret_abc123` |\n| accessToken | TEP token | `tep.eyJ...` |\n| refreshToken | Refresh token | `rt_xyz789...` |\n| matrixHsToken | Matrix AS token | From homeserver registration |\n| userId | Matrix user ID | `@alice:tween.example` |\n\n## Implementation Notes\n- Device authorization uses 8-char user codes (no dashes)\n- Device auth status check at `GET /oauth2/device?user_code=XXX`\n- `consent` endpoint defined in routes but not yet implemented\n- Capabilities endpoint returns detailed feature sets",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "clientId",
+      "value": "ma_shop_001",
+      "type": "string"
+    },
+    {
+      "key": "clientSecret",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "matrixHsToken",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "userId",
+      "value": "@alice:tween.example",
+      "type": "string"
+    },
+    {
+      "key": "walletId",
+      "value": "tw_user_12345",
+      "type": "string"
+    },
+    {
+      "key": "paymentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transferId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "giftId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "miniappId",
+      "value": "ma_shop_001",
+      "type": "string"
+    },
+    {
+      "key": "deviceCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userCode",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Environment Setup",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/check",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "check"]
+            },
+            "description": "**Route:** `get \"health/check\"`\n\nVerifies the server is running and healthy.\n\n**Response (200):**\n```json\n{ \"status\": \"ok\" }\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Test Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.access_token) {",
+                  "    pm.collectionVariables.set('accessToken', jsonData.access_token);",
+                  "    pm.environment.set('accessToken', jsonData.access_token);",
+                  "}",
+                  "if (jsonData.refresh_token) {",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.refresh_token);",
+                  "    pm.environment.set('refreshToken', jsonData.refresh_token);",
+                  "}",
+                  "if (jsonData.user_id) {",
+                  "    pm.collectionVariables.set('userId', jsonData.user_id);",
+                  "}",
+                  "if (jsonData.wallet_id) {",
+                  "    pm.collectionVariables.set('walletId', jsonData.wallet_id);",
+                  "}",
+                  "console.log('Token generated for:', jsonData.user_id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "grant_type", "value": "authorization_code"},
+                {"key": "code", "value": "demo_code"},
+                {"key": "state", "value": "demo_state"},
+                {"key": "redirect_uri", "value": "https://miniapp.example.com/callback"},
+                {"key": "client_id", "value": "{{clientId}}"},
+                {"key": "client_secret", "value": "{{clientSecret}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/oauth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "oauth", "token"]
+            },
+            "description": "**Route:** `POST /api/v1/oauth/token`\n\nExchange authorization code for TEP token.\n\n**Implementation:** `app/controllers/api/v1/oauth_controller.rb:135-218`\n\n**Response:**\n```json\n{\n  \"access_token\": \"tep.eyJ...\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 86400,\n  \"refresh_token\": \"...\",\n  \"scope\": \"user:read wallet:balance\",\n  \"user_id\": \"@authenticated_user:tween.example\",\n  \"wallet_id\": \"tw_test_wallet_123\"\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Setup environment and obtain test tokens."
+    },
+    {
+      "name": "1. OAuth 2.0 Authentication (Section 4)",
+      "item": [
+        {
+          "name": "Authorization Request",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/oauth/authorize?response_type=code&client_id={{clientId}}&redirect_uri=https://miniapp.example.com/callback&scope=user:read%20wallet:balance&state={{$randomUUID}}&code_challenge_method=S256&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "oauth", "authorize"],
+              "query": [
+                {"key": "response_type", "value": "code", "description": "Must be 'code'"},
+                {"key": "client_id", "value": "{{clientId}}", "description": "Mini-app client ID (app_id)"},
+                {"key": "redirect_uri", "value": "https://miniapp.example.com/callback", "description": "Callback URL"},
+                {"key": "scope", "value": "user:read wallet:balance", "description": "Space-separated scopes"},
+                {"key": "state", "value": "{{$randomUUID}}", "description": "CSRF protection token"},
+                {"key": "code_challenge_method", "value": "S256", "description": "PKCE method"},
+                {"key": "code_challenge", "value": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", "description": "SHA-256 hash of verifier"}
+              ]
+            },
+            "description": "**Route:** `GET /api/v1/oauth/authorize`\n\n**PROTO.md Reference:** Section 4.1 (Authorization Endpoint), Section 4.2 (PKCE)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#41-authorization-endpoint\n\n**Implementation:** `app/controllers/api/v1/oauth_controller.rb:7-77`\n\n**Required Parameters:**\n- `response_type`: Must be `code`\n- `client_id`: Mini-app app_id (looks up MiniApp with status: :active)\n- `redirect_uri`: Callback URL\n- `scope`: Space-separated list\n- `state`: CSRF token\n- `code_challenge_method`: Must be `S256`\n- `code_challenge`: Base64url SHA-256 of code_verifier\n\n**Valid Scopes (from controller line 32):**\n```\nuser:read, user:read:extended, user:read:contacts,\nwallet:balance, wallet:pay, wallet:history,\nmessaging:send, messaging:read,\nstorage:read, storage:write\n```\n\n**Response:** 302 redirect to MAS with params\n\n**Protocol Compliance:**\n- ✓ PKCE required (S256 only, per Section 4.2)\n- ✓ State parameter for CSRF protection\n- ✓ Client ID validation against MiniApp table"
+          },
+          "response": []
+        },
+        {
+          "name": "Device Authorization",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "pm.collectionVariables.set('deviceCode', jsonData.device_code);",
+                  "pm.collectionVariables.set('userCode', jsonData.user_code);",
+                  "console.log('Device code:', jsonData.device_code);",
+                  "console.log('User code:', jsonData.user_code);",
+                  "console.log('Verification URL:', jsonData.verification_uri_complete);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "client_id", "value": "{{clientId}}"},
+                {"key": "scope", "value": "urn:matrix:org.matrix.msc2967.client:api:*"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/oauth2/device/authorization",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth2", "device", "authorization"]
+            },
+            "description": "**Route:** `POST /oauth2/device/authorization`\n\n**PROTO.md Reference:** Section 4.5 (Device Authorization Grant)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#45-device-authorization-grant\n\n**Implementation:** `app/controllers/api/v1/oauth/device_authorization_controller.rb:6-29`\n\n**Request Parameters:**\n- `client_id`: Doorkeeper application UID\n- `scope`: Space-separated scopes (optional)\n- `miniapp_context`: JSON string (optional)\n\n**Valid TMCP Scopes (lines 81-87):**\n```\nuser:read, user:read:extended, user:read:contacts\nwallet:balance, wallet:pay, wallet:history, wallet:request\nmessaging:send, messaging:read\nstorage:read, storage:write, webhook:send\nroom:create, room:invite\n```\n\n**Response (200):**\n```json\n{\n  \"device_code\": \"abc123...\",\n  \"user_code\": \"ABCDEFGH\",\n  \"verification_uri\": \"http://localhost:3000/oauth2/device\",\n  \"verification_uri_complete\": \"http://localhost:3000/oauth2/device?user_code=ABCDEFGH\",\n  \"expires_in\": 900,\n  \"interval\": 5\n}\n```\n\n**Notes:**\n- User code is 8 characters, alphanumeric, no dashes\n- Code is generated using `SecureRandom.urlsafe_base64` stripped of `-` and `_`\n\n**Protocol Compliance:**\n- ✓ Device code returned for polling\n- ✓ User code for manual verification\n- ✓ Verification URI complete with user code\n- ✓ Expires in and interval for polling"
+          },
+          "response": []
+        },
+        {
+          "name": "Device Auth Status Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/oauth2/device?user_code={{userCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth2", "device"],
+              "query": [{"key": "user_code", "value": "{{userCode}}"}]
+            },
+            "description": "**Route:** `GET /oauth2/device`\n\n**Implementation:** `app/controllers/api/v1/oauth/device_authorization_controller.rb:31-55`\n\nCheck if user has completed device authorization.\n\n**Response - Pending (200):**\n```json\n{\n  \"user_code\": \"ABCDEFGH\",\n  \"status\": \"pending\"\n}\n```\n\n**Response - Expired (400):**\n```json\n{\n  \"error\": \"expired_token\",\n  \"error_description\": \"Device authorization has expired\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Device Token Exchange",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.access_token) {",
+                  "    pm.collectionVariables.set('accessToken', jsonData.access_token);",
+                  "    pm.environment.set('accessToken', jsonData.access_token);",
+                  "}",
+                  "if (jsonData.refresh_token) {",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.refresh_token);",
+                  "    pm.environment.set('refreshToken', jsonData.refresh_token);",
+                  "}",
+                  "console.log('Device token exchange completed');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "grant_type", "value": "urn:ietf:params:oauth:grant-type:device_code"},
+                {"key": "device_code", "value": "{{deviceCode}}"},
+                {"key": "client_id", "value": "{{clientId}}"},
+                {"key": "client_secret", "value": "{{clientSecret}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/oauth2/device/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["oauth2", "device", "token"]
+            },
+            "description": "**Route:** `POST /oauth2/device/token`\n\n**Implementation:** `app/controllers/api/v1/oauth/device_token_controller.rb:2-69`\n\n**Request Parameters:**\n- `grant_type`: `urn:ietf:params:oauth:grant-type:device_code`\n- `device_code`: From device authorization\n- `client_id`: Doorkeeper app UID\n- `client_secret`: Doorkeeper app secret\n\n**Optional (for dev/test):**\n- `matrix_access_token`: For MAS authentication\n- `user_id`: Override user ID\n\n**Response - Authorization Pending (400):**\n```json\n{\n  \"error\": \"authorization_pending\",\n  \"error_description\": \"User has not completed authorization\"\n}\n```\n\n**Response - Success (200):**\n```json\n{\n  \"access_token\": \"tep.eyJ...\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 86400,\n  \"refresh_token\": \"...\",\n  \"scope\": \"...\",\n  \"user_id\": \"@alice:tween.example\",\n  \"wallet_id\": \"tw_...\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Token Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', jsonData.access_token);",
+                  "pm.environment.set('accessToken', jsonData.access_token);",
+                  "pm.collectionVariables.set('refreshToken', jsonData.refresh_token);",
+                  "pm.environment.set('refreshToken', jsonData.refresh_token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "grant_type", "value": "refresh_token"},
+                {"key": "refresh_token", "value": "{{refreshToken}}"},
+                {"key": "client_id", "value": "{{clientId}}"},
+                {"key": "client_secret", "value": "{{clientSecret}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/oauth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "oauth", "token"]
+            },
+            "description": "**Route:** `POST /api/v1/oauth/token`\n\n**Implementation:** `app/controllers/api/v1/oauth_controller.rb:185-214`\n\nRefresh TEP token using refresh token.\n\n**Request Parameters:**\n- `grant_type`: `refresh_token`\n- `refresh_token`: Valid refresh token\n- `client_id`: Doorkeeper app UID\n- `client_secret`: Doorkeeper app secret\n\n**Response:**\n```json\n{\n  \"access_token\": \"tep.eyJ...\",\n  \"token_type\": \"Bearer\",\n  \"expires_in\": 86400,\n  \"refresh_token\": \"new_refresh_token\",\n  \"scope\": \"user:read wallet:balance\"\n}\n```\n\n**Error - Invalid (400):**\n```json\n{\n  \"error\": \"invalid_grant\",\n  \"error_description\": \"Refresh token expired or invalid\"\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "OAuth 2.0 + PKCE and Device Authorization Grant endpoints."
+    },
+    {
+      "name": "2. Wallet Operations (Section 6)",
+      "item": [
+        {
+          "name": "Get Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "balance"]
+            },
+            "description": "**Route:** `GET /api/v1/wallet/balance`\n\n**PROTO.md Reference:** Section 6.1 (Wallet Interface)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#61-wallet-interface\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:8-12`\n\n**Required:** TEP token with `wallet:balance` scope (validated at line 5, 218-222)\n\n**Response:** Delegates to `WalletService.get_balance(@current_user.matrix_user_id)`\n\n**Protocol Compliance:**\n- ✓ Scope-based access control (`wallet:balance`)\n- ✓ Delegates to WalletService as specified"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/transactions?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "transactions"],
+              "query": [
+                {"key": "limit", "value": "50", "description": "1-100, clamped"},
+                {"key": "offset", "value": "0"}
+              ]
+            },
+            "description": "**Route:** `GET /api/v1/wallet/transactions`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:14-21`\n\n**Query Parameters:**\n- `limit`: 1-100, default 50, clamped\n- `offset`: default 0\n\n**Response:** Delegates to `WalletService.get_transactions`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Verification Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/verification",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "verification"]
+            },
+            "description": "**Route:** `GET /api/v1/wallet/verification`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:23-27`\n\n**Response:** Delegates to `WalletService.get_verification_status`"
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve User Wallet",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/resolve/@bob:tween.example?room_id=!chat123:tween.example",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "resolve", "@bob:tween.example"],
+              "query": [
+                {"key": "room_id", "value": "!chat123:tween.example", "description": "Optional for privacy check"}
+              ]
+            },
+            "description": "**Route:** `GET /api/v1/wallet/resolve/:user_id`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:29-46`\n\n**Privacy Check (lines 33-37):**\n- If `room_id` provided, verifies both users share the room\n- Returns 403 if users don't share a room\n\n**Response:**\n- Success (200): JSON with wallet info\n- Not Found (404): If user has no wallet\n```json\n{\n  \"error\": {\n    \"code\": \"FORBIDDEN\",\n    \"message\": \"Users do not share a room\"\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Batch Resolve Users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_ids\": [\"@alice:tween.example\", \"@bob:tween.example\"],\n  \"room_id\": \"!chat123:tween.example\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/resolve/batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "resolve", "batch"]
+            },
+            "description": "**Route:** `POST /api/v1/wallet/resolve/batch`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:48-75`\n\n**Validation (lines 53-55):**\n- Maximum 100 users per request\n\n**Request Body:**\n```json\n{\n  \"user_ids\": [\"@alice:tween.example\", \"@bob:tween.example\"],\n  \"room_id\": \"!chat123:tween.example\"\n}\n```\n\n**Response:**\n```json\n{\n  \"results\": [...],\n  \"resolved_count\": 2,\n  \"total_count\": 2\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Wallet balance, transactions, and user resolution endpoints."
+    },
+    {
+      "name": "3. P2P Transfers (Section 7.2)",
+      "item": [
+        {
+          "name": "Initiate P2P Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.transfer_id) {",
+                  "    pm.collectionVariables.set('transferId', jsonData.transfer_id);",
+                  "    pm.environment.set('transferId', jsonData.transfer_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "recipient", "value": "@bob:tween.example"},
+                {"key": "amount", "value": "5000.00"},
+                {"key": "currency", "value": "USD"},
+                {"key": "note", "value": "Lunch money"},
+                {"key": "room_id", "value": "!chat123:tween.example"},
+                {"key": "idempotency_key", "value": "{{$randomUUID}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/p2p/initiate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "p2p", "initiate"]
+            },
+            "description": "**Route:** `POST /api/v1/wallet/p2p/initiate`\n\n**PROTO.md Reference:** Section 7.2.1 (P2P Transfer Initiation)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#721-p2p-transfer-initiation\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:77-130`\n\n**Required Parameters (lines 80-85):**\n- `recipient`: Matrix User ID\n- `amount`: Numeric value\n- `currency`: Currency code\n- `idempotency_key`: Unique key for deduplication\n\n**Scope Validation (lines 88-90):**\n- Requires `wallet:pay` scope\n\n**Idempotency (lines 93-96):**\n- Cache key: `p2p_idempotent:{user_id}:{idempotency_key}`\n- 24-hour expiration\n\n**Room Membership Check (lines 105-108):**\n- Validates both users share the room if `room_id` provided\n\n**Matrix Event (lines 124-125):**\n- Publishes event via `MatrixEventService.publish_p2p_transfer`\n\n**Protocol Compliance:**\n- ✓ Idempotency key support\n- ✓ Room membership verification\n- ✓ Event publishing for transfer notifications"
+          },
+          "response": []
+        },
+        {
+          "name": "Accept P2P Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/p2p/{{transferId}}/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "p2p", "{{transferId}}", "accept"]
+            },
+            "description": "**Route:** `POST /api/v1/wallet/p2p/:transfer_id/accept`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:132-138`\n\n**Response:** Delegates to `WalletService.accept_p2p_transfer`"
+          },
+          "response": []
+        },
+        {
+          "name": "Reject P2P Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/p2p/{{transferId}}/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "p2p", "{{transferId}}", "reject"]
+            },
+            "description": "**Route:** `POST /api/v1/wallet/p2p/:transfer_id/reject`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:140-149`\n\n**Response:**\n```json\n{\n  \"transfer_id\": \"...\",\n  \"status\": \"rejected\",\n  \"refund_initiated\": true,\n  \"refund_expected_at\": \"2025-01-05T15:30:00Z\"\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "P2P transfer initiation, acceptance, and rejection."
+    },
+    {
+      "name": "4. Payment Processing (Section 7.1)",
+      "item": [
+        {
+          "name": "Create Payment Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.payment_id) {",
+                  "    pm.collectionVariables.set('paymentId', jsonData.payment_id);",
+                  "    pm.environment.set('paymentId', jsonData.payment_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "amount", "value": "15000.00"},
+                {"key": "currency", "value": "USD"},
+                {"key": "description", "value": "Order #12345"},
+                {"key": "merchant_order_id", "value": "ORDER-2024-12345"},
+                {"key": "callback_url", "value": "https://miniapp.example.com/webhooks/payment"},
+                {"key": "idempotency_key", "value": "{{$randomUUID}}"},
+                {"key": "items", "value": "[{\"item_id\":\"prod_123\",\"name\":\"Product\",\"quantity\":2,\"unit_price\":7500.00}]"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payments", "request"]
+            },
+            "description": "**Route:** `POST /api/v1/payments/request`\n\n**PROTO.md Reference:** Section 7.1.1 (Payment Request Creation)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#711-payment-request-creation\n\n**Implementation:** `app/controllers/api/v1/payments_controller.rb:8-86`\n\n**Required Parameters (lines 12-17):**\n- `amount`: 0.01 - 50,000.00\n- `currency`: USD, EUR, GBP (line 27)\n- `description`: Text description\n- `merchant_order_id`: Alphanumeric, hyphens, underscores, 1-100 chars (line 44-45)\n- `callback_url`: Must be HTTPS (lines 32-40)\n\n**Validation (lines 66):**\n- MFA required if amount > $50.00\n\n**Scope:** Requires `wallet:pay` scope (validated at line 221-224)\n\n**Protocol Compliance:**\n- ✓ MFA threshold check ($50.00)\n- ✓ HTTPS callback URL requirement\n- ✓ Amount range validation\n- ✓ Idempotency support"
+          },
+          "response": []
+        },
+        {
+          "name": "Authorize Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{paymentId}}/authorize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payments", "{{paymentId}}", "authorize"]
+            },
+            "description": "**Route:** `POST /api/v1/payments/:payment_id/authorize`\n\n**Implementation:** `app/controllers/api/v1/payments_controller.rb:88-109`\n\n**Logic (lines 104-108):**\n- If `payment_data[\"mfa_required\"]` is true, calls `handle_mfa_authorization`\n- Otherwise calls `complete_payment_authorization`\n\n**Matrix Event (lines 272-282):**\n- Publishes via `MatrixEventService.publish_payment_completed`"
+          },
+          "response": []
+        },
+        {
+          "name": "MFA Challenge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{paymentId}}/mfa/challenge",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payments", "{{paymentId}}", "mfa", "challenge"]
+            },
+            "description": "**Route:** `POST /api/v1/payments/:payment_id/mfa/challenge`\n\n**Implementation:** `app/controllers/api/v1/payments_controller.rb:138-159`\n\n**Response (202 Payment Required):**\n```json\n{\n  \"payment_id\": \"...\",\n  \"status\": \"mfa_required\",\n  \"mfa_challenge\": {\n    \"challenge_id\": \"mfa_...\",\n    \"methods\": [{\"type\": \"transaction_pin\", \"enabled\": true, \"display_name\": \"Transaction PIN\"}]\n  }\n}\n```\n\n**Error (400):** If MFA not required for payment"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify MFA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{paymentId}}/mfa/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payments", "{{paymentId}}", "mfa", "verify"]
+            },
+            "description": "**Route:** `POST /api/v1/payments/:payment_id/mfa/verify`\n\n**Implementation:** `app/controllers/api/v1/payments_controller.rb:161-193`\n\n**Request Parameters:**\n- `challenge_id`: From MFA challenge\n- `method`: `transaction_pin`, `biometric`, or `totp`\n- `credentials`: Verification credentials\n\n**Methods Supported (line 174):**\n- `transaction_pin`\n- `biometric`\n- `totp`"
+          },
+          "response": []
+        },
+        {
+          "name": "Refund Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{paymentId}}/refund",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payments", "{{paymentId}}", "refund"]
+            },
+            "description": "**Route:** `POST /api/v1/payments/:payment_id/refund`\n\n**Implementation:** `app/controllers/api/v1/payments_controller.rb:111-136`\n\n**Validation:**\n- Payment must have `status: \"completed\"` (line 121)\n- Refund amount cannot exceed original payment (lines 125-128)\n\n**Request Body:**\n```json\n{\n  \"amount\": 15000.00,\n  \"reason\": \"customer_request\"\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Mini-app payment processing with MFA support."
+    },
+    {
+      "name": "5. Group Gifts (Section 7.5)",
+      "item": [
+        {
+          "name": "Create Gift",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.gift_id) {",
+                  "    pm.collectionVariables.set('giftId', jsonData.gift_id);",
+                  "    pm.environment.set('giftId', jsonData.gift_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "type", "value": "group", "description": "individual or group"},
+                {"key": "room_id", "value": "!groupchat:tween.example"},
+                {"key": "total_amount", "value": "10000.00"},
+                {"key": "currency", "value": "USD"},
+                {"key": "count", "value": "10", "description": "2-100 for group gifts"},
+                {"key": "distribution", "value": "random", "description": "random or equal"},
+                {"key": "message", "value": "Happy Friday! 🎁"},
+                {"key": "expires_in_seconds", "value": "86400"},
+                {"key": "idempotency_key", "value": "{{$randomUUID}}"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gifts/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "gifts", "create"]
+            },
+            "description": "**Route:** `POST /api/v1/gifts/create`\n\n**PROTO.md Reference:** Section 7.5.1-7.5.4 (Gift Creation), Section 7.5.5 (Distribution Algorithms)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#75-group-gift-distribution\n\n**Implementation:** `app/controllers/api/v1/gifts_controller.rb:8-135`\n\n**For Individual Gifts:**\n- `type`: `individual`\n- `recipient`: Matrix User ID\n- `amount`: 0.01 - 50,000.00\n\n**For Group Gifts:**\n- `type`: `group`\n- `room_id`: Room for the gift\n- `total_amount`: 0.01 - 50,000.00\n- `count`: 2 - 100\n- `distribution`: `random` or `equal`\n\n**Distribution Algorithms (lines 98-103):**\n- `equal`: Divides amount equally (EXACT MATCH with Section 7.5.5)\n- `random`: Each amount 10-30% of average, shuffled (EXACT MATCH with Section 7.5.5)\n\n**Matrix Events (lines 65, 132):**\n- Publishes via `MatrixEventService.publish_gift_created`\n\n**Protocol Compliance:**\n- ✓ Individual and group gift support\n- ✓ Equal distribution algorithm (Section 7.5.5)\n- ✓ Random distribution algorithm (Section 7.5.5)\n- ✓ Count range validation (2-100)\n- ✓ Amount range validation"
+          },
+          "response": []
+        },
+        {
+          "name": "Open Gift",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/gifts/{{giftId}}/open",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "gifts", "{{giftId}}", "open"]
+            },
+            "description": "**Route:** `POST /api/v1/gifts/:gift_id/open`\n\n**Implementation:** `app/controllers/api/v1/gifts_controller.rb:137-221`\n\n**Validations (lines 142-172):**\n- Gift must exist (not expired)\n- User must not have already opened\n- Gift must have remaining shares\n- Gift must be `active` status\n\n**Matrix Event (lines 194-203):**\n- Publishes via `MatrixEventService.publish_gift_opened`\n\n**Error Responses:**\n- 404: Gift not found\n- 409: Already opened\n- 410: Gift empty\n\n**Response:**\n```json\n{\n  \"gift_id\": \"gift_abc123\",\n  \"amount_received\": 1250.00,\n  \"message\": \"Happy Friday!\",\n  \"stats\": {\n    \"total_opened\": 3,\n    \"total_remaining\": 7,\n    \"your_rank\": 3\n  }\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Group gift creation and opening."
+    },
+    {
+      "name": "6. Mini-App Storage (Section 10.3)",
+      "item": [
+        {
+          "name": "List Storage Keys",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/storage?prefix=cart_&limit=100&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "storage"],
+              "query": [
+                {"key": "prefix", "value": "cart_"},
+                {"key": "limit", "value": "100"},
+                {"key": "offset", "value": "0"}
+              ]
+            },
+            "description": "**Route:** `GET /api/v1/storage`\n\n**PROTO.md Reference:** Section 10.3.2 (Storage Operations)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#1032-storage-operations\n\n**Implementation:** `app/controllers/api/v1/storage_controller.rb:10-25`\n\n**Query Parameters:**\n- `prefix`: Filter keys\n- `limit`: 1-1000, default 100\n- `offset`: Pagination offset\n\n**Requires:** `storage:read` scope\n\n**Protocol Compliance:**\n- ✓ Prefix filtering\n- ✓ Pagination support\n- ✓ Scope-based access control"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Storage Value",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "key", "value": "user_preferences"},
+                {"key": "value", "value": "{\"theme\":\"dark\"}"},
+                {"key": "ttl", "value": "86400"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/storage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "storage"]
+            },
+            "description": "**Route:** `POST /api/v1/storage`\n\n**Implementation:** `app/controllers/api/v1/storage_controller.rb:28-49`\n\n**Requires:** `storage:write` scope\n\n**Response (201):**\n```json\n{\n  \"success\": true,\n  \"key\": \"user_preferences\",\n  \"created_at\": \"2025-01-05T14:00:00Z\",\n  \"updated_at\": \"2025-01-05T14:00:00Z\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Storage Value",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/storage/user_preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "storage", "user_preferences"]
+            },
+            "description": "**Route:** `GET /api/v1/storage/:key`\n\n**Implementation:** `app/controllers/api/v1/storage_controller.rb:72-84`\n\n**Requires:** `storage:read` scope\n\n**Response (200):**\n```json\n{\n  \"key\": \"user_preferences\",\n  \"value\": \"{\\\"theme\\\":\\\"dark\\\"}\"\n}\n```\n\n**Response (404):** Key not found or expired"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Storage Value",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "value", "value": "{\"theme\":\"light\"}"},
+                {"key": "ttl", "value": "3600"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/storage/user_preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "storage", "user_preferences"]
+            },
+            "description": "**Route:** `PUT /api/v1/storage/:key`\n\n**Implementation:** `app/controllers/api/v1/storage_controller.rb:51-70`\n\n**Requires:** `storage:write` scope"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Storage Value",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/storage/user_preferences",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "storage", "user_preferences"]
+            },
+            "description": "**Route:** `DELETE /api/v1/storage/:key`\n\n**Implementation:** `app/controllers/api/v1/storage_controller.rb:86-98`\n\n**Requires:** `storage:write` scope"
+          },
+          "response": []
+        },
+        {
+          "name": "Batch Operations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"operation\": \"get\",\n  \"keys\": [\"cart_items\", \"user_preferences\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/storage/batch",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "storage", "batch"]
+            },
+            "description": "**Route:** `POST /api/v1/storage/batch`\n\n**Implementation:** `app/controllers/api/v1/storage_controller.rb:100-128`\n\n**Operations:**\n- `get`: Requires `keys` array\n- `set`: Requires `data` hash\n\n**Batch Get Request:**\n```json\n{\n  \"operation\": \"get\",\n  \"keys\": [\"cart_items\", \"user_preferences\"]\n}\n```\n\n**Batch Set Request:**\n```json\n{\n  \"operation\": \"set\",\n  \"data\": {\n    \"key1\": \"value1\",\n    \"key2\": \"value2\"\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Storage Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/storage/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "storage", "info"]
+            },
+            "description": "**Route:** `GET /api/v1/storage/info`\n\n**Implementation:** `app/controllers/api/v1/storage_controller.rb:130-136`\n\n**Response:**\n```json\n{\n  \"used_bytes\": 5242880,\n  \"quota_bytes\": 10485760,\n  \"key_count\": 25,\n  \"max_keys\": 1000\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Mini-app key-value storage operations."
+    },
+    {
+      "name": "7. Mini-App Store",
+      "item": [
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/store/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "store", "categories"]
+            },
+            "description": "**Route:** `GET /api/v1/store/categories`\n\n**Implementation:** `app/controllers/api/v1/store_controller.rb:8-19`\n\n**Response:**\n```json\n{\n  \"categories\": [\n    {\"id\": \"shopping\", \"name\": \"Shopping\", \"icon\": \"🛒\", \"description\": \"E-commerce and retail apps\"},\n    {\"id\": \"finance\", \"name\": \"Finance\", \"icon\": \"💰\", \"description\": \"Financial and payment apps\"},\n    {\"id\": \"social\", \"name\": \"Social\", \"icon\": \"👥\", \"description\": \"Communication and social apps\"},\n    {\"id\": \"productivity\", \"name\": \"Productivity\", \"icon\": \"⚡\", \"description\": \"Tools and productivity apps\"},\n    {\"id\": \"entertainment\", \"name\": \"Entertainment\", \"icon\": \"🎮\", \"description\": \"Games and entertainment\"},\n    {\"id\": \"utilities\", \"name\": \"Utilities\", \"icon\": \"🔧\", \"description\": \"Utility and helper apps\"}\n  ]\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "List Apps",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/store/apps?category=all&sort=popular&limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "store", "apps"],
+              "query": [
+                {"key": "category", "value": "all", "description": "Filter by category"},
+                {"key": "sort", "value": "popular", "description": "popular, recent, rating, name"},
+                {"key": "limit", "value": "20", "description": "1-100"},
+                {"key": "offset", "value": "0"}
+              ]
+            },
+            "description": "**Route:** `GET /api/v1/store/apps`\n\n**Implementation:** `app/controllers/api/v1/store_controller.rb:21-90`\n\n**Query Parameters:**\n- `category`: Filter by manifest category\n- `sort`: `popular`, `recent`, `rating`, `name` (line 44-54)\n- `classification`: Filter by app classification\n- `limit`: 1-100, default 20\n- `offset`: Pagination offset\n\n**Sorting (lines 44-54):**\n- `popular`: install_count DESC\n- `recent`: created_at DESC\n- `rating`: install_count DESC (as proxy)\n- `name`: name ASC\n\n**Response:**\n```json\n{\n  \"apps\": [\n    {\n      \"miniapp_id\": \"ma_shop_001\",\n      \"name\": \"Shopping Assistant\",\n      \"classification\": \"community\",\n      \"category\": \"shopping\",\n      \"rating\": {\"average\": 4.5, \"count\": 100},\n      \"install_count\": 500,\n      \"icon_url\": \"...\",\n      \"version\": \"1.0.0\",\n      \"installed\": false\n    }\n  ],\n  \"pagination\": {\"total\": 50, \"limit\": 20, \"offset\": 0, \"has_more\": true}\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Install App",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/store/apps/{{miniappId}}/install",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "store", "apps", "{{miniappId}}", "install"]
+            },
+            "description": "**Route:** `POST /api/v1/store/apps/:miniapp_id/install`\n\n**Implementation:** `app/controllers/api/v1/store_controller.rb:92-137`\n\n**Validations (lines 97-109):**\n- App must exist with status: :active\n- User must not already have it installed\n- Preinstalled official apps with `removable: false` cannot be installed\n\n**Matrix Event (lines 120-129):**\n- Publishes `m.tween.miniapp.installed` event\n\n**Response (201):**\n```json\n{\n  \"miniapp_id\": \"ma_shop_001\",\n  \"status\": \"installed\",\n  \"install_id\": 123,\n  \"installed_at\": \"2025-01-05T14:00:00Z\"\n}\n```\n\n**Error (409):** Already installed\n**Error (404):** App not found"
+          },
+          "response": []
+        },
+        {
+          "name": "Uninstall App",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/store/apps/{{miniappId}}/install",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "store", "apps", "{{miniappId}}", "install"]
+            },
+            "description": "**Route:** `DELETE /api/v1/store/apps/:miniapp_id/install`\n\n**Implementation:** `app/controllers/api/v1/store_controller.rb:139-185`\n\n**Validations (lines 144-156):**\n- App must exist\n- Preinstalled official apps with `removable: false` cannot be uninstalled\n- User must have the app installed\n\n**Cleanup (line 178):**\n- Calls `StorageService.cleanup_user_app_data` to delete storage\n\n**Matrix Event (lines 168-175):**\n- Publishes `m.tween.miniapp.uninstalled` event\n\n**Response:**\n```json\n{\n  \"miniapp_id\": \"ma_shop_001\",\n  \"status\": \"uninstalled\",\n  \"uninstalled_at\": \"2025-01-05T14:00:00Z\"\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Mini-app store browsing and installation."
+    },
+    {
+      "name": "8. Client Capabilities",
+      "item": [
+        {
+          "name": "Get All Capabilities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities"]
+            },
+            "description": "**Route:** `GET /api/v1/capabilities`\n\n**Implementation:** `app/controllers/api/v1/client/capabilities_controller.rb:103-114`\n\n**Capabilities Defined (lines 4-98):**\n- camera, location, payment, storage, biometric, network, messaging, wallet, webview, keyboard\n\n**Response:**\n```json\n{\n  \"capabilities\": {\n    \"camera\": {\"supported\": true, \"permission_required\": true, \"methods\": [\"photo\", \"video\"]},\n    \"location\": {\"supported\": true, \"accuracy\": {\"default\": \"high\", \"options\": [\"high\", \"low\"]}},\n    \"payment\": {\"supported\": true, \"currencies\": [\"USD\", \"EUR\", \"GBP\"], \"max_amount\": 50000.00},\n    \"storage\": {\"supported\": true, \"quota_bytes\": 10485760, \"max_keys\": 1000},\n    \"biometric\": {\"supported\": true, \"methods\": [\"fingerprint\", \"face_recognition\", \"voice\"]},\n    \"wallet\": {\"supported\": true, \"p2p\": {\"max_amount\": 50000.00}}\n  },\n  \"server\": {\"name\": \"TMCP Server\", \"version\": \"1.5.0\", \"api_version\": \"v1\"},\n  \"rate_limits\": {...},\n  \"timestamp\": \"2025-01-05T14:00:00Z\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Single Capability",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/capabilities/payment?features=max_amount,currencies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "capabilities", "payment"],
+              "query": [
+                {"key": "features", "value": "max_amount,currencies", "description": "Comma-separated features"}
+              ]
+            },
+            "description": "**Route:** `GET /api/v1/capabilities/:capability`\n\n**Implementation:** `app/controllers/api/v1/client/capabilities_controller.rb:116-145`\n\n**Query Parameters:**\n- `features`: Comma-separated list of features to check\n\n**Response (200):**\n```json\n{\n  \"supported\": true,\n  \"capability\": \"payment\",\n  \"features\": {\n    \"requested\": {\"max_amount\": \"50000.00\", \"currencies\": [\"USD\"]},\n    \"supported\": [\"currencies\", \"max_amount\", \"mfa_threshold\", ...],\n    \"unsupported\": [],\n    \"missing\": []\n  },\n  \"permission_required\": false\n}\n```\n\n**Response - Unknown Capability (400):**\n```json\n{\n  \"supported\": false,\n  \"error\": \"UNKNOWN_CAPABILITY\",\n  \"message\": \"Capability 'unknown' is not defined\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Client Bootstrap",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "client_version", "value": "2.0.0"},
+                {"key": "platform", "value": "android"},
+                {"key": "device_id", "value": "device_abc123"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/client/bootstrap",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "client", "bootstrap"]
+            },
+            "description": "**Route:** `POST /api/v1/client/bootstrap`\n\n**Implementation:** `app/controllers/api/v1/client_controller.rb:60-83`\n\n**Request Parameters:**\n- `client_version`: Client app version\n- `platform`: android, ios, web, etc.\n- `device_id`: Device identifier\n\n**Response:**\n```json\n{\n  \"bootstrap_id\": \"bootstrap_abc123\",\n  \"official_apps\": [\n    {\n      \"miniapp_id\": \"ma_official_wallet\",\n      \"bundle_url\": \"https://cdn.tween.example/bundles/ma_official_wallet-2.1.0.bundle\",\n      \"bundle_hash\": \"sha256:...\",\n      \"credentials\": {\n        \"client_id\": \"ma_official_wallet\",\n        \"privileged_token\": \"tep.eyJ...\"\n      }\n    }\n  ]\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Check App Updates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"installed_apps\": [\n    {\"miniapp_id\": \"ma_shop_001\", \"current_version\": \"1.0.0\"}\n  ],\n  \"platform\": \"android\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/client/check-updates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "client", "check-updates"]
+            },
+            "description": "**Route:** `POST /api/v1/client/check-updates`\n\n**Implementation:** `app/controllers/api/v1/client_controller.rb:86-119`\n\n**Request:**\n```json\n{\n  \"installed_apps\": [\n    {\"miniapp_id\": \"ma_shop_001\", \"current_version\": \"1.0.0\"}\n  ],\n  \"platform\": \"android\"\n}\n```\n\n**Response:**\n```json\n{\n  \"updates_available\": [\n    {\n      \"miniapp_id\": \"ma_shop_001\",\n      \"current_version\": \"1.0.0\",\n      \"new_version\": \"1.2.0\",\n      \"update_type\": \"minor\",\n      \"mandatory\": false,\n      \"release_notes\": \"Bug fixes\",\n      \"download\": {\n        \"url\": \"https://cdn.tween.example/bundles/ma_shop_001-1.2.0.bundle\",\n        \"size_bytes\": 1048576,\n        \"hash\": \"sha256:...\"\n      }\n    }\n  ]\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Client capability negotiation and bootstrap."
+    },
+    {
+      "name": "9. Matrix Application Service (Section 8)",
+      "item": [
+        {
+          "name": "Process Transaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{matrixHsToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"events\": [\n    {\n      \"type\": \"m.room.message\",\n      \"content\": {\"msgtype\": \"m.text\", \"body\": \"Hello\"},\n      \"sender\": \"@alice:tween.example\",\n      \"room_id\": \"!chat123:tween.example\",\n      \"event_id\": \"$event123:tween.example\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/_matrix/app/v1/transactions/txn_abc123",
+              "host": ["{{baseUrl}}"],
+              "path": ["_matrix", "app", "v1", "transactions", "txn_abc123"]
+            },
+            "description": "**Route:** `PUT /_matrix/app/v1/transactions/:txn_id`\n\n**PROTO.md Reference:** Section 8.1 (Matrix Event System), Section 8.2 (Transaction Processing)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#81-matrix-event-system\n\n**Implementation:** `app/controllers/matrix_controller.rb:8-20`\n\n**Authentication:** Bearer HS token (line 95-101)\n\n**Event Processing (lines 11-16):**\n- Iterates through `events` array\n- Calls `process_matrix_event` for each\n\n**Event Types Handled (lines 111-119):**\n- `m.room.message`: Calls `handle_room_message`\n- `m.room.member`: Calls `handle_room_member`\n\n**TMCP Event Types Published (from implementation):**\n- `m.tween.payment.completed`: Section 8.3\n- `m.tween.wallet.p2p`: Section 8.3\n- `m.tween.gift.created`: Section 8.4\n- `m.tween.gift.opened`: Section 8.4\n- `m.tween.miniapp.launched`: Section 8.5\n- `m.room.tween.authorization`: Section 8.6\n\n**Response (200):**\n```json\n{}\n```\n\n**Protocol Compliance:**\n- ✓ HS token authentication\n- ✓ Transaction-based event delivery\n- ✓ Standard Matrix event types (m.room.message, m.room.member)\n- ✓ TMCP custom event types (m.tween.*)"
+          },
+          "response": []
+        },
+        {
+          "name": "Query User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{matrixHsToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/_matrix/app/v1/users/%40_tmcp_test:tween.example",
+              "host": ["{{baseUrl}}"],
+              "path": ["_matrix", "app", "v1", "users", "%40_tmcp_test:tween.example"]
+            },
+            "description": "**Route:** `GET /_matrix/app/v1/users/*user_id`\n\n**Implementation:** `app/controllers/matrix_controller.rb:22-38`\n\n**User ID Regex:** `@_tmcp_.*` and `ma_.*`\n\n**Response (200):** User exists\n**Response (404):** User not found\n\n**Implementation (lines 29-36):**\n- Unescapes user_id from URL\n- Looks up in User table by `matrix_user_id`\n- Returns 200 if found, 404 if not"
+          },
+          "response": []
+        },
+        {
+          "name": "Query Room",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{matrixHsToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/_matrix/app/v1/rooms/%23_tmcp_test:tween.example",
+              "host": ["{{baseUrl}}"],
+              "path": ["_matrix", "app", "v1", "rooms", "%23_tmcp_test:tween.example"]
+            },
+            "description": "**Route:** `GET /_matrix/app/v1/rooms/*room_alias`\n\n**Implementation:** `app/controllers/matrix_controller.rb:40-51`\n\n**Room Alias Regex:** `#_tmcp_.*`\n\n**Implementation (lines 46-49):**\n- Checks if alias starts with `#_tmcp`\n- Returns 200 if yes, 404 if no"
+          },
+          "response": []
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/_matrix/app/v1/ping",
+              "host": ["{{baseUrl}}"],
+              "path": ["_matrix", "app", "v1", "ping"]
+            },
+            "description": "**Route:** `GET /_matrix/app/v1/ping`\n\n**Implementation:** `app/controllers/matrix_controller.rb:53-56`\n\n**Response (200):**\n```json\n{}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Third-Party Protocols",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{matrixHsToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/_matrix/app/v1/thirdparty/location",
+              "host": ["{{baseUrl}}"],
+              "path": ["_matrix", "app", "v1", "thirdparty", "location"]
+            },
+            "description": "**Routes:**\n- `GET /_matrix/app/v1/thirdparty/location`\n- `GET /_matrix/app/v1/thirdparty/user`\n- `GET /_matrix/app/v1/thirdparty/location/:protocol`\n- `GET /_matrix/app/v1/thirdparty/user/:protocol`\n\n**Implementation:** `app/controllers/matrix_controller.rb:58-88`\n\n**Response:**\n```json\n[]\n```\n\n**Note:** Reserved for future use per PROTO.md"
+          },
+          "response": []
+        }
+      ],
+      "description": "Matrix Application Service endpoints."
+    },
+    {
+      "name": "10. External Accounts (Section 6.5, 6.6)",
+      "item": [
+        {
+          "name": "Link External Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_type\": \"bank_account\",\n  \"account_details\": {\n    \"bank_name\": \"Example Bank\",\n    \"account_number_last4\": \"1234\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/external/link",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "external", "link"]
+            },
+            "description": "**Route:** `POST /api/v1/wallet/external/link`\n\n**PROTO.md Reference:** Section 6.5 (External Account Interface)\n\n**Protocol Link:** https://github.com/Tween-IM/TMCP-Proto#65-external-account-interface\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:151-162`\n\n**Account Types (line 156):**\n- `bank_account`, `debit_card`, `credit_card`, `digital_wallet`, `mobile_money`\n\n**Response (201):**\n```json\n{\n  \"external_account_id\": \"ext_acc_abc123\",\n  \"account_type\": \"bank_account\",\n  \"status\": \"pending_verification\",\n  \"last4\": \"1234\"\n}\n```\n\n**Protocol Compliance:**\n- ✓ Multiple account type support\n- ✓ Verification status tracking\n- ✓ Last4 masking for security"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify External Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/external/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "external", "verify"]
+            },
+            "description": "**Route:** `POST /api/v1/wallet/external/verify`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:164-171`"
+          },
+          "response": []
+        },
+        {
+          "name": "Fund Wallet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "source_account_id", "value": "ext_acc_abc123"},
+                {"key": "amount", "value": "1000.00"},
+                {"key": "currency", "value": "USD"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/funding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "funding"]
+            },
+            "description": "**Route:** `POST /api/v1/wallet/funding`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:173-181`\n\n**Response (202):**\n```json\n{\n  \"funding_id\": \"fund_abc123\",\n  \"status\": \"processing\",\n  \"amount\": 1000.00,\n  \"estimated_arrival\": \"2025-01-05T17:00:00Z\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Initiate Withdrawal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{accessToken}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "destination_account_id", "value": "ext_acc_abc123"},
+                {"key": "amount", "value": "500.00"},
+                {"key": "currency", "value": "USD"}
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallet/withdrawals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallet", "withdrawals"]
+            },
+            "description": "**Route:** `POST /api/v1/wallet/withdrawals`\n\n**Implementation:** `app/controllers/api/v1/wallet_controller.rb:183-191`\n\n**Response (202):**\n```json\n{\n  \"withdrawal_id\": \"wd_abc123\",\n  \"status\": \"pending_approval\",\n  \"amount\": 500.00,\n  \"estimated_arrival\": \"2025-01-08T14:30:00Z\"\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "External account management and wallet funding."
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// PROTO.md Compliance Verification Notes",
+          "// ======================================",
+          "//",
+          "// This collection has been verified against PROTO.md specification:",
+          "// https://github.com/Tween-IM/TMCP-Proto",
+          "//",
+          "// All endpoints have been checked for protocol compliance.",
+          "// See the collection description for detailed compliance summary.",
+          "",
+          "// Helper function to generate idempotency key",
+          "if (!pm.collectionVariables.get('idempotencyKey')) {",
+          "    const uuid = require('uuid');",
+          "    pm.collectionVariables.set('idempotencyKey', uuid.v4());",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Protocol Compliance Test Helpers",
+          "// =================================",
+          "",
+          "// Log response for debugging",
+          "console.log('Response Status:', pm.response.code);",
+          "console.log('Response Time:', pm.response.responseTime, 'ms');",
+          "",
+          "// Verify response structure",
+          "const jsonData = pm.response.json();",
+          "",
+          "// OAuth endpoints should return tokens",
+          "if (pm.response.url.includes('/oauth/token')) {",
+          "    pm.test('Response contains access_token', function() {",
+          "        pm.expect(jsonData.access_token).to.exist;",
+          "    });",
+          "    pm.test('Response contains token_type', function() {",
+          "        pm.expect(jsonData.token_type).to.equal('Bearer');",
+          "    });",
+          "}",
+          "",
+          "// Payment endpoints should return payment_id",
+          "if (pm.response.url.includes('/payments/')) {",
+          "    pm.test('Response contains payment_id', function() {",
+          "        pm.expect(jsonData.payment_id).to.exist;",
+          "    });",
+          "}",
+          "",
+          "// Gift endpoints should return gift_id",
+          "if (pm.response.url.includes('/gifts/')) {",
+          "    pm.test('Response contains gift_id', function() {",
+          "        pm.expect(jsonData.gift_id).to.exist;",
+          "    });",
+          "}",
+          "",
+          "// P2P transfer endpoints should return transfer_id",
+          "if (pm.response.url.includes('/p2p/')) {",
+          "    pm.test('Response contains transfer_id', function() {",
+          "        pm.expect(jsonData.transfer_id).to.exist;",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ]
+}

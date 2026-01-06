@@ -36,7 +36,7 @@ class TepTokenService
   end
 
   class << self
-    def encode(payload, scopes: [], wallet_id: nil, session_id: nil, miniapp_context: {}, mas_session: nil)
+    def encode(payload, scopes: [], wallet_id: nil, session_id: nil, miniapp_context: {}, mas_session: nil, authorization_context: nil, approval_history: nil)
       now = Time.current.to_i
 
       jwt_payload = {
@@ -55,12 +55,55 @@ class TepTokenService
         session_id: session_id,
         miniapp_context: miniapp_context,
         user_context: payload[:user_context] || {},
-        mas_session: mas_session || { active: true }
+        mas_session: mas_session || { active: true },
+        authorization_context: authorization_context || build_default_authorization_context(payload),
+        approval_history: approval_history || build_approval_history(payload[:user_id], payload[:miniapp_id], scopes)
       }
 
       headers = { kid: KEY_ID }
 
       JWT.encode(jwt_payload, private_key, ALGORITHM, headers)
+    end
+
+    def build_default_authorization_context(payload)
+      room_id = payload.dig(:miniapp_context, :room_id)
+      return nil if room_id.nil?
+
+      {
+        room_id: room_id,
+        roles: payload.dig(:authorization_context, :roles) || [ "member" ],
+        permissions: build_permissions(payload[:miniapp_context])
+      }
+    end
+
+    def build_permissions(miniapp_context)
+      room_id = miniapp_context[:room_id]
+      return {} if room_id.nil?
+
+      {
+        can_send_messages: true,
+        can_invite_users: false,
+        can_edit_messages: false,
+        can_delete_messages: false,
+        can_add_reactions: true
+      }
+    end
+
+    def build_approval_history(user_id, miniapp_id, scopes)
+      return [] if user_id.nil? || miniapp_id.nil?
+
+      approvals = AuthorizationApproval.where(
+        user_id: user_id,
+        miniapp_id: miniapp_id
+      ).where(scope: scopes).order(approved_at: :desc).limit(10)
+
+      approvals.map do |approval|
+        {
+          scope: approval.scope,
+          approved_at: approval.approved_at.iso8601,
+          approval_method: approval.approval_method || "initial"
+        }
+      end
     end
 
     def decode(token)
@@ -121,6 +164,16 @@ class TepTokenService
     def extract_miniapp_id(token)
       payload = decode(token)
       payload["aud"]
+    end
+
+    def extract_authorization_context(token)
+      payload = decode(token)
+      payload["authorization_context"]
+    end
+
+    def extract_approval_history(token)
+      payload = decode(token)
+      payload["approval_history"] || []
     end
 
     def expired?(token)
