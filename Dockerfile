@@ -9,6 +9,13 @@
 
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.4.4
+
+# Build arguments for deployment
+ARG SOURCE_COMMIT
+ARG COOLIFY_URL
+ARG COOLIFY_FQDN
+ARG MATRIX_HS_TOKEN
+ARG COOLIFY_BUILD_SECRETS_HASH
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 # Rails app lives here
