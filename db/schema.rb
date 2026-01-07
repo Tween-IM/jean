@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_06_075137) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_06_075136) do
   create_table "authorization_approvals", force: :cascade do |t|
     t.string "approval_method"
     t.datetime "approved_at"
@@ -78,12 +78,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_075137) do
     t.datetime "created_at", null: false
     t.datetime "installed_at"
     t.datetime "last_used_at"
-    t.integer "miniapp_id", null: false
+    t.integer "mini_app_id", null: false
     t.integer "status"
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.string "version"
-    t.index ["miniapp_id"], name: "index_miniapp_installations_on_miniapp_id"
+    t.index ["mini_app_id"], name: "index_miniapp_installations_on_mini_app_id"
     t.index ["user_id"], name: "index_miniapp_installations_on_user_id"
   end
 
@@ -160,21 +160,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_06_075137) do
     t.index ["matrix_user_id"], name: "index_users_on_matrix_user_id"
   end
 
-  create_table "wallet_invitations", force: :cascade do |t|
-    t.datetime "accepted_at"
-    t.datetime "created_at", null: false
-    t.datetime "expires_at"
-    t.string "invitee_user_id"
-    t.string "inviter_user_id"
-    t.string "room_id"
-    t.string "status"
-    t.datetime "updated_at", null: false
-    t.index ["invitee_user_id"], name: "index_wallet_invitations_on_invitee_user_id"
-    t.index ["inviter_user_id"], name: "index_wallet_invitations_on_inviter_user_id"
-  end
-
   add_foreign_key "mfa_methods", "users"
-  add_foreign_key "miniapp_installations", "miniapps"
+  add_foreign_key "miniapp_installations", "mini_apps"
   add_foreign_key "miniapp_installations", "users"
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
