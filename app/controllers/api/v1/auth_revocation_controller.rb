@@ -1,5 +1,5 @@
-class AuthRevocationController < ApplicationController
-  before_action :validate_tep_token!, except: [ :webhook ]
+class Api::V1::AuthRevocationController < ApplicationController
+  before_action :authenticate_tep_token, except: [ :webhook ]
   before_action :set_miniapp, only: [ :create, :user_revoke ]
 
   def create
