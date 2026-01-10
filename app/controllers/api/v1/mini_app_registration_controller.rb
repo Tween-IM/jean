@@ -1,4 +1,4 @@
-class MiniAppRegistrationController < ApplicationController
+class Api::V1::MiniAppRegistrationController < ApplicationController
   before_action :validate_developer_token!, only: [ :create ]
   before_action :set_miniapp, only: [ :show, :update, :appeal, :submit_for_review ]
 

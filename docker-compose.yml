@@ -33,10 +33,11 @@ services:
   rails:
     build: .
     environment:
-      RAILS_ENV: production
+      RAILS_ENV: development
       DATABASE_URL: postgresql://tmcp:tmcp_password@db:5432/tmcp_production
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY_BASE: development_secret_key_base_change_in_production
+      BUNDLE_PATH: /usr/local/bundle
       TMCP_JWT_ISSUER: http://localhost:3000
       MATRIX_API_URL: http://matrix:8008  # Assuming a matrix service, or set to external URL
       MATRIX_HS_TOKEN: 'EXV6pIIy3zp9vxKYaNFOxKYkwNiqLwDB'
@@ -55,6 +56,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    entrypoint: ["/app/bin/docker-entrypoint"]
     command: ["bundle", "exec", "rails", "server", "-b", "0.0.0.0", "-p", "3000"]
     stdin_open: true
     tty: true
