@@ -28,7 +28,7 @@ class Api::V1::MiniAppRegistrationController < ApplicationController
     end
 
     render json: {
-      miniapp_id: @miniapp.miniapp_id,
+      miniapp_id: @miniapp.app_id,
       name: @miniapp.name,
       short_name: @miniapp.short_name,
       description: @miniapp.description,
@@ -118,7 +118,7 @@ class Api::V1::MiniAppRegistrationController < ApplicationController
 
   def check_status
     miniapp_id = params[:miniapp_id]
-    miniapp = MiniApp.find_by(miniapp_id: miniapp_id)
+    miniapp = MiniApp.find_by(app_id: miniapp_id)
 
     if miniapp.nil?
       render json: { error: "Mini-app not found" }, status: :not_found
@@ -132,7 +132,7 @@ class Api::V1::MiniAppRegistrationController < ApplicationController
 
   def automated_review
     miniapp_id = params[:miniapp_id]
-    miniapp = MiniApp.find_by(miniapp_id: miniapp_id)
+    miniapp = MiniApp.find_by(app_id: miniapp_id)
 
     if miniapp.nil?
       render json: { error: "Mini-app not found" }, status: :not_found
@@ -202,6 +202,6 @@ class Api::V1::MiniAppRegistrationController < ApplicationController
   end
 
   def set_miniapp
-    @miniapp = MiniApp.find_by(miniapp_id: params[:miniapp_id])
+    @miniapp = MiniApp.find_by(app_id: params[:miniapp_id])
   end
 end

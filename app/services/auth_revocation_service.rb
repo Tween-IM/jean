@@ -122,7 +122,7 @@ class AuthRevocationService
   end
 
   def self.send_webhook_notification(user_id, miniapp_id, scopes, reason, revoked_at)
-    miniapp = MiniApp.find_by(miniapp_id: miniapp_id)
+    miniapp = MiniApp.find_by(app_id: miniapp_id)
     return unless miniapp&.webhook_url?
 
     payload = {

@@ -5,7 +5,7 @@ class Api::V1::AuthRevocationController < ApplicationController
   def create
     revoked_scopes = parse_scopes(params[:scopes])
     user_id = @current_user.matrix_user_id
-    miniapp_id = @miniapp&.miniapp_id || params[:miniapp_id]
+    miniapp_id = @miniapp&.app_id || params[:miniapp_id]
 
     result = AuthRevocationService.revoke_permissions(
       user_id: user_id,
@@ -76,7 +76,7 @@ class Api::V1::AuthRevocationController < ApplicationController
 
   def set_miniapp
     return if params[:miniapp_id].blank?
-    @miniapp = MiniApp.find_by(miniapp_id: params[:miniapp_id])
+    @miniapp = MiniApp.find_by(app_id: params[:miniapp_id])
   end
 
   def webhook_secret
