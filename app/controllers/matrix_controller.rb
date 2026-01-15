@@ -21,19 +21,27 @@ class MatrixController < ApplicationController
 
   # GET /_matrix/app/v1/users/:user_id - Query user existence
   def user
-    user_id = CGI.unescape(params[:user_id])
+    begin
+      user_id = CGI.unescape(params[:user_id])
 
-    Rails.logger.debug "MatrixController#user: params[:user_id]=#{params[:user_id].inspect}, unescaped=#{user_id.inspect}"
+      Rails.logger.debug "MatrixController#user: params[:user_id]=#{params[:user_id].inspect}, unescaped=#{user_id.inspect}"
 
-    # Check if user exists in our system
-    user = User.find_by(matrix_user_id: user_id)
+      # Check if user exists in our system
+      user = User.find_by(matrix_user_id: user_id)
 
-    Rails.logger.debug "MatrixController#user: found user=#{user.inspect}"
+      # Also check if this is a TMCP bot user (virtual users owned by AS)
+      is_tmcp_bot = user_id.start_with?("@_tmcp") || user_id.start_with?("@ma_")
 
-    if user
-      render json: {}, status: :ok
-    else
-      render json: {}, status: :not_found
+      Rails.logger.debug "MatrixController#user: found user=#{user.inspect}, is_tmcp_bot=#{is_tmcp_bot}"
+
+      if user || is_tmcp_bot
+        render json: {}, status: :ok
+      else
+        render json: {}, status: :not_found
+      end
+    rescue => e
+      Rails.logger.error "MatrixController#user error: #{e.message}"
+      render json: { error: "Internal server error" }, status: :internal_server_error
     end
   end
 

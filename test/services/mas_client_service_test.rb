@@ -32,39 +32,47 @@ class MasClientServiceTest < ActiveSupport::TestCase
 
   test "#exchange_matrix_token_for_tep returns TEP token with correct claims" do
     mas_user_info = {
-      "active" => true,
-      "sub" => "@alice:tween.im",
-      "display_name" => "Alice",
-      "avatar_url" => "mxc://tween.im/avatar123"
+      active: true,
+      sub: "@alice:tween.im",
+      display_name: "Alice",
+      avatar_url: "mxc://tween.im/avatar123",
+      device_id: "GHTYAJCE",
+      sid: "mas_session_abc"
     }
 
-    stub_request(:post, "https://auth.tween.im/oauth2/introspect")
+    stub_request(:post, "https://mas.tween.example/oauth2/introspect")
+      .with(body: hash_including("token" => "matrix_access_token"))
       .to_return(status: 200, body: mas_user_info.to_json)
 
-    # Save original method
-    original_encode = TepTokenService.method(:encode)
+    stub_request(:post, "https://mas.tween.example/oauth2/token")
+      .to_return(status: 200, body: {
+        access_token: "new_matrix_token_xyz789",
+        token_type: "Bearer",
+        expires_in: 300
+      }.to_json)
 
-    # Mock TepTokenService.encode to avoid key generation issues
     TepTokenService.define_singleton_method(:encode) { |*| "fake.tep.token" }
 
     result = @mas_client.exchange_matrix_token_for_tep(
       "matrix_access_token",
-      "ma_shop_001",
-      [ "wallet:pay", "storage:read" ],
-      { "launch_source" => "chat_bubble" }
+      "test_client",
+      %w[ user:read wallet:pay ],
+      { "launch_source" => "chat_bubble" },
+      mas_user_info
     )
 
     assert_equal "tep.fake.tep.token", result[:access_token]
     assert_equal "Bearer", result[:token_type]
     assert_equal 86400, result[:expires_in]
     assert result[:refresh_token].present?
-    assert_equal "wallet:pay storage:read", result[:scope]
     assert_equal "@alice:tween.im", result[:user_id]
     assert result[:wallet_id].start_with?("tw_")
+    assert_equal "user:read wallet:pay", result[:scope]
+    assert_equal "new_matrix_token_xyz789", result[:matrix_access_token]
+    assert_equal 300, result[:matrix_expires_in]
+    assert result[:delegated_session] == true
   ensure
-    # Restore original method
-    TepTokenService.singleton_class.send(:remove_method, :encode) rescue nil
-    TepTokenService.define_singleton_method(:encode, original_encode)
+    TepTokenService.define_singleton_method(:encode, TepTokenService.method(:encode))
   end
 
   test "#introspect_token returns user info when active" do

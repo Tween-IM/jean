@@ -18,7 +18,7 @@ class ActiveSupport::TestCase
 
   teardown do
     # Clean up environment variables that might affect other tests
-    %w[MATRIX_ACCESS_TOKEN MATRIX_API_URL TMCP_PRIVATE_KEY].each do |key|
+    %w[MATRIX_ACCESS_TOKEN MATRIX_API_URL TMCP_PRIVATE_KEY MAS_CLIENT_ID MAS_CLIENT_SECRET].each do |key|
       ENV.delete(key)
     end
   end
