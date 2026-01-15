@@ -4,15 +4,13 @@ services:
   db:
     image: postgres:14
     environment:
-      POSTGRES_DB: tmcp_production
-      POSTGRES_USER: tmcp
-      POSTGRES_PASSWORD: tmcp_password
+      POSTGRES_DB: ${POSTGRES_DB:-tmcp_production}
+      POSTGRES_USER: ${POSTGRES_USER:-tmcp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tmcp_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # ports:
-    #   - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tmcp -d tmcp_development"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tmcp} -d ${POSTGRES_DB:-tmcp_production}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,8 +20,6 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    # ports:
-    #   - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -33,24 +29,44 @@ services:
   tmcp-server:
     build: .
     environment:
-      RAILS_ENV: development
-      DATABASE_URL: postgresql://tmcp:tmcp_password@db:5432/tmcp_production
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY_BASE: development_secret_key_base_change_in_production
-      BUNDLE_PATH: /usr/local/bundle
-      TMCP_JWT_ISSUER: http://localhost:3000
-      MATRIX_API_URL: https://core.tween.im  # Assuming a matrix service, or set to external URL
-      MATRIX_HS_TOKEN: 'EXV6pIIy3zp9vxKYaNFOxKYkwNiqLwDB'
-      MATRIX_ACCESS_TOKEN: development_access_token
-      TMCP_PRIVATE_KEY: |
-        -----BEGIN RSA PRIVATE KEY-----
-        MIIEpAIBAAKCAQEAwJ8QJvQH...
-        (Replace with actual development key)
-        -----END RSA PRIVATE KEY-----
+      # Rails Configuration
+      RAILS_ENV: ${RAILS_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://tmcp:tmcp_password@db:5432/tmcp_production}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-development_secret_key_base_change_in_production}
+      BUNDLE_PATH: ${BUNDLE_PATH:-/usr/local/bundle}
+      
+      # TMCP Server Configuration
+      TMCP_JWT_ISSUER: ${TMCP_JWT_ISSUER:-http://localhost:3000}
+      TMCP_JWT_KEY_ID: ${TMCP_JWT_KEY_ID:-tmcp-2025-01}
+      
+      # Matrix Homeserver (Synapse) Configuration
+      MATRIX_API_URL: ${MATRIX_API_URL:-https://core.tween.im}
+      MATRIX_HS_TOKEN: ${MATRIX_HS_TOKEN:-EXV6pIIy3zp9vxKYaNFOxKYkwNiqLwDB}
+      MATRIX_ACCESS_TOKEN: ${MATRIX_ACCESS_TOKEN:-development_access_token}
+
+      # Matrix Authentication Service (MAS) Configuration
+      MAS_URL: ${MAS_URL:-https://mas.tween.example}
+      MAS_CLIENT_ID: ${MAS_CLIENT_ID:-tmcp-server}
+      MAS_CLIENT_SECRET: ${MAS_CLIENT_SECRET:-}
+      MAS_TOKEN_URL: ${MAS_TOKEN_URL:-https://mas.tween.example/oauth2/token}
+      MAS_INTROSPECTION_URL: ${MAS_INTROSPECTION_URL:-https://mas.tween.example/oauth2/introspect}
+      MAS_REVOCATION_URL: ${MAS_REVOCATION_URL:-https://mas.tween.example/oauth2/revoke}
+
+      # Security Configuration
+      FORCE_SSL: ${FORCE_SSL:-false}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      
+      # File paths for sensitive credentials (loaded from mounted secrets)
+      TMCP_PRIVATE_KEY_FILE: ${TMCP_PRIVATE_KEY_FILE:-/run/secrets/tmcp_private_key}
+      MAS_CLIENT_SECRET_FILE: ${MAS_CLIENT_SECRET_FILE:-/run/secrets/mas_client_secret}
     volumes:
       - bundle:/usr/local/bundle
-    # ports:
-    #   - "3000:3000"
+      # Mount secret files (use Docker secrets or host files)
+      - ./secrets:/run/secrets:ro
+    secrets:
+      - tmcp_private_key
+      - mas_client_secret
     depends_on:
       db:
         condition: service_healthy
@@ -61,25 +77,13 @@ services:
     stdin_open: true
     tty: true
 
-  # Optional: Matrix homeserver for full integration testing
-  # Uncomment if you want to run a local Synapse instance
-  # matrix:
-  #   image: matrixdotorg/synapse:latest
-  #   environment:
-  #     SYNAPSE_SERVER_NAME: localhost
-  #     SYNAPSE_REPORT_STATS: no
-  #   volumes:
-  #     - matrix_data:/data
-  #   ports:
-  #     - "8008:8008"
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8008/_matrix/client/versions"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 5
+secrets:
+  tmcp_private_key:
+    file: ./secrets/tmcp_private_key.txt
+  mas_client_secret:
+    file: ./secrets/mas_client_secret.txt
 
 volumes:
   postgres_data:
   redis_data:
   bundle:
-  # matrix_data:
