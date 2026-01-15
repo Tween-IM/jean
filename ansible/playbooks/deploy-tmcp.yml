@@ -1,0 +1,198 @@
+---
+- name: Deploy TMCP Server
+  hosts: [tmcp-server]
+  become: yes
+
+  vars_files:
+    - ../env_vars.yml
+
+  vars:
+    rails_env: production
+    base_url: https://tmcp.example.com
+    app_user: tmcp
+    app_dir: /opt/tmcp
+
+  handlers:
+    - name: Restart TMCP
+      systemd:
+        name: tmcp
+        state: restarted
+
+    - name: Reload Nginx
+      systemd:
+        name: nginx
+        state: reloaded
+
+  pre_tasks:
+    - name: Display deployment info
+      debug:
+        msg: |
+          Deploying TMCP Server to production
+          Environment: {{ rails_env }}
+          URL: {{ base_url }}
+          User: {{ app_user }}
+          Directory: {{ app_dir }}
+
+  tasks:
+    - name: Create TMCP user
+      user:
+        name: "{{ app_user }}"
+        system: yes
+        shell: /bin/bash
+        home: "{{ app_dir }}"
+        create_home: yes
+
+    - name: Install system dependencies
+      apt:
+        name:
+          - ruby
+          - ruby-dev
+          - build-essential
+          - postgresql-client
+          - libpq-dev
+          - redis-server
+          - git
+          - curl
+          - wget
+          - gnupg2
+          - software-properties-common
+          - nginx
+        state: present
+        update_cache: yes
+
+    - name: Install Ruby via RVM (if not already installed)
+      shell: |
+        if ! command -v rvm &> /dev/null; then
+          curl -sSL https://get.rvm.io | bash -s stable
+          source /etc/profile.d/rvm.sh
+          rvm install ruby-3.4.4
+          rvm use ruby-3.4.4 --default
+        fi
+      args:
+        creates: /usr/local/rvm/bin/rvm
+
+    - name: Clone/update TMCP repository
+      git:
+        repo: https://github.com/mona-chen/jean.git
+        dest: "{{ app_dir }}"
+        force: yes
+        version: main
+      become_user: "{{ app_user }}"
+
+    - name: Install Ruby dependencies
+      bundler:
+        executable: bundle
+        chdir: "{{ app_dir }}"
+        gemfile: Gemfile
+        deployment: yes
+        without: development test
+      become_user: "{{ app_user }}"
+
+    - name: Create .env file
+      template:
+        src: ../templates/env.j2
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+
+    - name: Setup database
+      shell: |
+        cd {{ app_dir }} && bundle exec rails db:create db:migrate RAILS_ENV=production
+      environment:
+        RAILS_ENV: production
+      become_user: "{{ app_user }}"
+
+    - name: Precompile assets
+      shell: |
+        cd {{ app_dir }} && bundle exec rails assets:precompile RAILS_ENV=production
+      environment:
+        RAILS_ENV: production
+      become_user: "{{ app_user }}"
+
+    - name: Create Puma directory
+      file:
+        path: /var/run/tmcp
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create systemd service
+      template:
+        src: ../templates/tmcp.service.j2
+        dest: /etc/systemd/system/tmcp.service
+        mode: '0644'
+
+    - name: Create logrotate configuration
+      copy:
+        content: |
+          /opt/tmcp/log/*.log {
+            daily
+            missingok
+            rotate 52
+            compress
+            delaycompress
+            notifempty
+            copytruncate
+          }
+        dest: /etc/logrotate.d/tmcp
+        mode: '0644'
+
+    - name: Enable and start TMCP service
+      systemd:
+        name: tmcp
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Configure Nginx
+      template:
+        src: ../templates/nginx.conf.j2
+        dest: /etc/nginx/sites-available/tmcp.conf
+        mode: '0644'
+      notify:
+        - Reload Nginx
+
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/tmcp.conf
+        dest: /etc/nginx/sites-enabled/tmcp.conf
+        state: link
+      notify:
+        - Reload Nginx
+
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify:
+        - Reload Nginx
+
+    - name: Configure firewall
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+      when: ansible_distribution == 'Ubuntu'
+
+    - name: Configure firewall for HTTPS
+      ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+      when: ansible_distribution == 'Ubuntu'
+
+    - name: Wait for TMCP to be ready
+      uri:
+        url: "{{ base_url }}/health/check"
+        method: GET
+        validate_certs: no
+      register: tmcp_health
+      until: tmcp_health.status == 200
+      retries: 30
+      delay: 10
+
+    - name: Verify deployment
+      debug:
+        msg: "TMCP Server deployed successfully at {{ base_url }}"

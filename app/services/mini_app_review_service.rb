@@ -187,6 +187,9 @@ class MiniAppReviewService
       updated_at: Time.current
     )
 
+    # Create OAuth application for approved mini-app
+    create_oauth_application(miniapp)
+
     send_approval_notification(miniapp)
 
     { success: true, status: "approved" }
@@ -201,6 +204,9 @@ class MiniAppReviewService
       last_reviewed_at: Time.current,
       updated_at: Time.current
     )
+
+    # Remove OAuth application if it exists for rejected mini-app
+    remove_oauth_application(miniapp)
 
     send_rejection_notification(miniapp, reason)
 
@@ -240,5 +246,34 @@ class MiniAppReviewService
     WebhookService.dispatch(url: miniapp.webhook_url, payload: payload, signature: signature)
   rescue => e
     Rails.logger.error "Failed to send rejection notification: #{e.message}"
+  end
+
+  def self.create_oauth_application(miniapp)
+    # Create Doorkeeper OAuth application for the approved mini-app
+    oauth_app = Doorkeeper::Application.find_or_create_by!(uid: miniapp.app_id) do |app|
+      app.name = miniapp.name
+      app.secret = miniapp.client_secret || SecureRandom.hex(32)
+      app.redirect_uri = (miniapp.redirect_uris || []).join("\n")
+      app.scopes = (miniapp.requested_scopes || []).join(" ")
+      app.confidential = true
+    end
+
+    Rails.logger.info "Created OAuth application for mini-app #{miniapp.app_id}: #{oauth_app.uid}"
+
+    oauth_app
+  rescue => e
+    Rails.logger.error "Failed to create OAuth application for mini-app #{miniapp.app_id}: #{e.message}"
+    raise
+  end
+
+  def self.remove_oauth_application(miniapp)
+    # Remove Doorkeeper OAuth application for rejected mini-app
+    oauth_app = Doorkeeper::Application.find_by(uid: miniapp.app_id)
+    if oauth_app
+      oauth_app.destroy
+      Rails.logger.info "Removed OAuth application for rejected mini-app #{miniapp.app_id}"
+    end
+  rescue => e
+    Rails.logger.error "Failed to remove OAuth application for mini-app #{miniapp.app_id}: #{e.message}"
   end
 end

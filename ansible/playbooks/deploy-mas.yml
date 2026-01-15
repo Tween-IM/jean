@@ -1,0 +1,105 @@
+---
+- name: Deploy Matrix Authentication Service (MAS)
+  hosts: [matrix-hs]
+  become: yes
+  gather_facts: yes
+
+  vars:
+    mas_client_id: "tmcp-server"
+    mas_client_secret: "{{ lookup('env', 'MAS_CLIENT_SECRET') }}"
+    mas_database_url: "postgresql://mas:mas_password@db:5432/mas"
+    tmcp_callback_url: "https://tmcp.example.com/api/v1/oauth/callback"
+
+  handlers:
+    - name: Restart MAS service
+      systemd:
+        name: mas
+        state: restarted
+
+  tasks:
+    - name: Deploy MAS configuration
+      debug:
+        msg: "Deploying MAS for TMCP Server integration..."
+
+    - name: Create MAS config directory
+      file:
+        path: /etc/mas
+        state: directory
+        mode: '0755'
+
+    - name: Copy MAS config file
+      copy:
+        src: mas-config.yaml
+        dest: /etc/mas/mas.yaml
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Set proper permissions
+      file:
+        path: /etc/mas/mas.yaml
+        mode: '0640'
+        owner: root
+        group: root
+
+    - name: Install MAS dependencies
+      package:
+        name: ['postgresql-client', 'nginx']
+        state: present
+
+    - name: Create MAS systemd service
+      copy:
+        content: |
+          [Unit]
+          Description=Matrix Authentication Service
+          After=network.target postgresql.service
+
+          [Service]
+          Type=simple
+          User=mas
+          EnvironmentFile=/etc/mas/mas.env
+          ExecStart=/usr/local/bin/mas --config /etc/mas/mas.yaml
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/mas.service
+        mode: '0644'
+
+    - name: Create MAS environment file
+      copy:
+        content: |
+          RUST_LOG=info
+          MAS_CONFIG=/etc/mas/mas.yaml
+        dest: /etc/mas/mas.env
+        mode: '0640'
+
+    - name: Create MAS user
+      user:
+        name: mas
+        system: yes
+        shell: /bin/bash
+        home: /var/lib/mas
+        create_home: yes
+
+    - name: Enable and start MAS service
+      systemd:
+        name: mas
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Wait for MAS to be ready
+      uri:
+        url: https://localhost:8080/_matrix/client/v3/server_version
+        method: GET
+        validate_certs: no
+      register: mas_health
+      until: mas_health.status == 200
+      retries: 30
+      delay: 10
+
+    - name: Verify MAS health
+      debug:
+        msg: "MAS is running and healthy"

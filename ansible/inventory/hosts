@@ -1,0 +1,14 @@
+[matrix-hs]
+ansible_host=your-homeserver.com
+ansible_user=root
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+[tmcp-server]
+ansible_host=tmcp.example.com
+ansible_user=deploy
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+[database]
+ansible_host=db.example.com
+ansible_user=postgres
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'

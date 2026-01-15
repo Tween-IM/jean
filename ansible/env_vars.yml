@@ -1,0 +1,43 @@
+# Environment variables for TMCP deployment
+# This file contains sensitive configuration
+# DO NOT commit to version control
+
+# Rails configuration
+rails_env: production
+base_url: https://tmcp.example.com
+
+# Database configuration
+database_url: "postgresql://tmcp:{{ tmcp_db_password }}@{{ db_host }}:5432/tmcp"
+
+# Redis configuration
+redis_url: "redis://{{ redis_host }}:6379"
+
+# Security
+secret_key_base: "{{ lookup('env', 'SECRET_KEY_BASE') }}"
+tmcp_private_key: "{{ lookup('file', '/opt/tmcp/secrets/tmcp_private_key.txt') }}"
+tmcp_jwt_issuer: "{{ base_url }}"
+tmcp_jwt_key_id: tmcp-2025-01
+
+# MAS Integration
+mas_client_id: tmcp-server
+mas_client_secret: "{{ lookup('env', 'MAS_CLIENT_SECRET') }}"
+mas_url: "{{ mas_url | default('https://auth.tween.im/oauth2') }}"
+mas_token_url: "{{ mas_token_url | default('https://auth.tween.im/oauth2/token') }}"
+mas_introspection_url: "{{ mas_introspection_url | default('https://auth.tween.im/oauth2/introspect') }}"
+mas_revocation_url: "{{ mas_revocation_url | default('https://auth.tween.im/oauth2/revoke') }}"
+
+# Matrix Homeserver
+matrix_hs_token: "{{ lookup('env', 'MATRIX_HS_TOKEN') }}"
+matrix_api_url: "{{ matrix_api_url | default('https://matrix.tween.example') }}"
+matrix_access_token: "{{ matrix_access_token | default('') }}"
+
+# SSL and CORS
+force_ssl: true
+allowed_origins: "{{ allowed_origins | default('https://matrix.tween.example') }}"
+
+# Database passwords (set these in your environment)
+tmcp_db_password: "{{ lookup('env', 'TMCP_DB_PASSWORD') }}"
+
+# Hosts
+db_host: "{{ db_host | default('localhost') }}"
+redis_host: "{{ redis_host | default('localhost') }}"
