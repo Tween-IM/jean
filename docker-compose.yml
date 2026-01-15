@@ -30,7 +30,7 @@ services:
       timeout: 5s
       retries: 5
 
-  rails:
+  tmcp-server:
     build: .
     environment:
       RAILS_ENV: development
@@ -39,7 +39,7 @@ services:
       SECRET_KEY_BASE: development_secret_key_base_change_in_production
       BUNDLE_PATH: /usr/local/bundle
       TMCP_JWT_ISSUER: http://localhost:3000
-      MATRIX_API_URL: http://matrix:8008  # Assuming a matrix service, or set to external URL
+      MATRIX_API_URL: https://core.tween.im  # Assuming a matrix service, or set to external URL
       MATRIX_HS_TOKEN: 'EXV6pIIy3zp9vxKYaNFOxKYkwNiqLwDB'
       MATRIX_ACCESS_TOKEN: development_access_token
       TMCP_PRIVATE_KEY: |
