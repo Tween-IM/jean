@@ -180,7 +180,7 @@ class MiniAppReviewService
 
   def self.manual_review_pass(miniapp:, reviewer_id:, notes: nil)
     miniapp.update!(
-      status: "approved",
+      status: "active",
       reviewer_id: reviewer_id,
       manual_review_notes: notes,
       last_reviewed_at: Time.current,
@@ -192,7 +192,7 @@ class MiniAppReviewService
 
     send_approval_notification(miniapp)
 
-    { success: true, status: "approved" }
+    { success: true, status: "active" }
   end
 
   def self.manual_review_fail(miniapp:, reviewer_id:, reason:, notes: nil)

@@ -58,11 +58,13 @@ bundle install --deployment --without development test
 cp .env.example .env
 # Edit .env with production values
 
-# Setup database and seed official mini-apps
+# Setup database and seed official mini-apps from YAML
 rails db:create db:migrate db:seed RAILS_ENV=production
 
-# Approve official mini-apps (creates OAuth applications)
-rails mini_apps:approve_official RAILS_ENV=production
+# The db:seed command now automatically:
+# - Loads mini-apps from config/mini_apps.yml
+# - Approves official mini-apps
+# - Creates OAuth applications for approved mini-apps
 
 # Precompile assets
 rails assets:precompile RAILS_ENV=production

@@ -58,6 +58,7 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 bundle exec rails db:create db:migrate db:seed RAILS_ENV=production
+# db:seed now loads official mini-apps from config/mini_apps.yml and approves them
 
 # Precompile assets
 echo
