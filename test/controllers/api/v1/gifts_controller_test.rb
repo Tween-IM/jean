@@ -319,6 +319,5 @@ class Api::V1::GiftsControllerTest < ActionDispatch::IntegrationTest
 
   teardown do
     Rails.cache.clear
-    TepTokenService.reset_keys!
   end
 end

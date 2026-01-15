@@ -58,6 +58,5 @@ class Api::V1::StoreControllerTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    TepTokenService.reset_keys!
   end
 end

@@ -150,8 +150,4 @@ class Api::V1::PaymentsControllerTest < ActionDispatch::IntegrationTest
     # Challenge not found - expected
     assert_response :not_found
   end
-
-  teardown do
-    TepTokenService.reset_keys!
-  end
 end

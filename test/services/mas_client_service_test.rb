@@ -32,19 +32,19 @@ class MasClientServiceTest < ActiveSupport::TestCase
 
   test "#exchange_matrix_token_for_tep returns TEP token with correct claims" do
     mas_user_info = {
-      active: true,
-      sub: "@alice:tween.im",
-      display_name: "Alice",
-      avatar_url: "mxc://tween.im/avatar123",
-      device_id: "GHTYAJCE",
-      sid: "mas_session_abc"
+      "active" => true,
+      "sub" => "@alice:tween.im",
+      "display_name" => "Alice",
+      "avatar_url" => "mxc://tween.im/avatar123",
+      "device_id" => "GHTYAJCE",
+      "sid" => "mas_session_abc"
     }
 
-    stub_request(:post, "https://mas.tween.example/oauth2/introspect")
+    stub_request(:post, "https://auth.tween.im/oauth2/introspect")
       .with(body: hash_including("token" => "matrix_access_token"))
       .to_return(status: 200, body: mas_user_info.to_json)
 
-    stub_request(:post, "https://mas.tween.example/oauth2/token")
+    stub_request(:post, "https://auth.tween.im/oauth2/token")
       .to_return(status: 200, body: {
         access_token: "new_matrix_token_xyz789",
         token_type: "Bearer",
@@ -66,7 +66,7 @@ class MasClientServiceTest < ActiveSupport::TestCase
     assert_equal 86400, result[:expires_in]
     assert result[:refresh_token].present?
     assert_equal "@alice:tween.im", result[:user_id]
-    assert result[:wallet_id].start_with?("tw_")
+    assert result[:wallet_id].start_with?("wallet_")
     assert_equal "user:read wallet:pay", result[:scope]
     assert_equal "new_matrix_token_xyz789", result[:matrix_access_token]
     assert_equal 300, result[:matrix_expires_in]

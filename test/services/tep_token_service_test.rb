@@ -5,6 +5,8 @@ class TepTokenServiceTest < ActiveSupport::TestCase
   # Updated for TMCP v1.5.0 with dual-token architecture
 
   setup do
+    # Ensure we're using the consistent test key
+    TepTokenService.reset_keys!
     @user_id = "@alice:tween.example"
     @miniapp_id = "ma_shop_001"
     @scopes = [ "user:read", "wallet:pay" ]

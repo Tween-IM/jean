@@ -283,6 +283,5 @@ class Api::V1::StorageControllerTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    TepTokenService.reset_keys!
   end
 end
