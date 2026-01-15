@@ -66,7 +66,7 @@ class MasClientServiceTest < ActiveSupport::TestCase
     assert_equal 86400, result[:expires_in]
     assert result[:refresh_token].present?
     assert_equal "@alice:tween.im", result[:user_id]
-    assert result[:wallet_id].start_with?("wallet_")
+    assert result[:wallet_id].start_with?("tw_")
     assert_equal "user:read wallet:pay", result[:scope]
     assert_equal "new_matrix_token_xyz789", result[:matrix_access_token]
     assert_equal 300, result[:matrix_expires_in]
