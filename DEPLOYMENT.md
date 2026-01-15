@@ -24,7 +24,8 @@ Add to your Synapse `homeserver.yaml`:
 app_service_config:
   - id: tmcp-server
     url: https://tmcp.example.com
-    hs_token: YOUR_HS_TOKEN
+    as_token: "54280d605e23adf6bd5d66ee07a09196dbab0bd87d35f8ecc1fd70669f709502"
+    hs_token: "874542cda496ffd03f8fd283ad37d8837572aad0734e92225c5f7fffd8c91bd1"
     sender_localpart: _tmcp
     namespaces:
       users:
@@ -33,6 +34,11 @@ app_service_config:
         - exclusive: ["#tmcp_.*:.*"]
     rate_limited: false
 ```
+
+**Token Configuration:**
+- `as_token`: Used by homeserver to authenticate with TMCP Server
+- `hs_token`: Used by TMCP Server to authenticate with homeserver
+- Set `MATRIX_HS_TOKEN=874542cda496ffd03f8fd283ad37d8837572aad0734e92225c5f7fffd8c91bd1` in TMCP Server environment
 
 ### Option B: Database Registration
 
@@ -126,7 +132,7 @@ MAS_INTROSPECTION_URL=https://auth.tween.im/oauth2/introspect
 MAS_REVOCATION_URL=https://auth.tween.im/oauth2/revoke
 
 # Matrix Homeserver
-MATRIX_HS_TOKEN=your_synapse_hs_token_here
+MATRIX_HS_TOKEN=874542cda496ffd03f8fd283ad37d8837572aad0734e92225c5f7fffd8c91bd1
 MATRIX_API_URL=https://matrix.tween.example
 MATRIX_ACCESS_TOKEN=mas_generated_token
 

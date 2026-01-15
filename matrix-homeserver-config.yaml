@@ -1,0 +1,20 @@
+# Matrix Homeserver (Synapse) Configuration for TMCP Server
+# Add this to your homeserver.yaml
+
+app_service_config:
+  - id: tmcp-server
+    url: https://tmcp.example.com
+    as_token: "54280d605e23adf6bd5d66ee07a09196dbab0bd87d35f8ecc1fd70669f709502"
+    hs_token: "874542cda496ffd03f8fd283ad37d8837572aad0734e92225c5f7fffd8c91bd1"
+    sender_localpart: _tmcp
+    namespaces:
+      users:
+        - exclusive: ["@_tmcp.*:.*"]
+      aliases:
+        - exclusive: ["#tmcp_.*:.*"]
+    rate_limited: false
+
+# Token Usage:
+# - as_token: Used by homeserver to authenticate requests to TMCP Server
+# - hs_token: Used by TMCP Server to authenticate requests to homeserver
+# - These tokens must match the MATRIX_HS_TOKEN environment variable in TMCP Server

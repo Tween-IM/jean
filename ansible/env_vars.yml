@@ -27,7 +27,7 @@ mas_introspection_url: "{{ mas_introspection_url | default('https://auth.tween.i
 mas_revocation_url: "{{ mas_revocation_url | default('https://auth.tween.im/oauth2/revoke') }}"
 
 # Matrix Homeserver
-matrix_hs_token: "{{ lookup('env', 'MATRIX_HS_TOKEN') }}"
+matrix_hs_token: "874542cda496ffd03f8fd283ad37d8837572aad0734e92225c5f7fffd8c91bd1"
 matrix_api_url: "{{ matrix_api_url | default('https://matrix.tween.example') }}"
 matrix_access_token: "{{ matrix_access_token | default('') }}"
 
