@@ -78,40 +78,50 @@ official_mini_apps:
         - seller_dashboard
         - reviews_ratings
 
-  - app_id: ma_tweenchat
-    name: TweenChat
-    description: Official enhanced messaging features
+  - app_id: ma_tweenwall
+    name: TweenWall
+    description: Official social media wall application
     version: "1.0.0"
     classification: official
     developer_name: Tween IM
     manifest:
       permissions:
-        - messaging_send
-        - messaging_read
         - user_read
+        - user_read:extended
         - storage_read
         - storage_write
+        - messaging_send
+        - wallet_balance
       scopes:
-        - messaging:send
-        - messaging:read
         - user:read
+        - user:read:extended
         - storage:read
         - storage:write
-      entry_url: "https://miniapp.tween.im/tweenchat/"
+        - messaging:send
+        - wallet:balance
+      entry_url: "https://miniapp.tween.im/tweenwall/"
       redirect_uris:
-        - "https://miniapp.tween.im/tweenchat/callback"
-      webhook_url: "https://api.tween.im/webhooks/tweenchat"
-      icon_url: "https://cdn.tween.im/icons/tweenchat.png"
+        - "https://miniapp.tween.im/tweenwall/callback"
+      webhook_url: "https://api.tween.im/webhooks/tweenwall"
+      icon_url: "https://cdn.tween.im/icons/tweenwall.png"
       categories:
-        - communication
         - social
-        - messaging
+        - media
+        - entertainment
+        - content
       features:
-        - rich_messaging
-        - file_sharing
-        - voice_messages
-        - message_reactions
-        - message_scheduling
+        - social_feed
+        - photo_sharing
+        - video_sharing
+        - short_videos
+        - stories
+        - likes_reactions
+        - comments
+        - hashtags
+        - user_profiles
+        - follow_system
+        - trending_content
+        - live_streaming
 
   - app_id: ma_tweengames
     name: TweenGames
