@@ -282,11 +282,11 @@ class Api::V1::OauthController < ApplicationController
       end
 
       tep_response = mas_client.exchange_matrix_token_for_tep(
-        matrix_access_token: subject_token,
-        miniapp_id: client_id,
-        scopes: authorization_result[:authorized_scopes],
-        miniapp_context: miniapp_context,
-        introspection_response: introspection_response
+        subject_token,
+        client_id,
+        authorization_result[:authorized_scopes],
+        miniapp_context,
+        introspection_response
       )
 
       render json: tep_response
