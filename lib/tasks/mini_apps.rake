@@ -88,7 +88,7 @@ namespace :mini_apps do
 
   desc "Approve all official mini-apps"
   task approve_official: :environment do
-    official_apps = %w[ma_tweenpay ma_tweenshop ma_tweenchat ma_tweengames]
+    official_apps = MiniApp.where(classification: "official").pluck(:app_id)
 
     official_apps.each do |app_id|
       Rake::Task["mini_apps:approve"].invoke(app_id, "system")

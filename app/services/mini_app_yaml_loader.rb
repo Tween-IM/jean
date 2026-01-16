@@ -69,7 +69,7 @@ class MiniAppYamlLoader
 
       if mini_app && mini_app.status != "active"
         # For official mini-apps loaded from YAML, just activate them
-        mini_app.update!(status: "active", updated_at: Time.current)
+        mini_app.update!(status: "active")
 
         # Create OAuth application
         create_oauth_application(mini_app)

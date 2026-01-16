@@ -1,29 +1,12 @@
 class MiniAppReviewService
   def self.get_review_status(miniapp)
-    automated_checks = MiniAppAutomatedCheck.where(miniapp_id: miniapp.miniapp_id).order(created_at: :desc).first
-
     {
-      miniapp_id: miniapp.miniapp_id,
+      app_id: miniapp.app_id,
+      name: miniapp.name,
+      classification: miniapp.classification,
       status: miniapp.status,
-      submitted_at: miniapp.submitted_at&.iso8601,
-      last_reviewed_at: miniapp.last_reviewed_at&.iso8601,
-      automated_review: automated_checks ? {
-        status: automated_checks.status,
-        completed_at: automated_checks.created_at.iso8601,
-        checks: {
-          csp_valid: automated_checks.csp_valid,
-          https_only: automated_checks.https_only,
-          no_hardcoded_credentials: automated_checks.no_credentials,
-          no_obfuscated_code: automated_checks.no_obfuscation,
-          dependency_scan: automated_checks.dependency_scan_passed
-        }
-      } : nil,
-      manual_review: miniapp.manual_review_notes ? {
-        reviewer: miniapp.reviewer_id,
-        notes: miniapp.manual_review_notes,
-        reviewed_at: miniapp.last_reviewed_at.iso8601
-      } : nil,
-      rejection_reason: miniapp.rejection_reason
+      created_at: miniapp.created_at&.iso8601,
+      updated_at: miniapp.updated_at&.iso8601
     }
   end
 
@@ -40,19 +23,18 @@ class MiniAppReviewService
     results[:overall_status] = determine_overall_status(results)
 
     automated_check = MiniAppAutomatedCheck.create!(
-      miniapp_id: miniapp.miniapp_id,
+      miniapp_id: miniapp.id,
       status: results[:overall_status],
       csp_valid: results[:csp_valid],
       https_only: results[:https_only],
       no_credentials: results[:no_credentials],
       no_obfuscation: results[:no_obfuscation],
       dependency_scan_passed: results[:dependency_scan_passed],
-      raw_results: results,
-      created_at: Time.current
+      raw_results: results
     )
 
     if results[:overall_status] == :failed
-      update_miniapp_status(miniapp, "automated_review_failed")
+      update_miniapp_status(miniapp, "removed")
     end
 
     results
@@ -61,7 +43,7 @@ class MiniAppReviewService
   def self.check_csp_headers(miniapp)
     return true if miniapp.classification == "official"
 
-    url = miniapp.entry_url
+    url = miniapp.manifest["entry_url"]
     return false if url.blank?
 
     begin
@@ -74,7 +56,7 @@ class MiniAppReviewService
 
       true
     rescue => e
-      Rails.logger.warn "CSP check failed for #{miniapp.miniapp_id}: #{e.message}"
+      Rails.logger.warn "CSP check failed for #{miniapp.app_id}: #{e.message}"
       false
     end
   end
@@ -82,15 +64,15 @@ class MiniAppReviewService
   def self.check_https_only(miniapp)
     return true if miniapp.classification == "official"
 
-    urls = [ miniapp.entry_url ] + (miniapp.redirect_uris || [])
+    urls = [ miniapp.manifest["entry_url"] ] + (miniapp.manifest["redirect_uris"] || [])
 
-    urls.all? { |url| url.start_with?("https://") }
+    urls.all? { |url| url&.start_with?("https://") }
   end
 
   def self.check_no_hardcoded_credentials(miniapp)
     return true if miniapp.classification == "official"
 
-    url = miniapp.entry_url
+    url = miniapp.manifest["entry_url"]
     return true if url.blank?
 
     patterns = [
@@ -106,7 +88,7 @@ class MiniAppReviewService
 
       patterns.none? { |pattern| pattern.match?(body) }
     rescue => e
-      Rails.logger.warn "Credential check failed for #{miniapp.miniapp_id}: #{e.message}"
+      Rails.logger.warn "Credential check failed for #{miniapp.app_id}: #{e.message}"
       true
     end
   end
@@ -114,7 +96,7 @@ class MiniAppReviewService
   def self.check_no_obfuscation(miniapp)
     return true if miniapp.classification == "official"
 
-    url = miniapp.entry_url
+    url = miniapp.manifest["entry_url"]
     return true if url.blank?
 
     begin
@@ -134,7 +116,7 @@ class MiniAppReviewService
       obfuscation_count = obfuscation_indicators.count { |p| p.match?(body) }
       obfuscation_count < 3
     rescue => e
-      Rails.logger.warn "Obfuscation check failed for #{miniapp.miniapp_id}: #{e.message}"
+      Rails.logger.warn "Obfuscation check failed for #{miniapp.app_id}: #{e.message}"
       true
     end
   end
@@ -142,7 +124,7 @@ class MiniAppReviewService
   def self.run_dependency_scan(miniapp)
     return true if miniapp.classification == "official"
 
-    url = miniapp.entry_url
+    url = miniapp.manifest["entry_url"]
     return true if url.blank?
 
     begin
@@ -157,7 +139,7 @@ class MiniAppReviewService
 
       vulnerable_patterns.none? { |pattern| pattern.match?(body) }
     rescue => e
-      Rails.logger.warn "Dependency scan failed for #{miniapp.miniapp_id}: #{e.message}"
+      Rails.logger.warn "Dependency scan failed for #{miniapp.app_id}: #{e.message}"
       true
     end
   end
@@ -172,19 +154,12 @@ class MiniAppReviewService
   end
 
   def self.update_miniapp_status(miniapp, status)
-    miniapp.update!(
-      status: status,
-      updated_at: Time.current
-    )
+    miniapp.update!(status: status)
   end
 
-  def self.manual_review_pass(miniapp:, reviewer_id:, notes: nil)
+  def self.manual_review_pass(miniapp:, reviewer_id: nil, notes: nil)
     miniapp.update!(
-      status: "active",
-      reviewer_id: reviewer_id,
-      manual_review_notes: notes,
-      last_reviewed_at: Time.current,
-      updated_at: Time.current
+      status: "active"
     )
 
     # Create OAuth application for approved mini-app
@@ -195,14 +170,10 @@ class MiniAppReviewService
     { success: true, status: "active" }
   end
 
-  def self.manual_review_fail(miniapp:, reviewer_id:, reason:, notes: nil)
+  def self.manual_review_fail(miniapp:, reviewer_id: nil, reason:, notes: nil)
+    # MiniApp model doesn't have rejected status, just deactivate it
     miniapp.update!(
-      status: "rejected",
-      reviewer_id: reviewer_id,
-      manual_review_notes: notes,
-      rejection_reason: reason,
-      last_reviewed_at: Time.current,
-      updated_at: Time.current
+      status: "removed"
     )
 
     # Remove OAuth application if it exists for rejected mini-app
@@ -210,51 +181,24 @@ class MiniAppReviewService
 
     send_rejection_notification(miniapp, reason)
 
-    { success: true, status: "rejected", reason: reason }
+    { success: true, status: "removed" }
   end
 
   def self.send_approval_notification(miniapp)
-    return unless miniapp.webhook_url?
-
-    payload = {
-      event: "miniapp_approved",
-      miniapp_id: miniapp.miniapp_id,
-      status: "approved",
-      timestamp: Time.current.iso8601
-    }
-
-    signature = WebhookService.sign_payload(payload, miniapp.webhook_secret)
-
-    WebhookService.dispatch(url: miniapp.webhook_url, payload: payload, signature: signature)
-  rescue => e
-    Rails.logger.error "Failed to send approval notification: #{e.message}"
+    Rails.logger.info "Mini-app #{miniapp.app_id} approved"
   end
 
   def self.send_rejection_notification(miniapp, reason)
-    return unless miniapp.webhook_url?
-
-    payload = {
-      event: "miniapp_rejected",
-      miniapp_id: miniapp.miniapp_id,
-      status: "rejected",
-      reason: reason,
-      timestamp: Time.current.iso8601
-    }
-
-    signature = WebhookService.sign_payload(payload, miniapp.webhook_secret)
-
-    WebhookService.dispatch(url: miniapp.webhook_url, payload: payload, signature: signature)
-  rescue => e
-    Rails.logger.error "Failed to send rejection notification: #{e.message}"
+    Rails.logger.info "Mini-app #{miniapp.app_id} rejected: #{reason}"
   end
 
   def self.create_oauth_application(miniapp)
     # Create Doorkeeper OAuth application for the approved mini-app
     oauth_app = Doorkeeper::Application.find_or_create_by!(uid: miniapp.app_id) do |app|
       app.name = miniapp.name
-      app.secret = miniapp.client_secret || SecureRandom.hex(32)
-      app.redirect_uri = (miniapp.redirect_uris || []).join("\n")
-      app.scopes = (miniapp.requested_scopes || []).join(" ")
+      app.secret = SecureRandom.hex(32)
+      app.redirect_uri = miniapp.manifest["redirect_uris"]&.join("\n")
+      app.scopes = miniapp.manifest["scopes"]&.join(" ")
       app.confidential = true
     end
 
