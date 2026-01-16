@@ -152,45 +152,39 @@
   def exchange_matrix_token_for_tep(matrix_access_token, miniapp_id, scopes, miniapp_context = {}, introspection_response = nil)
     mas_user_info = introspection_response || get_user_info(matrix_access_token)
     user_id = mas_user_info["sub"]
-wallet_id = user_id ? "tw_#{user_id.gsub(/[@:]/, '_')}" : "tw_unknown"
+    wallet_id = user_id ? "tw_#{user_id.gsub(/[@:]/, '_')}" : "tw_unknown"
     session_id = generate_session_id
 
     device_id = mas_user_info.dig("device_id") || "unknown"
     mas_session_id = mas_user_info.dig("sid") || "unknown"
 
-    tep_claims = {
-      iss: TMCP.config[:jwt_issuer],
-      sub: user_id,
-      aud: miniapp_id,
-      exp: Time.current.to_i + 86400,
-      iat: Time.current.to_i,
-      nbf: Time.current.to_i,
-      jti: SecureRandom.uuid,
-      token_type: "tep_access_token",
-      client_id: miniapp_id,
-      azp: miniapp_id,
-      scope: scopes.join(" "),
-      wallet_id: wallet_id,
-      session_id: session_id,
+    tep_payload = {
+      user_id: user_id,
+      miniapp_id: miniapp_id,
       user_context: {
         display_name: mas_user_info["display_name"],
         avatar_url: mas_user_info["avatar_url"]
-      },
+      }
+    }
+
+    tep_token = TepTokenService.encode(
+      tep_payload,
+      scopes: scopes,
+      wallet_id: wallet_id,
+      session_id: session_id,
       miniapp_context: miniapp_context,
       mas_session: {
         active: true,
         refresh_token_id: "rt_#{SecureRandom.alphanumeric(16)}"
       },
+      authorization_context: build_authorization_context({ miniapp_context: miniapp_context }),
+      approval_history: build_approval_history(user_id, miniapp_id, scopes),
       delegated_from: "matrix_session",
       matrix_session_ref: {
         device_id: device_id,
         session_id: mas_session_id
-      },
-      approval_history: build_approval_history(user_id, miniapp_id, scopes),
-      authorization_context: build_authorization_context({ miniapp_context: miniapp_context })
-    }
-
-    tep_token = TepTokenService.encode(tep_claims)
+      }
+    )
     tep_refresh_token = "rt_#{SecureRandom.alphanumeric(24)}"
 
     Rails.cache.write("refresh_token:#{tep_refresh_token}", {
@@ -200,6 +194,8 @@ wallet_id = user_id ? "tw_#{user_id.gsub(/[@:]/, '_')}" : "tw_unknown"
       created_at: Time.current.to_i
     }, expires_in: 30.days)
 
+    new_matrix_token = refresh_access_token_for_matrix(matrix_access_token)
+
     {
       access_token: "tep.#{tep_token}",
       token_type: "Bearer",
@@ -208,8 +204,8 @@ wallet_id = user_id ? "tw_#{user_id.gsub(/[@:]/, '_')}" : "tw_unknown"
       scope: scopes.join(" "),
       user_id: user_id,
       wallet_id: wallet_id,
-      matrix_access_token: matrix_access_token,
-      matrix_expires_in: 300,
+      matrix_access_token: new_matrix_token[:access_token],
+      matrix_expires_in: new_matrix_token[:expires_in],
       delegated_session: true
     }
   end

@@ -54,11 +54,11 @@ class MasClientServiceTest < ActiveSupport::TestCase
     TepTokenService.define_singleton_method(:encode) { |*| "fake.tep.token" }
 
     result = @mas_client.exchange_matrix_token_for_tep(
-      matrix_access_token: "matrix_access_token",
-      miniapp_id: "test_client",
-      scopes: %w[ user:read wallet:pay ],
-      miniapp_context: { "launch_source" => "chat_bubble" },
-      introspection_response: mas_user_info
+      "matrix_access_token",
+      "test_client",
+      %w[ user:read wallet:pay ],
+      { "launch_source" => "chat_bubble" },
+      mas_user_info
     )
 
     assert_equal "tep.fake.tep.token", result[:access_token]

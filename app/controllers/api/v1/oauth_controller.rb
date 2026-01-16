@@ -143,6 +143,21 @@ class Api::V1::OauthController < ApplicationController
     end
   end
 
+  def introspect
+    raw_params = params
+    token = raw_params[:token]
+
+    unless token
+      return render json: { error: "invalid_request", error_description: "token parameter is required" }, status: :bad_request
+    end
+
+    if token.start_with?("tep.")
+      introspect_tep_token(token)
+    else
+      introspect_matrix_token(token)
+    end
+  end
+
   def consent
     session_id = params[:session]
     approved = params[:approved] == "true"
@@ -471,5 +486,41 @@ class Api::V1::OauthController < ApplicationController
         consent_required: false
       }
     end
+  end
+
+  def introspect_tep_token(token)
+    payload = TepTokenService.decode(token)
+
+    render json: {
+      active: true,
+      sub: payload["sub"],
+      aud: payload["aud"],
+      client_id: payload["client_id"],
+      scope: payload["scope"],
+      exp: payload["exp"],
+      iat: payload["iat"],
+      nbf: payload["nbf"],
+      token_type: "tep_access_token",
+      wallet_id: payload["wallet_id"],
+      session_id: payload["session_id"],
+      user_id: payload["sub"],
+      miniapp_id: payload["aud"]
+    }
+  rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::InvalidAudError, JWT::InvalidIssuerError => e
+    render json: { active: false }, status: :ok
+  end
+
+  def introspect_matrix_token(token)
+    mas_client = MasClientService.new(
+      client_id: ENV["MAS_CLIENT_ID"] || "tmcp-server",
+      client_secret: ENV["MAS_CLIENT_SECRET"],
+      token_url: ENV["MAS_TOKEN_URL"] || "https://mas.tween.example/oauth2/token",
+      introspection_url: ENV["MAS_INTROSPECTION_URL"] || "https://mas.tween.example/oauth2/introspect"
+    )
+
+    introspection_response = mas_client.introspect_token(token)
+    render json: introspection_response
+  rescue MasClientService::InvalidTokenError, MasClientService::MasError => e
+    render json: { active: false, error: e.message }, status: :ok
   end
 end
