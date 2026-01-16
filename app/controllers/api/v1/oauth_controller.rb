@@ -276,11 +276,27 @@ class Api::V1::OauthController < ApplicationController
         return
       end
 
-      user = User.find_or_create_by(matrix_user_id: matrix_user_id) do |u|
-        username_homeserver = matrix_user_id.split("@").last
-        localpart, domain = username_homeserver.split(":")
-        u.matrix_username = localpart
-        u.matrix_homeserver = domain
+      mas_username = introspection_response["username"]
+      device_id = introspection_response["device_id"]
+
+      user = User.find_or_create_by(mas_user_id: matrix_user_id) do |u|
+        u.mas_user_id = matrix_user_id
+        u.matrix_user_id = matrix_user_id
+
+        if mas_username && !mas_username.empty?
+          if mas_username.include?("@")
+            username_homeserver = mas_username.split("@").last
+            localpart, domain = username_homeserver.split(":")
+            u.matrix_username = localpart
+            u.matrix_homeserver = domain
+          else
+            u.matrix_username = mas_username
+            u.matrix_homeserver = "tween.im"
+          end
+        else
+          u.matrix_username = matrix_user_id
+          u.matrix_homeserver = "tween.im"
+        end
       end
 
       authorization_result = authorize_scopes(user, application, scopes)
@@ -374,11 +390,26 @@ class Api::V1::OauthController < ApplicationController
         return
       end
 
-      user = User.find_or_create_by(matrix_user_id: matrix_user_id) do |u|
-        username_homeserver = matrix_user_id.split("@").last
-        localpart, domain = username_homeserver.split(":")
-        u.matrix_username = localpart
-        u.matrix_homeserver = domain
+      mas_username = introspection_response["username"]
+
+      user = User.find_or_create_by(mas_user_id: matrix_user_id) do |u|
+        u.mas_user_id = matrix_user_id
+        u.matrix_user_id = matrix_user_id
+
+        if mas_username && !mas_username.empty?
+          if mas_username.include?("@")
+            username_homeserver = mas_username.split("@").last
+            localpart, domain = username_homeserver.split(":")
+            u.matrix_username = localpart
+            u.matrix_homeserver = domain
+          else
+            u.matrix_username = mas_username
+            u.matrix_homeserver = "tween.im"
+          end
+        else
+          u.matrix_username = matrix_user_id
+          u.matrix_homeserver = "tween.im"
+        end
       end
 
       scopes = auth_request["scope"]

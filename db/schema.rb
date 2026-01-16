@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_16_022938) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_16_173558) do
   create_table "authorization_approvals", force: :cascade do |t|
     t.string "approval_method"
     t.datetime "approved_at"
@@ -153,12 +153,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_16_022938) do
 
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.string "mas_user_id"
     t.string "matrix_homeserver"
     t.string "matrix_user_id"
     t.string "matrix_username"
     t.integer "status"
     t.datetime "updated_at", null: false
     t.string "wallet_id"
+    t.index ["mas_user_id"], name: "index_users_on_mas_user_id", unique: true
     t.index ["matrix_user_id"], name: "index_users_on_matrix_user_id"
   end
 
