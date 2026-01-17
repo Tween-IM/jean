@@ -9,7 +9,7 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
 
     # Create test user for user query tests
     User.find_or_create_by(matrix_user_id: "@test_user:tween.example") do |user|
-      user.matrix_username = "test_user"
+      user.matrix_username = "test_user:tween.example"
       user.matrix_homeserver = "tween.example"
       user.status = :active
     end
@@ -43,7 +43,7 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
   test "should query existing user" do
     # Use find_or_create_by to avoid duplicate key error
     user = User.find_or_create_by(matrix_user_id: "@test_user:tween.example") do |u|
-      u.matrix_username = "test_user"
+      u.matrix_username = "test_user:tween.example"
       u.matrix_homeserver = "tween.example"
     end
 

@@ -20,7 +20,6 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
     )
     @headers = { "Authorization" => "Bearer #{@token}" }
   end
-  end
 
   test "should return wallet balance" do
     # Section 6.2.1: Get Balance
@@ -233,8 +232,5 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
 
     # Note: Idempotency via Rails.cache may not persist across requests in test environment
     # This is a known limitation - in production, Redis would be used for idempotency
-  end
-
-  teardown do
   end
 end

@@ -8,8 +8,8 @@ class Api::V1::StorageControllerTest < ActionDispatch::IntegrationTest
   setup do
     @unique_suffix = SecureRandom.alphanumeric(8).downcase
     @user = User.create!(
-      matrix_user_id: "@alice#{@unique_suffix}@tween.example",
-      matrix_username: "alice#{@unique_suffix}",
+      matrix_user_id: "@alice#{@unique_suffix}:tween.example",
+      matrix_username: "alice#{@unique_suffix}:tween.example",
       matrix_homeserver: "tween.example"
     )
     @miniapp_id = "ma_#{@unique_suffix}"
@@ -240,7 +240,7 @@ class Api::V1::StorageControllerTest < ActionDispatch::IntegrationTest
     # Create entry for different user/miniapp
     other_user = User.create!(
       matrix_user_id: "@bob:tween.example",
-      matrix_username: "bob",
+      matrix_username: "bob:tween.example",
       matrix_homeserver: "tween.example"
     )
 

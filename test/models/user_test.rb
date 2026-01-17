@@ -6,7 +6,7 @@ class UserTest < ActiveSupport::TestCase
   test "should generate wallet_id on create" do
     user = User.create!(
       matrix_user_id: "@test:tween.example",
-      matrix_username: "test",
+      matrix_username: "test:tween.example",
       matrix_homeserver: "tween.example"
     )
 
@@ -23,13 +23,13 @@ class UserTest < ActiveSupport::TestCase
   test "should validate matrix_user_id uniqueness" do
     User.create!(
       matrix_user_id: "@test:tween.example",
-      matrix_username: "test",
+      matrix_username: "test:tween.example",
       matrix_homeserver: "tween.example"
     )
 
     duplicate = User.new(
       matrix_user_id: "@test:tween.example",
-      matrix_username: "test2",
+      matrix_username: "test2:tween.example",
       matrix_homeserver: "tween.example"
     )
     assert_not duplicate.valid?
@@ -43,7 +43,7 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "should validate matrix_homeserver presence" do
-    user = User.new(matrix_user_id: "@test:tween.example", matrix_username: "test")
+    user = User.new(matrix_user_id: "@test:tween.example", matrix_username: "test:tween.example")
     assert_not user.valid?
     assert_includes user.errors[:matrix_homeserver], "can't be blank"
   end
@@ -51,7 +51,7 @@ class UserTest < ActiveSupport::TestCase
   test "should have default active status" do
     user = User.create!(
       matrix_user_id: "@test:tween.example",
-      matrix_username: "test",
+      matrix_username: "test:tween.example",
       matrix_homeserver: "tween.example"
     )
 
@@ -61,7 +61,7 @@ class UserTest < ActiveSupport::TestCase
   test "should have associations" do
     user = User.create!(
       matrix_user_id: "@test:tween.example",
-      matrix_username: "test",
+      matrix_username: "test:tween.example",
       matrix_homeserver: "tween.example"
     )
 

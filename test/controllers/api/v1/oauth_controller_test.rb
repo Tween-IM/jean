@@ -15,7 +15,7 @@ class Api::V1::OauthControllerTest < ActionDispatch::IntegrationTest
       name: "Test Mini-App",
       description: "A test mini-app",
       version: "1.0.0",
-      classification: :community,
+      classification: :official,
       status: :active,
       manifest: {
         "scopes" => [ "storage_read", "storage_write", "public" ],
@@ -32,8 +32,8 @@ class Api::V1::OauthControllerTest < ActionDispatch::IntegrationTest
     )
 
     @user = User.create!(
-      matrix_user_id: "@alice#{@unique_suffix}@tween.example",
-      matrix_username: "alice#{@unique_suffix}",
+      matrix_user_id: "@alice#{@unique_suffix}:tween.example",
+      matrix_username: "alice#{@unique_suffix}:tween.example",
       matrix_homeserver: "tween.example"
     )
   end
