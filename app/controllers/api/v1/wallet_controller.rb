@@ -33,15 +33,6 @@ class Api::V1::WalletController < ApplicationController
     render json: resolution_result
   end
 
-    resolution_result = WalletService.resolve_user(target_user_id)
-
-    if resolution_result.key?(:error)
-      render json: resolution_result, status: :not_found
-    else
-      render json: resolution_result
-    end
-  end
-
   # POST /wallet/v1/resolve/batch - TMCP Protocol Section 6.3.3
   def resolve_batch
     user_ids = params[:user_ids] || []

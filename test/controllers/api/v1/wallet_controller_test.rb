@@ -6,12 +6,12 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = User.create!(
       matrix_user_id: "@alice:tween.example",
-      matrix_username: "alice",
+      matrix_username: "alice:tween.example",
       matrix_homeserver: "tween.example"
     )
     @recipient = User.create!(
       matrix_user_id: "@bob:tween.example",
-      matrix_username: "bob",
+      matrix_username: "bob:tween.example",
       matrix_homeserver: "tween.example"
     )
     @token = TepTokenService.encode(
