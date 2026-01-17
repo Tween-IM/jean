@@ -540,7 +540,21 @@ class Api::V1::OauthController < ApplicationController
     )
 
     introspection_response = mas_client.introspect_token(token)
-    render json: introspection_response
+
+    # Transform MAS response to return matrix user ID instead of internal MAS ID
+    matrix_user_id = if introspection_response["username"]&.present?
+      "@#{introspection_response["username"]}:tween.im"
+    else
+      # Fallback: use MAS internal ID if no username available
+      introspection_response["sub"]
+    end
+
+    transformed_response = introspection_response.merge(
+      "sub" => matrix_user_id,
+      "user_id" => matrix_user_id
+    )
+
+    render json: transformed_response
   rescue MasClientService::InvalidTokenError, MasClientService::MasError => e
     render json: { active: false, error: e.message }, status: :ok
   end

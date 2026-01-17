@@ -1,4 +1,4 @@
-   class MasClientService
+class MasClientService
   ALLOWED_ALGORITHMS = %w[RS256 RS384 RS512].freeze
 
   class MasError < StandardError; end
@@ -15,6 +15,7 @@
     @token_url = config[:token_url] || ENV["MAS_TOKEN_URL"] || "https://mas.tween.example/oauth2/token"
     @introspection_url = config[:introspection_url] || ENV["MAS_INTROSPECTION_URL"] || "https://mas.tween.example/oauth2/introspect"
     @revocation_url = config[:revocation_url] || ENV["MAS_REVOCATION_URL"] || "https://mas.tween.example/oauth2/revoke"
+    @matrix_domain = config[:matrix_domain] || ENV["MATRIX_DOMAIN"] || "tween.im"
     @default_scopes = config[:default_scopes] || [
       "openid",
       "urn:matrix:org.matrix.msc2967.client:api:*"
@@ -35,9 +36,7 @@
       })
     end
 
-    unless response.success?
-      parse_mas_error(response)
-    end
+    parse_mas_error(response) unless response.success?
 
     token_data = JSON.parse(response.body)
     {
@@ -83,9 +82,7 @@
       })
     end
 
-    unless response.success?
-      parse_mas_error(response)
-    end
+    parse_mas_error(response) unless response.success?
 
     JSON.parse(response.body)
   end
@@ -155,13 +152,18 @@
     mas_username = mas_user_info["username"]
 
     # Construct Matrix user ID for PROTO.md compliance
-    matrix_user_id = if mas_username && !mas_username.empty?
-                       "@#{mas_username}:tween.im"
-    else
+    matrix_user_id = if mas_username.to_s.strip.empty?
                        mas_user_id # fallback to internal ID
-    end
+                     else
+                       "@#{mas_username}:#{@matrix_domain}"
+                     end
 
-    wallet_id = mas_user_id ? "tw_#{mas_user_id.gsub(/[@:]/, '_')}" : "tw_unknown"
+    wallet_id = if mas_user_id.to_s.strip.empty?
+                  "tw_unknown"
+                else
+                  "tw_#{mas_user_id.gsub(/[@:]/, '_')}"
+                end
+    
     session_id = generate_session_id
 
     device_id = mas_user_info.dig("device_id") || "unknown"
@@ -187,7 +189,7 @@
         refresh_token_id: "rt_#{SecureRandom.alphanumeric(16)}"
       },
       authorization_context: build_authorization_context({ miniapp_context: miniapp_context }),
-       approval_history: build_approval_history(mas_user_id, miniapp_id, scopes),
+      approval_history: build_approval_history(mas_user_id, miniapp_id, scopes),
       delegated_from: "matrix_session",
       matrix_session_ref: {
         device_id: device_id,
@@ -204,6 +206,14 @@
     }, expires_in: 30.days)
 
     new_matrix_token = refresh_access_token_for_matrix(matrix_access_token)
+
+    # Auto-register user in wallet service during TEP token issuance
+    begin
+      WalletService.ensure_user_registered(matrix_user_id, matrix_access_token)
+    rescue StandardError => e
+      # Log but don't fail TEP token issuance
+      Rails.logger.warn "Failed to register user #{matrix_user_id} in wallet service during token exchange: #{e.message}"
+    end
 
     {
       access_token: "tep.#{tep_token}",
@@ -226,7 +236,7 @@
       raise InvalidTokenError, "MAS access token is not active"
     end
 
-    if info["exp"] && Time.current.to_i > info["exp"]
+    if info["exp"] && Time.current.to_i >= info["exp"]
       raise InvalidTokenError, "MAS access token has expired"
     end
 
@@ -285,7 +295,8 @@
         approval_method: approval.approval_method || "initial"
       }
     end
-  rescue ActiveRecord::StatementInvalid
+  rescue ActiveRecord::StatementInvalid => e
+    Rails.logger.warn "Failed to fetch approval history: #{e.message}"
     []
   end
 
@@ -312,4 +323,4 @@
       can_add_reactions: true
     }
   end
-   end
+end
