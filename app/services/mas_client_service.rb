@@ -146,6 +146,100 @@ class MasClientService
     end
   end
 
+  def query_users_by_name(search_term, limit = 10)
+    # Matrix user directory search through homeserver
+    # This would typically call the homeserver's user directory API
+    # For now, return mock data as the Matrix homeserver integration isn't implemented
+    Rails.logger.info "Querying Matrix users by name: #{search_term}, limit: #{limit}"
+
+    # Mock user directory results
+    # In production, this would call: GET /_matrix/client/v3/user_directory/search
+    mock_results = [
+      {
+        user_id: "@alice:#{@matrix_domain}",
+        display_name: "Alice Smith",
+        avatar_url: nil
+      },
+      {
+        user_id: "@bob:#{@matrix_domain}",
+        display_name: "Bob Johnson",
+        avatar_url: nil
+      },
+      {
+        user_id: "@charlie:#{@matrix_domain}",
+        display_name: "Charlie Brown",
+        avatar_url: nil
+      }
+    ].select { |user| user[:display_name].downcase.include?(search_term.downcase) || user[:user_id].include?(search_term) }
+
+    {
+      results: mock_results.take(limit),
+      limited: mock_results.size > limit,
+      total_count: mock_results.size
+    }
+  end
+
+  # Send message to Matrix room as Application Service
+  def send_message_to_room(access_token, room_id, message, event_type = "m.room.message", msgtype = "m.text")
+    # Matrix AS sends messages using Client-Server API
+    # PUT /_matrix/client/v3/rooms/{roomId}/send/{eventType}/{txnId}
+
+    txn_id = SecureRandom.hex(8)
+    event_content = {
+      msgtype: msgtype,
+      body: message
+    }
+
+    # For custom event types, use different content structure
+    if event_type != "m.room.message"
+      event_content = message.is_a?(Hash) ? message : { body: message }
+    end
+
+    # Use production Matrix homeserver URL
+    homeserver_url = ENV["MATRIX_API_URL"] || "https://core.tween.im"
+
+    response = http_client.put("#{homeserver_url}/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/#{CGI.escape(event_type)}/#{txn_id}") do |req|
+      req.headers["Authorization"] = "Bearer #{access_token}"
+      req.headers["Content-Type"] = "application/json"
+      req.body = event_content.to_json
+    end
+
+    if response.success?
+      result = JSON.parse(response.body)
+      event_id = result["event_id"]
+      Rails.logger.info "Matrix message sent successfully. Room: #{room_id}, Event ID: #{event_id}"
+      { success: true, event_id: event_id }
+    else
+      Rails.logger.error "Failed to send Matrix message. Room: #{room_id}, Status: #{response.status}, Body: #{response.body}"
+      { success: false, error: response.status, message: response.body }
+    end
+  rescue StandardError => e
+    Rails.logger.error "Error sending Matrix message: #{e.message}"
+    { success: false, error: "internal_error", message: e.message }
+  end
+
+    response = http_client.put("#{homeserver_url}/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/#{CGI.escape(event_type)}/#{txn_id}") do |req|
+      req.headers["Authorization"] = "Bearer #{access_token}"
+      req.headers["Content-Type"] = "application/json"
+      req.body = {
+        content: event_content,
+        type: event_type
+      }.to_json
+    end
+
+    if response.success?
+      event_id = JSON.parse(response.body)["event_id"]
+      Rails.logger.info "Matrix message sent successfully. Room: #{room_id}, Event ID: #{event_id}"
+      { success: true, event_id: event_id }
+    else
+      Rails.logger.error "Failed to send Matrix message. Room: #{room_id}, Status: #{response.status}, Body: #{response.body}"
+      { success: false, error: response.status, message: response.body }
+    end
+  rescue StandardError => e
+    Rails.logger.error "Error sending Matrix message: #{e.message}"
+    { success: false, error: "internal_error", message: e.message }
+end
+
   def exchange_matrix_token_for_tep(matrix_access_token, miniapp_id, scopes, miniapp_context = {}, introspection_response = nil)
     mas_user_info = introspection_response || get_user_info(matrix_access_token)
     mas_user_id = mas_user_info["sub"]
@@ -154,16 +248,16 @@ class MasClientService
     # Construct Matrix user ID for PROTO.md compliance
     matrix_user_id = if mas_username.to_s.strip.empty?
                        mas_user_id # fallback to internal ID
-                     else
+    else
                        "@#{mas_username}:#{@matrix_domain}"
-                     end
+    end
 
     wallet_id = if mas_user_id.to_s.strip.empty?
                   "tw_unknown"
-                else
+    else
                   "tw_#{mas_user_id.gsub(/[@:]/, '_')}"
-                end
-    
+    end
+
     session_id = generate_session_id
 
     device_id = mas_user_info.dig("device_id") || "unknown"
@@ -323,4 +417,3 @@ class MasClientService
       can_add_reactions: true
     }
   end
-end
