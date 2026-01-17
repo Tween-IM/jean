@@ -13,7 +13,7 @@ class WalletService
   }
 
   # Configuration from initializer
-  WALLET_API_BASE_URL = ENV.fetch("WALLET_API_BASE_URL", "http://localhost:3001")
+  WALLET_API_BASE_URL = ENV.fetch("WALLET_API_BASE_URL", "https://wallet.tween.im")
   WALLET_API_KEY = ENV.fetch("WALLET_API_KEY", "")
 
   def self.make_wallet_request(method, endpoint, body = nil, headers = {})
