@@ -80,17 +80,34 @@ Rails.application.routes.draw do
   end
   use_doorkeeper
 
-   # Matrix Application Service endpoints (PROTO Section 3.1.2)
-   scope "/_matrix/app/v1" do
-     post "transactions/:txn_id", to: "matrix#transactions"
-     get "users/*user_id", to: "matrix#user", constraints: { user_id: /.*/ }
-     get "rooms/*room_alias", to: "matrix#room", constraints: { room_alias: /.*/ }
-     get "ping", to: "matrix#ping"
-    get "thirdparty/location", to: "matrix#thirdparty_location"
-    get "thirdparty/user", to: "matrix#thirdparty_user"
-    get "thirdparty/location/:protocol", to: "matrix#thirdparty_location_protocol"
-    get "thirdparty/user/:protocol", to: "matrix#thirdparty_user_protocol"
-  end
+    # Matrix Application Service endpoints (PROTO Section 3.1.2)
+    scope "/_matrix/app/v1" do
+      put "transactions/:txn_id", to: "matrix#transactions"
+      get "users/*user_id", to: "matrix#user", constraints: { user_id: /.*/ }
+      get "rooms/*room_alias", to: "matrix#room", constraints: { room_alias: /.*/ }
+      post "ping", to: "matrix#ping"
+      get "thirdparty/location", to: "matrix#thirdparty_location"
+      get "thirdparty/user", to: "matrix#thirdparty_user"
+      get "thirdparty/location/:protocol", to: "matrix#thirdparty_location_protocol"
+      get "thirdparty/user/:protocol", to: "matrix#thirdparty_user_protocol"
+    end
+
+    # Legacy fallback routes (Matrix AS spec requires these for backward compatibility)
+    # See: https://spec.matrix.org/v1.11/application-service-api/
+    put "/transactions/:txn_id", to: "matrix#transactions"
+    get "/users/:user_id", to: "matrix#user"
+    get "/rooms/:room_alias", to: "matrix#room"
+
+   # Internal test endpoints (NOT FOR PRODUCTION USE)
+   # These endpoints are for development/testing only and should be removed in production
+   namespace :api do
+     namespace :v1 do
+       namespace :internal do
+         post "matrix/invite_as_direct", to: "matrix#invite_as_direct"
+         post "matrix/send_test_message", to: "matrix#send_test_message"
+       end
+     end
+   end
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

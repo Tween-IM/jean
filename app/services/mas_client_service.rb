@@ -180,9 +180,46 @@ class MasClientService
   end
 
   # Send message to Matrix room as Application Service
-  def send_message_to_room(access_token, room_id, message, event_type = "m.room.message", msgtype = "m.text")
+  # Ensure Application Service is in the room before sending messages
+  def ensure_as_in_room(access_token, room_id, user_id = nil)
+    # AS must join rooms before sending messages, even with server admin permissions
+    # PUT /_matrix/client/v3/rooms/{roomId}/join/{userId}
+
+    homeserver_url = ENV["MATRIX_API_URL"] || "https://core.tween.im"
+
+    # If user_id is provided, join as that user; otherwise join as the main AS user
+    target_user_id = user_id || "@_tmcp:tween.im"
+
+    url = "#{homeserver_url}/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/join/#{CGI.escape(target_user_id)}"
+
+    response = http_client.put(url) do |req|
+      req.headers["Authorization"] = "Bearer #{access_token}"
+      req.headers["Content-Type"] = "application/json"
+      req.body = {}.to_json # Empty body for join
+    end
+
+    if response.success?
+      Rails.logger.info "AS successfully joined room #{room_id} as #{target_user_id}"
+      { success: true, joined: true, user_id: target_user_id }
+    else
+      Rails.logger.error "AS failed to join room #{room_id} as #{target_user_id}: #{response.status} - #{response.body}"
+      { success: false, error: response.status, message: response.body }
+    end
+  rescue StandardError => e
+    Rails.logger.error "Error joining room #{room_id}: #{e.message}"
+    { success: false, error: "internal_error", message: e.message }
+  end
+
+  def send_message_to_room(access_token, room_id, message, event_type = "m.room.message", msgtype = "m.text", user_id = nil)
     # Matrix AS sends messages using Client-Server API
     # PUT /_matrix/client/v3/rooms/{roomId}/send/{eventType}/{txnId}
+
+    # CRITICAL: AS must join room before sending messages, even with server admin permissions
+    join_result = ensure_as_in_room(access_token, room_id, user_id)
+    unless join_result[:success]
+      Rails.logger.warn "Failed to join room #{room_id} before sending message: #{join_result[:message]}"
+      # Continue anyway - message might work if already joined
+    end
 
     txn_id = SecureRandom.hex(8)
     event_content = {
@@ -198,7 +235,11 @@ class MasClientService
     # Use production Matrix homeserver URL
     homeserver_url = ENV["MATRIX_API_URL"] || "https://core.tween.im"
 
-    response = http_client.put("#{homeserver_url}/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/#{CGI.escape(event_type)}/#{txn_id}") do |req|
+    # Build URL with user_id parameter if acting as mini-app user
+    url = "#{homeserver_url}/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/#{CGI.escape(event_type)}/#{txn_id}"
+    url += "?user_id=#{CGI.escape(user_id)}" if user_id
+
+    response = http_client.put(url) do |req|
       req.headers["Authorization"] = "Bearer #{access_token}"
       req.headers["Content-Type"] = "application/json"
       req.body = event_content.to_json

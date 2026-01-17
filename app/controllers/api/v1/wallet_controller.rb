@@ -95,6 +95,17 @@ class Api::V1::WalletController < ApplicationController
       return render json: { error: "forbidden", message: "Users do not share a room" }, status: :forbidden
     end
 
+    # Ensure AS is invited to room for notifications (automatic)
+    if room_id
+      tep_payload = TepTokenService.decode(@tep_token)
+      matrix_token = tep_payload["matrix_access_token"]
+
+      if matrix_token
+        invite_result = MatrixService.ensure_as_in_room(room_id, matrix_token, "@_tmcp:tween.im")
+        Rails.logger.info "AS room invitation for P2P transfer: #{invite_result.inspect}"
+      end
+    end
+
     # Create P2P transfer
     transfer_data = WalletService.initiate_p2p_transfer(
       @current_user.wallet_id,
@@ -164,6 +175,16 @@ class Api::V1::WalletController < ApplicationController
 
     if room_id.blank?
       return render json: { error: "invalid_request", message: "room_id is required" }, status: :bad_request
+    end
+
+    # Extract Matrix access token from TEP token payload for AS invitation
+    tep_payload = TepTokenService.decode(@tep_token)
+    matrix_token = tep_payload["matrix_access_token"]
+
+    # Ensure AS is invited to the room so it can send messages
+    if matrix_token
+      invite_result = MatrixService.ensure_as_in_room(room_id, matrix_token, "@_tmcp:tween.im")
+      Rails.logger.info "AS room invitation result: #{invite_result.inspect}"
     end
 
     # Get room members from Matrix
