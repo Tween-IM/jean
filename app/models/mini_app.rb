@@ -39,12 +39,12 @@ class MiniApp < ApplicationRecord
       errors.add(:manifest, "verified apps cannot have privileged scopes") if privileged_scopes.any?
     when "community"
       # Community apps have limited scopes
-      allowed_scopes = %w[storage_read storage_write user_read public]
+      allowed_scopes = %w[storage:read storage:write user:read public]
       invalid_scopes = scopes - allowed_scopes
       errors.add(:manifest, "community apps can only have: #{allowed_scopes.join(', ')}") if invalid_scopes.any?
     when "beta"
       # Beta apps have sandboxed scopes only
-      allowed_scopes = %w[storage_read storage_write public]
+      allowed_scopes = %w[storage:read storage:write public]
       invalid_scopes = scopes - allowed_scopes
       errors.add(:manifest, "beta apps can only have: #{allowed_scopes.join(', ')}") if invalid_scopes.any?
     end

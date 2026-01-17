@@ -276,21 +276,23 @@ class Api::V1::OauthController < ApplicationController
         return
       end
 
-      mas_username = introspection_response["username"]
-      device_id = introspection_response["device_id"]
+       mas_username = introspection_response["username"]
+       device_id = introspection_response["device_id"]
 
-      user = User.find_or_create_by(mas_user_id: matrix_user_id) do |u|
-        u.mas_user_id = matrix_user_id
-        u.matrix_user_id = matrix_user_id
+       user = User.find_or_create_by(mas_user_id: matrix_user_id) do |u|
+         u.mas_user_id = matrix_user_id
 
-        if mas_username && !mas_username.empty?
-          u.matrix_username = "#{mas_username}:tween.im"
-          u.matrix_homeserver = "tween.im"
-        else
-          u.matrix_username = matrix_user_id
-          u.matrix_homeserver = "tween.im"
-        end
-      end
+         if mas_username && !mas_username.empty?
+           u.matrix_user_id = "@#{mas_username}:tween.im"
+           u.matrix_username = "#{mas_username}:tween.im"
+           u.matrix_homeserver = "tween.im"
+         else
+           # Fallback: use MAS internal ID as matrix_user_id if no username available
+           u.matrix_user_id = matrix_user_id
+           u.matrix_username = matrix_user_id
+           u.matrix_homeserver = "tween.im"
+         end
+       end
 
       authorization_result = authorize_scopes(user, application, scopes)
 
@@ -387,12 +389,14 @@ class Api::V1::OauthController < ApplicationController
 
       user = User.find_or_create_by(mas_user_id: matrix_user_id) do |u|
         u.mas_user_id = matrix_user_id
-        u.matrix_user_id = matrix_user_id
 
         if mas_username && !mas_username.empty?
+          u.matrix_user_id = "@#{mas_username}:tween.im"
           u.matrix_username = "#{mas_username}:tween.im"
           u.matrix_homeserver = "tween.im"
         else
+          # Fallback: use MAS internal ID as matrix_user_id if no username available
+          u.matrix_user_id = matrix_user_id
           u.matrix_username = matrix_user_id
           u.matrix_homeserver = "tween.im"
         end
@@ -469,7 +473,7 @@ class Api::V1::OauthController < ApplicationController
 
     requested_scopes.each do |scope|
       approved = AuthorizationApproval.where(
-        user_id: user.matrix_user_id,
+        user_id: user.mas_user_id,
         miniapp_id: miniapp.app_id,
         scope: scope
       ).exists?
@@ -484,7 +488,7 @@ class Api::V1::OauthController < ApplicationController
     if consent_required_scopes.any?
       session_id = SecureRandom.urlsafe_base64(32)
       Rails.cache.write("consent:#{session_id}", {
-        user_id: user.matrix_user_id,
+        user_id: user.mas_user_id,
         miniapp_id: miniapp.app_id,
         pre_approved_scopes: pre_approved_scopes,
         consent_required_scopes: consent_required_scopes

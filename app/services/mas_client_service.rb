@@ -151,15 +151,24 @@
 
   def exchange_matrix_token_for_tep(matrix_access_token, miniapp_id, scopes, miniapp_context = {}, introspection_response = nil)
     mas_user_info = introspection_response || get_user_info(matrix_access_token)
-    user_id = mas_user_info["sub"]
-    wallet_id = user_id ? "tw_#{user_id.gsub(/[@:]/, '_')}" : "tw_unknown"
+    mas_user_id = mas_user_info["sub"]
+    mas_username = mas_user_info["username"]
+
+    # Construct Matrix user ID for PROTO.md compliance
+    matrix_user_id = if mas_username && !mas_username.empty?
+                       "@#{mas_username}:tween.im"
+    else
+                       mas_user_id # fallback to internal ID
+    end
+
+    wallet_id = mas_user_id ? "tw_#{mas_user_id.gsub(/[@:]/, '_')}" : "tw_unknown"
     session_id = generate_session_id
 
     device_id = mas_user_info.dig("device_id") || "unknown"
     mas_session_id = mas_user_info.dig("sid") || "unknown"
 
     tep_payload = {
-      user_id: user_id,
+      user_id: matrix_user_id, # Use Matrix user ID for TEP token claims
       miniapp_id: miniapp_id,
       user_context: {
         display_name: mas_user_info["display_name"],
@@ -178,7 +187,7 @@
         refresh_token_id: "rt_#{SecureRandom.alphanumeric(16)}"
       },
       authorization_context: build_authorization_context({ miniapp_context: miniapp_context }),
-      approval_history: build_approval_history(user_id, miniapp_id, scopes),
+       approval_history: build_approval_history(mas_user_id, miniapp_id, scopes),
       delegated_from: "matrix_session",
       matrix_session_ref: {
         device_id: device_id,
@@ -188,7 +197,7 @@
     tep_refresh_token = "rt_#{SecureRandom.alphanumeric(24)}"
 
     Rails.cache.write("refresh_token:#{tep_refresh_token}", {
-      user_id: user_id,
+      user_id: mas_user_id, # Use internal ID for refresh token cache
       miniapp_id: miniapp_id,
       scope: scopes,
       created_at: Time.current.to_i
@@ -202,7 +211,7 @@
       expires_in: 86400,
       refresh_token: tep_refresh_token,
       scope: scopes.join(" "),
-      user_id: user_id,
+      user_id: matrix_user_id, # Return Matrix user ID for PROTO.md compliance
       wallet_id: wallet_id,
       matrix_access_token: new_matrix_token[:access_token],
       matrix_expires_in: new_matrix_token[:expires_in],
