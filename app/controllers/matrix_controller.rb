@@ -95,6 +95,90 @@ class MatrixController < ApplicationController
     render json: [], status: :ok
   end
 
+  # GET /_matrix/app/v1/users/:user_id
+  # Query user existence for room membership validation
+  def user
+    user_id = params[:user_id]
+
+    Rails.logger.info "Matrix AS user query - raw user_id param: #{user_id.inspect}"
+
+    # Extract the actual user ID from the path
+    # The route uses /*user_id which captures everything after /users/
+    matrix_user_id = if user_id.start_with?("@")
+                       user_id
+    else
+                       "@#{user_id}"
+    end
+
+    Rails.logger.info "Matrix AS user query for: #{matrix_user_id}"
+
+    # Check if user exists in our system
+    user = User.find_by(matrix_user_id: matrix_user_id)
+    Rails.logger.info "Matrix AS user lookup result: #{user.inspect}, user.present?: #{user.present?}"
+
+    if user
+      Rails.logger.info "Matrix AS user found, preparing response"
+      # Return user information for Matrix AS
+      response_data = {
+        user_id: user.matrix_user_id,
+        display_name: user.matrix_username&.split(":")&.first || "User",
+        deactivated: false,
+        avatar_url: nil # Could be added if we store avatars
+      }
+      Rails.logger.info "Matrix AS user response: #{response_data.inspect}"
+      render json: response_data
+    else
+      # User not found - return 404 as per Matrix AS spec
+      Rails.logger.info "Matrix user not found: #{matrix_user_id}"
+      render json: {
+        errcode: "M_NOT_FOUND",
+        error: "User not found"
+      }, status: :not_found
+    end
+  end
+
+  # GET /_matrix/app/v1/rooms/:room_alias
+  # Query room alias existence
+  def room
+    room_alias = params[:room_alias]
+
+    # Extract the actual room alias from the path
+    # The route uses /*room_alias which captures everything after /rooms/
+    matrix_room_alias = "##{room_alias}" unless room_alias.start_with?("#")
+
+    Rails.logger.info "Matrix AS room query for: #{matrix_room_alias}"
+
+    # For now, return room not found since we don't manage Matrix rooms
+    # In a full Matrix AS implementation, this would check room directory
+    render json: {
+      errcode: "M_NOT_FOUND",
+      error: "Room not found"
+    }, status: :not_found
+  end
+
+  # GET /_matrix/app/v1/ping
+  # Application Service health check
+  def ping
+    render json: { status: "ok" }
+  end
+
+  # Third-party protocol endpoints (placeholders)
+  def thirdparty_location
+    render json: { locations: [] }
+  end
+
+  def thirdparty_user
+    render json: { users: [] }
+  end
+
+  def thirdparty_location_protocol
+    render json: { locations: [] }
+  end
+
+  def thirdparty_user_protocol
+    render json: { users: [] }
+  end
+
   private
 
   def verify_as_token
