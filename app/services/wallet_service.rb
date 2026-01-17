@@ -157,36 +157,42 @@ class WalletService
 
   def self.resolve_user(user_id, tep_token: nil)
     @@circuit_breakers[:verification].call do
-      Rails.logger.info "Resolving user #{user_id}"
+      Rails.logger.info "Resolving user: #{user_id.inspect}"
 
       # Call tween-pay TMCP user resolution endpoint
-      response = make_wallet_request(:get, "/api/v1/tmcp/users/resolve/#{user_id}",
-                                   nil, { "Authorization" => "Bearer #{tep_token}" })
+      begin
+        response = make_wallet_request(:get, "/api/v1/tmcp/users/resolve/#{user_id}",
+                                     nil, { "Authorization" => "Bearer #{tep_token}" })
 
-      if response.success?
-        data = JSON.parse(response.body).symbolize_keys
+        if response.success?
+          data = response.symbolize_keys
 
-        # Transform response to match jean's expected format
-        {
-          user_id: data[:user_id] || user_id,
-          has_wallet: data[:has_wallet] || true,
-          wallet_id: data[:wallet_id],
-          verification_level: data[:verification_level] || 0,
-          verification_name: data[:verification_name] || "None",
-          can_invite: data[:can_invite] || false
-        }
-      else
-        Rails.logger.error "User resolution API error: #{response.status} - #{response.body}"
-
-        # Return default response for non-existent users (allows wallet creation)
-        {
-          user_id: user_id,
-          has_wallet: false,
-          wallet_id: nil,
-          verification_level: 0,
-          verification_name: "None",
-          can_invite: true
-        }
+          # Transform response to match jean's expected format
+          {
+            user_id: data[:user_id] || user_id,
+            has_wallet: data[:has_wallet] || true,
+            wallet_id: data[:wallet_id],
+            verification_level: data[:verification_level] || 0,
+            verification_name: data[:verification_name] || "None",
+            can_invite: data[:can_invite] || false
+          }
+        end
+      rescue WalletError => e
+        if e.message.include?("HTTP 404")
+          Rails.logger.info "User #{user_id} not found in wallet service (404), returning default response"
+          # Return default response for non-existent users (allows wallet creation)
+          {
+            user_id: user_id,
+            has_wallet: false,
+            wallet_id: nil,
+            verification_level: 0,
+            verification_name: "None",
+            can_invite: true
+          }
+        else
+          # Re-raise other wallet service errors
+          raise
+        end
       end
     end
   end

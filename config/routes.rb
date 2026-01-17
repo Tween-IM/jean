@@ -22,7 +22,7 @@ Rails.application.routes.draw do
        post "wallet/p2p/initiate", to: "wallet#initiate_p2p"
        post "wallet/p2p/:transfer_id/accept", to: "wallet#accept_p2p"
        post "wallet/p2p/:transfer_id/reject", to: "wallet#reject_p2p"
-       get "wallet/resolve/:user_id", to: "wallet#resolve"
+        get "wallet/resolve/:user_id", to: "wallet#resolve", constraints: { user_id: /@[^\/]+/ }
        post "wallet/resolve/batch", to: "wallet#resolve_batch"
 
         # External account endpoints (TMCP Protocol Section 6.5)
