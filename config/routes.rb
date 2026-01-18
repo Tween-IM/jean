@@ -83,6 +83,7 @@ Rails.application.routes.draw do
     # Matrix Application Service endpoints (PROTO Section 3.1.2)
     scope "/_matrix/app/v1" do
       put "transactions/:txn_id", to: "matrix#transactions"
+      post "transactions/:txn_id", to: "matrix#transactions"
       get "users/*user_id", to: "matrix#user", constraints: { user_id: /.*/ }
       get "rooms/*room_alias", to: "matrix#room", constraints: { room_alias: /.*/ }
       post "ping", to: "matrix#ping"

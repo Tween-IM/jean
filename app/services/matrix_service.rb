@@ -240,6 +240,54 @@ class MatrixService
     end
   end
 
+  def self.register_as_user(user_id)
+    # Register an AS user with Matrix homeserver using m.login.application_service
+    # Per Matrix spec, AS MUST create users when returning 200 to /users/{userId} endpoint
+    as_token = ENV["MATRIX_AS_TOKEN"]
+    unless as_token
+      Rails.logger.error "MATRIX_AS_TOKEN not configured"
+      return { success: false, error: "auth_error", message: "MATRIX_AS_TOKEN not configured" }
+    end
+
+    # Extract localpart from user_id (e.g., @_tmcp:tween.im -> _tmcp)
+    localpart = user_id.split(":").first&.sub(/^@/, "")
+    unless localpart
+      Rails.logger.error "Invalid user_id format: #{user_id}"
+      return { success: false, error: "invalid_user_id", message: "Invalid user_id format" }
+    end
+
+    mas_client = MasClientService.new
+    homeserver_url = ENV["MATRIX_API_URL"] || "https://core.tween.im"
+
+    # Register user using m.login.application_service
+    response = mas_client.send(:http_client).post("#{homeserver_url}/_matrix/client/v3/register") do |req|
+      req.headers["Authorization"] = "Bearer #{as_token}"
+      req.headers["Content-Type"] = "application/json"
+      req.body = {
+        type: "m.login.application_service",
+        username: localpart
+      }.to_json
+    end
+
+    if response.success?
+      Rails.logger.info "Successfully registered AS user #{user_id}"
+      { success: true, user_id: user_id }
+    elsif response.status == 400
+      # Check if user already exists
+      error_data = JSON.parse(response.body) rescue {}
+      if error_data["errcode"] == "M_USER_IN_USE"
+        Rails.logger.info "AS user #{user_id} already exists, treating as success"
+        { success: true, user_id: user_id, already_exists: true }
+      else
+        Rails.logger.error "Failed to register AS user #{user_id}: #{response.status} - #{response.body}"
+        { success: false, error: response.status, message: response.body }
+      end
+    else
+      Rails.logger.error "Failed to register AS user #{user_id}: #{response.status} - #{response.body}"
+      { success: false, error: response.status, message: response.body }
+    end
+  end
+
   private
 
   def self.get_as_access_token(mas_client)

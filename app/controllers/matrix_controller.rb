@@ -1,15 +1,18 @@
 class MatrixController < ApplicationController
   # TMCP Protocol Section 3.1.2: Matrix Application Service
 
-  skip_before_action :verify_authenticity_token
   before_action :verify_as_token, only: [ :transactions, :ping, :thirdparty_location, :thirdparty_user, :thirdparty_location_protocol, :thirdparty_user_protocol ]
 
-  # PUT /_matrix/app/v1/transactions/:txn_id - Handle Matrix events
+  # PUT/POST /_matrix/app/v1/transactions/:txn_id - Handle Matrix events
+  # Note: Matrix spec requires PUT, but some homeservers use POST
+  # Accept both for maximum compatibility
   def transactions
     txn_id = params[:txn_id]
 
     # Process each event in transaction
     events = params[:events] || []
+
+    Rails.logger.info "TMCP AS: Processing transaction #{txn_id} with #{events.length} events"
 
     events.each do |event|
       process_matrix_event(event)
@@ -20,6 +23,7 @@ class MatrixController < ApplicationController
   end
 
   # GET /_matrix/app/v1/users/:user_id - Query user existence
+  # Per Matrix spec: Returning 200 means user exists. AS MUST create user on homeserver.
   def user
     begin
       user_id = CGI.unescape(params[:user_id])
@@ -29,17 +33,35 @@ class MatrixController < ApplicationController
       # Check if user exists in our system
       user = User.find_by(matrix_user_id: user_id)
 
-      # Also check if this is a TMCP bot user (virtual users owned by AS)
+      # Only check for TMCP bot if user doesn't exist in database
+      # TMCP bot users are virtual users created on-demand by Matrix AS
       is_tmcp_bot = user_id.start_with?("@_tmcp") || user_id.start_with?("@ma_")
 
-      Rails.logger.debug "MatrixController#user: found user=#{user.inspect}, is_tmcp_bot=#{is_tmcp_bot}"
-
-      # Matrix AS spec: Return empty body with 200 if user exists, 404 if not
-      if user || is_tmcp_bot
+      if user
+        Rails.logger.debug "MatrixController#user: found user=#{user.inspect}, is_tmcp_bot=false"
         render json: {}, status: :ok
-      else
-        render json: {}, status: :not_found
+        return
       end
+
+      if is_tmcp_bot
+        Rails.logger.debug "MatrixController#user: user not found, is_tmcp_bot=true"
+
+        # CRITICAL: Per Matrix spec, returning 200 means user MUST exist on homeserver
+        # Register the user with Matrix homeserver via Client-Server API
+        register_result = MatrixService.register_as_user(user_id)
+
+        if register_result[:success]
+          Rails.logger.info "MatrixController#user: successfully registered AS user #{user_id}"
+          render json: {}, status: :ok
+        else
+          Rails.logger.error "MatrixController#user: failed to register AS user #{user_id}: #{register_result[:message]}"
+          render json: {}, status: :not_found
+        end
+        return
+      end
+
+      Rails.logger.debug "MatrixController#user: user not found, is_tmcp_bot=false"
+      render json: {}, status: :not_found
     rescue => e
       Rails.logger.error "MatrixController#user error: #{e.message}"
       render json: {}, status: :not_found
@@ -175,7 +197,7 @@ class MatrixController < ApplicationController
     unless provided_token == expected_token
       Rails.logger.warn "Matrix AS authentication failed: provided_token=#{provided_token&.first(10)}..., expected_token=#{expected_token&.first(10)}..."
       render json: { error: "unauthorized" }, status: :unauthorized
-      nil
+      false
     end
   end
 
