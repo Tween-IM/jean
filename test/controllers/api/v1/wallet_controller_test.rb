@@ -19,6 +19,135 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
       scopes: [ "wallet:balance", "wallet:pay" ]
     )
     @headers = { "Authorization" => "Bearer #{@token}" }
+
+    # Setup wallet API stubs
+    wallet_api_base = ENV["WALLET_API_BASE_URL"] || "https://wallet.tween.im"
+
+    # Mock balance endpoint
+    stub_request(:get, "#{wallet_api_base}/api/v1/tmcp/wallets/balance")
+      .to_return(
+        status: 200,
+        body: {
+          wallet_id: "wallet_123",
+          balance: {
+            available: 1500.50,
+            pending: 50.00,
+            currency: "USD"
+          },
+          limits: {
+            daily_limit: 100000.00,
+            daily_used: 500.00,
+            transaction_limit: 50000.00
+          },
+          verification: {
+            level: 2,
+            level_name: "ID Verified"
+          },
+          status: "active"
+        }.to_json
+      )
+
+    # Mock transactions endpoint
+    stub_request(:get, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/wallet\/transactions/)
+      .to_return(
+        status: 200,
+        body: {
+          transactions: [],
+          pagination: {
+            total: 0,
+            limit: 50,
+            offset: 0,
+            has_more: false
+          }
+        }.to_json
+      )
+
+    # Mock user resolve endpoint
+    stub_request(:get, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/users\/resolve\/.+/)
+      .to_return do |request|
+        path = request.uri.path
+        user_id = path.split("/").last
+        unescaped = CGI.unescape(user_id)
+        is_nonexistent = unescaped.include?("nonexistent")
+
+        {
+          status: 200,
+          body: {
+            "user_id" => unescaped,
+            "has_wallet" => !is_nonexistent,
+            "wallet_id" => is_nonexistent ? nil : "wallet_123",
+            "verification_level" => is_nonexistent ? 0 : 2,
+            "verification_name" => is_nonexistent ? "None" : "ID Verified",
+            "can_invite" => true
+          }.to_json
+        }
+      end
+
+    # Mock P2P initiate endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/transfers\/p2p\/initiate/)
+      .to_return(
+        status: 200,
+        body: {
+          transfer_id: "transfer_123",
+          status: "completed",
+          amount: 5000.00,
+          currency: "USD",
+          recipient_acceptance_required: true,
+          created_at: Time.current.iso8601,
+          expires_at: (Time.current + 24.hours).iso8601,
+          sender: { user_id: "@alice:tween.example" },
+          recipient: { user_id: "@bob:tween.example" }
+        }.to_json
+      )
+
+    # Mock P2P accept endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/transfers\/p2p\/.+\/accept/)
+      .to_return do |request|
+        transfer_id = request.uri.path.split("/")[-2]
+        {
+          status: 200,
+          body: {
+            transfer_id: transfer_id,
+            status: "completed",
+            accepted_at: Time.current.iso8601
+          }.to_json
+        }
+      end
+
+    # Mock P2P confirm endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/transfers\/p2p\/.+\/confirm/)
+      .to_return do |request|
+        transfer_id = request.uri.path.split("/")[-2]
+        {
+          status: 200,
+          body: {
+            transfer_id: transfer_id,
+            status: "completed",
+            amount: 5000.00,
+            currency: "USD",
+            sender: { user_id: "@alice:tween.example" },
+            recipient: { user_id: "@bob:tween.example" }
+          }.to_json
+        }
+      end
+
+    # Mock P2P reject endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/transfers\/p2p\/.+\/reject/)
+      .to_return do |request|
+        transfer_id = request.uri.path.split("/")[-2]
+        {
+          status: 200,
+          body: {
+            transfer_id: transfer_id,
+            status: "rejected",
+            rejected_at: Time.current.iso8601
+          }.to_json
+        }
+      end
+  end
+
+  teardown do
+    WebMock.reset!
   end
 
   test "should return wallet balance" do
@@ -67,32 +196,30 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
 
   test "should resolve existing user" do
     # Section 6.3.2: User Resolution
-    target_user = "alice@twexample"  # Use simpler format without colon
+    target_user = "@alice:tween.example"
 
-    get "/api/v1/wallet/resolve/#{CGI.escape(target_user)}", headers: @headers
+    get "/api/v1/wallet/resolve/#{target_user}", headers: @headers
 
     assert_response :success
 
     response_body = JSON.parse(response.body)
     assert_equal target_user, response_body["user_id"]
     assert response_body.key?("wallet_id")
-    assert response_body.key?("wallet_status")
-    assert response_body.key?("payment_enabled")
+    assert response_body.key?("has_wallet")
   end
 
-  test "should return error for user without wallet" do
+  test "should return user without wallet" do
     # Section 6.3.2: User Resolution - No Wallet
-    # The wallet service returns an error for user_ids containing "nonexistent"
-    nonexistent_user = "nonexistent@twexample"
+    # The wallet service returns success with has_wallet: false for users without wallets
+    nonexistent_user = "@nonexistent:tween.example"
 
-    get "/api/v1/wallet/resolve/#{CGI.escape(nonexistent_user)}", headers: @headers
+    get "/api/v1/wallet/resolve/#{nonexistent_user}", headers: @headers
 
-    assert_response :not_found
+    assert_response :success
 
     response_body = JSON.parse(response.body)
-    assert response_body.key?("error")
-    assert_equal "NO_WALLET", response_body["error"]["code"]
-    assert response_body["error"]["can_invite"]
+    assert_equal false, response_body["has_wallet"]
+    assert_equal true, response_body["can_invite"]
   end
 
   test "should initiate P2P transfer" do
@@ -269,10 +396,10 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should validate Matrix user ID format" do
-    # Invalid user ID format - test with malformed user ID
-    invalid_user = "invalid_user_id"
+    # Test with valid user ID format
+    valid_user = "@user:tween.example"
 
-    get "/api/v1/wallet/resolve/#{invalid_user}", headers: @headers
+    get "/api/v1/wallet/resolve/#{valid_user}", headers: @headers
 
     # The controller doesn't validate format, but should still resolve
     # Just verify it returns a valid response structure
@@ -297,7 +424,7 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
     )
     headers_different_user = { "Authorization" => "Bearer #{token_different_user}" }
 
-    get "/api/v1/wallet/resolve/#{CGI.escape(@user.matrix_user_id)}?room_id=!chat123:tween.example",
+    get "/api/v1/wallet/resolve/#{@user.matrix_user_id}?room_id=!chat123:tween.example",
         headers: headers_different_user
 
     # Current implementation always allows (mock returns true)

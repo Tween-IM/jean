@@ -116,8 +116,9 @@ class MatrixEventService
           status: status,
           recipient_acceptance_required: recipient_acceptance_required,
           timestamp: transfer_data["timestamp"] || transfer_data[:timestamp]
+        }
       }
-      
+
       room_id = transfer_data["room_id"] || transfer_data[:room_id]
       return unless room_id
 

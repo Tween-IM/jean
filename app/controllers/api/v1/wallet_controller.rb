@@ -48,7 +48,7 @@ class Api::V1::WalletController < ApplicationController
 
   # GET /wallet/v1/resolve/:user_id - TMCP Protocol Section 6.3.2
   def resolve
-    target_user_id = params[:id]
+    target_user_id = params[:user_id]
     resolution_result = WalletService.resolve_user(target_user_id, tep_token: @tep_token)
     render json: resolution_result
   end

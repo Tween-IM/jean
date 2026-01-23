@@ -94,39 +94,33 @@ class WalletService
       Rails.logger.info "Getting balance for user #{user_id}"
 
       # Call tween-pay TMCP balance endpoint
-      response = make_wallet_request(:get, "/api/v1/tmcp/wallets/balance",
-                                   nil, { "Authorization" => "Bearer #{tep_token}" })
+      data = make_wallet_request(:get, "/api/v1/tmcp/wallets/balance",
+                                  nil, { "Authorization" => "Bearer #{tep_token}" })
+      data = data.symbolize_keys
 
-      if response.success?
-        data = JSON.parse(response.body).symbolize_keys
-
-        # Transform response to match jean's expected format
-        {
-          wallet_id: data[:wallet_id],
-          balance: {
-            available: data.dig(:balance, :available) || 0.00,
-            pending: data.dig(:balance, :pending) || 0.00,
-            currency: data.dig(:balance, :currency) || "USD"
-          },
-          limits: data[:limits] || {
-            daily_limit: 1000.00,
-            daily_used: 0.00,
-            transaction_limit: 500.00
-          },
-          verification: data[:verification] || {
-            level: 0,
-            level_name: "Unverified",
-            features: [],
-            can_upgrade: true,
-            next_level: 1,
-            upgrade_requirements: [ "id_verification" ]
-          },
-          status: data[:status] || "active"
-        }
-      else
-        Rails.logger.error "Wallet balance API error: #{response.status} - #{response.body}"
-        raise WalletError.new("Failed to get balance from wallet service")
-      end
+      # Transform response to match jean's expected format
+      {
+        wallet_id: data[:wallet_id],
+        balance: {
+          available: data.dig(:balance, :available) || 0.00,
+          pending: data.dig(:balance, :pending) || 0.00,
+          currency: data.dig(:balance, :currency) || "USD"
+        },
+        limits: data[:limits] || {
+          daily_limit: 1000.00,
+          daily_used: 0.00,
+          transaction_limit: 500.00
+        },
+        verification: data[:verification] || {
+          level: 0,
+          level_name: "Unverified",
+          features: [],
+          can_upgrade: true,
+          next_level: 1,
+          upgrade_requirements: [ "id_verification" ]
+        },
+        status: data[:status] || "active"
+      }
     end
   end
 
@@ -135,51 +129,40 @@ class WalletService
       Rails.logger.info "Getting transactions for user #{user_id}"
 
       # Call tween-pay TMCP transactions endpoint
-      response = make_wallet_request(:get, "/api/v1/tmcp/wallet/transactions?limit=#{limit}&offset=#{offset}",
-                                   nil, { "Authorization" => "Bearer #{tep_token}" })
+      data = make_wallet_request(:get, "/api/v1/tmcp/wallet/transactions?limit=#{limit}&offset=#{offset}",
+                                  nil, { "Authorization" => "Bearer #{tep_token}" })
+      data = data.symbolize_keys
 
-      if response.success?
-        data = JSON.parse(response.body).symbolize_keys
-
-        # Transform response to match jean's expected format
-        {
-          transactions: data[:transactions] || [],
-          pagination: data[:pagination] || {
-            total: 0,
-            limit: limit,
-            offset: offset,
-            has_more: false
-          }
+      # Transform response to match jean's expected format
+      {
+        transactions: data[:transactions] || [],
+        pagination: data[:pagination] || {
+          total: 0,
+          limit: limit,
+          offset: offset,
+          has_more: false
         }
-      else
-        Rails.logger.error "Wallet transactions API error: #{response.status} - #{response.body}"
-        raise WalletError.new("Failed to get transactions from wallet service")
-      end
+      }
     end
   end
 
   def self.resolve_user(user_id, tep_token: nil)
     @@circuit_breakers[:verification].call do
-      Rails.logger.info "Resolving user: #{user_id.inspect}"
-
       # Call tween-pay TMCP user resolution endpoint
       begin
-        response = make_wallet_request(:get, "/api/v1/tmcp/users/resolve/#{user_id}",
-                                     nil, { "Authorization" => "Bearer #{tep_token}" })
+        data = make_wallet_request(:get, "/api/v1/tmcp/users/resolve/#{user_id}",
+                                    nil, { "Authorization" => "Bearer #{tep_token}" })
+        data = data.symbolize_keys
 
-        if response.success?
-          data = response.symbolize_keys
-
-          # Transform response to match jean's expected format
-          {
-            user_id: data[:user_id] || user_id,
-            has_wallet: data[:has_wallet] || true,
-            wallet_id: data[:wallet_id],
-            verification_level: data[:verification_level] || 0,
-            verification_name: data[:verification_name] || "None",
-            can_invite: data[:can_invite] || false
-          }
-        end
+        # Transform response to match jean's expected format
+        {
+          user_id: data[:user_id] || user_id,
+          has_wallet: data.fetch(:has_wallet, true),
+          wallet_id: data[:wallet_id],
+          verification_level: data[:verification_level] || 0,
+          verification_name: data[:verification_name] || "None",
+          can_invite: data[:can_invite] || false
+        }
       rescue WalletError => e
         if e.code == "WALLET_NOT_FOUND" || e.code == "USER_NOT_FOUND"
           Rails.logger.info "User #{user_id} not found in wallet service (#{e.code}), returning default response"

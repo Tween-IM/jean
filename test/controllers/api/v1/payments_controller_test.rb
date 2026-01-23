@@ -16,6 +16,76 @@ class Api::V1::PaymentsControllerTest < ActionDispatch::IntegrationTest
       wallet_id: @user.wallet_id
     )
     @headers = { "Authorization" => "Bearer #{@token}" }
+
+    # Setup wallet API stubs for payment endpoints
+    wallet_api_base = ENV["WALLET_API_BASE_URL"] || "https://wallet.tween.im"
+
+    # Mock payment request endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/payments\/request/)
+      .to_return(
+        status: 201,
+        body: {
+          payment_id: "pay_123",
+          status: "pending_authorization",
+          amount: 15000.00,
+          currency: "USD",
+          merchant_order_id: "ORDER-2024-12345"
+        }.to_json
+      )
+
+    # Mock payment authorization endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/payments\/[^\/]+\/authorize/)
+      .to_return do |request|
+        payment_id = request.uri.path.split("/")[-2]
+        {
+          status: 200,
+          body: {
+            payment_id: payment_id,
+            status: "completed",
+            amount: 15000.00,
+            currency: "USD",
+            authorization_required: false
+          }.to_json
+        }
+      end
+
+    # Mock MFA challenge endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/payments\/[^\/]+\/mfa\/challenge/)
+      .to_return(
+        status: 200,
+        body: {
+          challenge_id: "mfa_123",
+          methods: [
+            { type: "transaction_pin", enabled: true, display_name: "Transaction PIN" },
+            { type: "biometric", enabled: true, display_name: "Biometric" }
+          ],
+          required_method: "any",
+          expires_at: (Time.current + 3.minutes).iso8601,
+          max_attempts: 3
+        }.to_json
+      )
+
+    # Mock MFA verify endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/payments\/[^\/]+\/mfa\/verify/)
+      .to_return(
+        status: 200,
+        body: { status: "verified", proceed_to_processing: true }.to_json
+      )
+
+    # Mock refund endpoint
+    stub_request(:post, /#{Regexp.escape(wallet_api_base)}\/api\/v1\/tmcp\/payments\/[^\/]+\/refund/)
+      .to_return do |request|
+        payment_id = request.uri.path.split("/")[-2]
+        {
+          status: 200,
+          body: {
+            payment_id: payment_id,
+            refund_id: "refund_123",
+            status: "completed",
+            amount_refunded: 15000.00
+          }.to_json
+        }
+      end
   end
 
   test "should create payment request" do
@@ -33,7 +103,7 @@ class Api::V1::PaymentsControllerTest < ActionDispatch::IntegrationTest
          params: payment_params,
          headers: @headers
 
-    assert_response :created
+     assert_response :created
 
     response_body = JSON.parse(response.body)
     assert response_body.key?("payment_id")
@@ -43,6 +113,7 @@ class Api::V1::PaymentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "USD", response_body["currency"]
     assert response_body.key?("merchant")
     assert response_body.key?("authorization_required")
+    assert_equal false, response_body["authorization_required"]
   end
 
   test "should validate payment amount limits" do
