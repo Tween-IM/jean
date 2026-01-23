@@ -67,15 +67,14 @@ class Api::V1::PaymentsController < ApplicationController
 
     # Create payment request
     payment_data = WalletService.create_payment_request(
-      @current_user.wallet_id,
-      "tw_merchant_demo", # Mock merchant wallet
       amount,
       currency,
       description,
-      miniapp_id: "ma_shop_001",
+      @tep_token,
       merchant_order_id: merchant_order_id,
+      callback_url: callback_url,
       items: items,
-      callback_url: callback_url
+      idempotency_key: params[:idempotency_key]
     )
 
     # Cache payment data (TMCP requires idempotency)
@@ -200,10 +199,10 @@ class Api::V1::PaymentsController < ApplicationController
       return render json: { error: "missing_token", message: "TEP token required" }, status: :unauthorized
     end
 
-    token = auth_header.sub("Bearer ", "")
+    @tep_token = auth_header.sub("Bearer ", "")
 
     begin
-      payload = TepTokenService.decode(token)
+      payload = TepTokenService.decode(@tep_token)
       user_id = payload["sub"]
 
       @current_user = User.find_by(matrix_user_id: user_id)
@@ -257,11 +256,15 @@ class Api::V1::PaymentsController < ApplicationController
     txn_id = "txn_#{SecureRandom.alphanumeric(12)}"
 
     # Authorize payment
-    auth_result = WalletService.authorize_payment(
-      payment_id,
-      params[:signature],
+    auth_proof = {
+      signature: params[:signature],
       device_id: params[:device_id],
       timestamp: params[:timestamp]
+    }
+    auth_result = WalletService.authorize_payment(
+      payment_id,
+      auth_proof,
+      @tep_token
     )
 
     # Update cached payment data

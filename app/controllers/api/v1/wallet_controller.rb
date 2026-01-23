@@ -101,14 +101,13 @@ class Api::V1::WalletController < ApplicationController
     end
 
     transfer_data = WalletService.initiate_p2p_transfer(
-      @current_user.wallet_id,
-      recipient.wallet_id,
+      recipient.matrix_user_id,
       params[:amount].to_f,
       params[:currency] || "USD",
-      sender_user_id: @current_user.matrix_user_id,
-      recipient_user_id: recipient.matrix_user_id,
+      @tep_token,
       room_id: room_id,
-      note: params[:note]
+      note: params[:note],
+      idempotency_key: params[:idempotency_key]
     )
 
     render json: transfer_data
@@ -137,7 +136,7 @@ class Api::V1::WalletController < ApplicationController
     result = WalletService.confirm_p2p_transfer(
       transfer_id,
       auth_proof,
-      @current_user.matrix_user_id
+      @tep_token
     )
 
     if result.key?(:error)
@@ -161,7 +160,7 @@ class Api::V1::WalletController < ApplicationController
   # POST /wallet/v1/p2p/:transfer_id/accept - TMCP Protocol Section 7.2.3
   def accept_p2p
     transfer_id = params[:transfer_id]
-    result = WalletService.accept_p2p_transfer(transfer_id, @current_user.matrix_user_id)
+    result = WalletService.accept_p2p_transfer(transfer_id, @tep_token)
 
     if result[:status] == "completed"
       MatrixEventService.publish_p2p_status_update(
@@ -181,7 +180,7 @@ class Api::V1::WalletController < ApplicationController
   # POST /wallet/v1/p2p/:transfer_id/reject - TMCP Protocol Section 7.2.3
   def reject_p2p
     transfer_id = params[:transfer_id]
-    result = WalletService.reject_p2p_transfer(transfer_id, @current_user.matrix_user_id)
+    result = WalletService.reject_p2p_transfer(transfer_id, @tep_token, params[:reason])
 
     render json: result.merge(
       refund_initiated: true,

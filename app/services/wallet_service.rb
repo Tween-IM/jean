@@ -59,25 +59,14 @@ class WalletService
     end
   end
 
-  def self.map_matrix_user_to_internal(matrix_user_id)
-    # Look up the internal user ID from the Matrix user ID
-    user = User.find_by(matrix_user_id: matrix_user_id)
-    return user&.id if user
-
-    # If user doesn't exist, we might need to create them or handle this case
-    # For now, return nil and let the calling code handle it
-    Rails.logger.warn "No internal user ID found for Matrix user: #{matrix_user_id}"
-    nil
-  end
-
-  def self.ensure_user_registered(matrix_user_id, matrix_token)
-    return if matrix_token.blank?
+  def self.ensure_user_registered(matrix_user_id, tep_token)
+    return if tep_token.blank?
 
     begin
       # Try to register the user in wallet service
       register_response = make_wallet_request(:post, "/api/v1/tmcp/wallets/register",
-                                            { user_id: matrix_user_id, currency: "USD" },
-                                            { "Authorization" => "Bearer #{matrix_token}" })
+                                            { user_id: matrix_user_id, currency: "NGN" },
+                                            { "Authorization" => "Bearer #{tep_token}" })
 
       Rails.logger.info "Auto-registered user #{matrix_user_id} in wallet service during TEP token issuance"
     rescue WalletError => e
@@ -197,60 +186,58 @@ class WalletService
     end
   end
 
-  def self.initiate_p2p_transfer(sender_wallet, recipient_wallet, amount, currency, options = {})
+  def self.initiate_p2p_transfer(recipient_user_id, amount, currency, tep_token, options = {})
     @@circuit_breakers[:transfers].call do
-      sender_internal_id = map_matrix_user_to_internal(options[:sender_user_id])
-      recipient_internal_id = map_matrix_user_to_internal(options[:recipient_user_id])
-
       request_body = {
-        sender_wallet_id: sender_wallet,
-        recipient_wallet_id: recipient_wallet,
+        recipient: recipient_user_id,
         amount: amount,
         currency: currency,
         room_id: options[:room_id],
-        note: options[:note]
+        note: options[:note],
+        idempotency_key: options[:idempotency_key]
       }
 
       response = make_wallet_request(:post, "/api/v1/tmcp/transfers/p2p/initiate",
                                    request_body,
-                                   { "X-TMCP-User-ID" => sender_internal_id.to_s })
+                                   { "Authorization" => "Bearer #{tep_token}" })
 
       response
     end
   end
 
-  def self.confirm_p2p_transfer(transfer_id, auth_proof, user_id)
+  def self.confirm_p2p_transfer(transfer_id, auth_proof, tep_token)
     @@circuit_breakers[:transfers].call do
-      user_internal_id = map_matrix_user_to_internal(user_id)
-
       request_body = {
         auth_proof: auth_proof
       }
 
       response = make_wallet_request(:post, "/api/v1/tmcp/transfers/p2p/#{transfer_id}/confirm",
                                    request_body,
-                                   { "X-TMCP-User-ID" => user_internal_id.to_s })
+                                   { "Authorization" => "Bearer #{tep_token}" })
 
       response
     end
   end
 
-  def self.accept_p2p_transfer(transfer_id, recipient_wallet)
+  def self.accept_p2p_transfer(transfer_id, tep_token)
     @@circuit_breakers[:transfers].call do
-      recipient_internal_id = map_matrix_user_to_internal(recipient_wallet)
-
       response = make_wallet_request(:post, "/api/v1/tmcp/transfers/p2p/#{transfer_id}/accept",
                                    nil,
-                                   { "X-TMCP-User-ID" => recipient_internal_id.to_s })
+                                   { "Authorization" => "Bearer #{tep_token}" })
 
       response
     end
   end
 
-  def self.reject_p2p_transfer(transfer_id, user_id = nil, reason = nil)
+  def self.reject_p2p_transfer(transfer_id, tep_token = nil, reason = nil)
     @@circuit_breakers[:transfers].call do
       headers = {}
-      headers["X-TMCP-User-ID"] = map_matrix_user_to_internal(user_id).to_s if user_id
+      if tep_token
+        headers["Authorization"] = "Bearer #{tep_token}"
+      else
+        internal_api_key = ENV.fetch("WALLET_INTERNAL_API_KEY", "")
+        headers["X-Internal-API-Key"] = internal_api_key
+      end
 
       body = {}
       body[:reason] = reason if reason
@@ -275,10 +262,8 @@ class WalletService
     end
   end
 
-  def self.create_payment_request(user_wallet, miniapp_wallet, amount, currency, description, options = {})
+  def self.create_payment_request(amount, currency, description, tep_token, options = {})
     @@circuit_breakers[:payments].call do
-      user_internal_id = map_matrix_user_to_internal(options[:user_id])
-
       request_body = {
         amount: amount,
         currency: currency,
@@ -290,22 +275,21 @@ class WalletService
 
       response = make_wallet_request(:post, "/api/v1/tmcp/payments/request",
                                    request_body,
-                                   { "X-TMCP-User-ID" => user_internal_id.to_s })
+                                   { "Authorization" => "Bearer #{tep_token}" })
 
       response
     end
   end
 
-  def self.authorize_payment(payment_id, signature, device_info)
+  def self.authorize_payment(payment_id, auth_proof, tep_token)
     @@circuit_breakers[:payments].call do
-      # We need user context here - this might need to be passed in
       request_body = {
-        signature: signature,
-        device_info: device_info
+        auth_proof: auth_proof
       }
 
       response = make_wallet_request(:post, "/api/v1/tmcp/payments/#{payment_id}/authorize",
-                                   request_body)
+                                   request_body,
+                                   { "Authorization" => "Bearer #{tep_token}" })
 
       response
     end
