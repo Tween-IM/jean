@@ -2,7 +2,14 @@ class WalletService
   # TMCP Protocol Section 6: Real Wallet Service Integration
   # Integrated with Tween Pay API at https://wallettween.im
 
-  class WalletError < StandardError; end
+  class WalletError < StandardError
+    attr_reader :code
+
+    def initialize(message, code = nil)
+      @code = code
+      super(message)
+    end
+  end
 
   # Circuit breakers for different operations (PROTO Section 7.7)
   @@circuit_breakers = {
@@ -46,6 +53,13 @@ class WalletService
 
       unless response.success?
         Rails.logger.error "Wallet API error: #{response.status} - #{response.body}"
+        begin
+          error_data = JSON.parse(response.body)
+          if error_data["error"]
+            raise WalletError.new(error_data["error"]["message"] || "Wallet service error", error_data["error"]["code"])
+          end
+        rescue JSON::ParserError
+        end
         raise WalletError.new("Wallet service unavailable (HTTP #{response.status})")
       end
 
@@ -167,8 +181,8 @@ class WalletService
           }
         end
       rescue WalletError => e
-        if e.message.include?("HTTP 404")
-          Rails.logger.info "User #{user_id} not found in wallet service (404), returning default response"
+        if e.code == "WALLET_NOT_FOUND" || e.code == "USER_NOT_FOUND"
+          Rails.logger.info "User #{user_id} not found in wallet service (#{e.code}), returning default response"
           # Return default response for non-existent users (allows wallet creation)
           {
             user_id: user_id,

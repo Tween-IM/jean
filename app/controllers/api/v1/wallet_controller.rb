@@ -5,6 +5,26 @@ class Api::V1::WalletController < ApplicationController
   before_action :validate_wallet_access, only: [ :balance, :transactions ]
   before_action :validate_user_resolution, only: [ :resolve ]
 
+  rescue_from WalletService::WalletError do |e|
+    status_code = case e.code
+    when "WALLET_NOT_FOUND", "USER_NOT_FOUND"
+                  :not_found
+    when "INVALID_TOKEN", "AUTHENTICATION_FAILED"
+                  :unauthorized
+    when "INSUFFICIENT_FUNDS"
+                  :unprocessable_entity
+    else
+                  :bad_request
+    end
+
+    render json: {
+      error: {
+        code: e.code || "WALLET_ERROR",
+        message: e.message
+      }
+    }, status: status_code
+  end
+
   # GET /wallet/v1/balance - TMCP Protocol Section 6.2.1
   def balance
     balance_data = WalletService.get_balance(@current_user.matrix_user_id, @tep_token)
