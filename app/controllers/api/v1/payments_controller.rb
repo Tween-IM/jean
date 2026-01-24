@@ -24,7 +24,7 @@ class Api::V1::PaymentsController < ApplicationController
 
     # Validate currency
     currency = raw_params[:currency].to_s.upcase
-    unless %w[USD EUR GBP].include?(currency) # TMCP supported currencies
+    unless %w[USD EUR GBP NGN].include?(currency) # TMCP supported currencies
       return render json: { error: "invalid_currency", message: "Unsupported currency: #{currency}" }, status: :bad_request
     end
 

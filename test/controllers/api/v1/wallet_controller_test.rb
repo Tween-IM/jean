@@ -32,7 +32,7 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
           balance: {
             available: 1500.50,
             pending: 50.00,
-            currency: "USD"
+            currency: "NGN"
           },
           limits: {
             daily_limit: 100000.00,
@@ -91,7 +91,7 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
           transfer_id: "transfer_123",
           status: "completed",
           amount: 5000.00,
-          currency: "USD",
+          currency: "NGN",
           recipient_acceptance_required: true,
           created_at: Time.current.iso8601,
           expires_at: (Time.current + 24.hours).iso8601,
@@ -124,7 +124,7 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
             transfer_id: transfer_id,
             status: "completed",
             amount: 5000.00,
-            currency: "USD",
+            currency: "NGN",
             sender: { user_id: "@alice:tween.example" },
             recipient: { user_id: "@bob:tween.example" }
           }.to_json
@@ -233,7 +233,7 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
          params: {
            recipient: @recipient.matrix_user_id,
            amount: 5000.00,
-           currency: "USD",
+           currency: "NGN",
            note: note,
            idempotency_key: idempotency_key
          },
@@ -261,7 +261,7 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
          params: {
            recipient: @recipient.matrix_user_id,
            amount: 5000.00,
-           currency: "USD",
+           currency: "NGN",
            idempotency_key: SecureRandom.uuid
          },
          headers: headers_no_scope
@@ -441,7 +441,7 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
          params: {
            recipient: @recipient.matrix_user_id,
            amount: 5000.00,
-           currency: "USD",
+           currency: "NGN",
            idempotency_key: idempotency_key
          },
          headers: @headers

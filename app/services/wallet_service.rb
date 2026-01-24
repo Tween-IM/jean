@@ -101,11 +101,11 @@ class WalletService
       # Transform response to match jean's expected format
       {
         wallet_id: data[:wallet_id],
-        balance: {
-          available: data.dig(:balance, :available) || 0.00,
-          pending: data.dig(:balance, :pending) || 0.00,
-          currency: data.dig(:balance, :currency) || "USD"
-        },
+          balance: {
+            available: data.dig(:balance, :available) || 0.00,
+            pending: data.dig(:balance, :pending) || 0.00,
+            currency: data.dig(:balance, :currency) || "NGN"
+          },
         limits: data[:limits] || {
           daily_limit: 1000.00,
           daily_used: 0.00,
