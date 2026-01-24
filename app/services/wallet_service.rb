@@ -315,30 +315,8 @@ class WalletService
       upgrade_requirements: [ "address_proof", "enhanced_id" ]
     }
   end
-end
-
-  def self.request_mfa_challenge(payment_id, user_id)
-    # Mock MFA challenge
-    {
-      challenge_id: "mfa_mock_#{SecureRandom.hex(8)}",
-      methods: [
-        {
-          type: "transaction_pin",
-          enabled: true,
-          display_name: "Transaction PIN"
-        },
-        {
-          type: "biometric",
-          enabled: true,
-          display_name: "Biometric Authentication",
-          biometric_types: [ "fingerprint", "face_recognition" ]
-        }
-      ],
-      required_method: "any",
-      expires_at: (Time.current + 3.minutes).iso8601,
-      max_attempts: 3
-    }
   end
+end
 
   def self.verify_mfa_response(challenge_id, method, credentials)
     # Mock MFA verification
