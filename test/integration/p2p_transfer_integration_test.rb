@@ -83,10 +83,6 @@ class P2PTransferIntegrationTest < ActionDispatch::IntegrationTest
     assert true
   end
 
-    # Test passes if we reach this point (even if service is unavailable)
-    assert true
-  end
-
   test "P2P transfer flow with PIN auth" do
     token = TepTokenService.encode(
       {
