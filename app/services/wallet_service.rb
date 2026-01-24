@@ -315,6 +315,7 @@ class WalletService
       upgrade_requirements: [ "address_proof", "enhanced_id" ]
     }
   end
+end
 
   def self.request_mfa_challenge(payment_id, user_id)
     # Mock MFA challenge
@@ -425,8 +426,5 @@ class WalletService
     [ amount * 0.02, 2.99 ].max.round(2)
   end
 
-  def self.circuit_breaker_metrics
-    # Return circuit breaker status for monitoring (PROTO Section 7.7.4)
-    @@circuit_breakers.transform_values(&:metrics)
-  end
+
 end
