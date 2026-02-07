@@ -89,6 +89,53 @@ class Api::V1::StoreController < ApplicationController
     }
   end
 
+  # GET /api/v1/store/apps/{miniapp_id} - TMCP Protocol Section 16.6.1.b
+  def show
+    miniapp_id = params[:miniapp_id]
+    app = MiniApp.find_by(app_id: miniapp_id, status: :active)
+
+    unless app
+      return render json: { 
+        error: "miniapp_not_found", 
+        message: "Mini-app not found" 
+      }, status: :not_found
+    end
+
+    # Format app data (same structure as apps list)
+    manifest = app.manifest || {}
+    app_data = {
+      miniapp_id: app.app_id,
+      name: app.name,
+      short_name: manifest["short_name"] || app.name[0..15],
+      description: app.description,
+      long_description: manifest["long_description"] || app.description,
+      classification: app.classification,
+      category: manifest["category"],
+      icon_url: manifest["icon_url"] || "https://cdn.tween.example/icons/default.png",
+      marketing: {
+        screenshots: manifest["screenshots"] || [],
+        header_image: manifest["header_image"] || [],
+        theme_color: manifest["theme_color"]
+      },
+      version: app.version,
+      updated_at: app.updated_at || app.created_at,
+      size: manifest["size"],
+      developer: manifest["developer"] || {},
+      rating: {
+        average: manifest["rating"] || 4.5,
+        count: manifest["rating_count"] || 100
+      },
+      install_count: app.install_count || 0,
+      preinstalled: app.classification == "official" && manifest["preinstalled"],
+      installed: @current_user ? current_user_installed?(app.app_id) : false,
+      permissions: manifest["permissions"] || {}
+    }
+
+    render json: {
+      apps: [app_data]
+    }
+  end
+
   # POST /api/v1/store/apps/{miniapp_id}/install - TMCP Protocol Section 16.6.2
   def install
     miniapp_id = params[:miniapp_id]

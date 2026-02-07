@@ -49,11 +49,12 @@ Rails.application.routes.draw do
          get "oauth2/device", to: "oauth/device_authorization#show"
          post "oauth2/device/token", to: "oauth/device_token#create"
 
-       # Store endpoints (TMCP Protocol Section 16.6)
-       get "store/categories", to: "store#categories"
-       get "store/apps", to: "store#apps"
-       post "store/apps/:miniapp_id/install", to: "store#install"
-       delete "store/apps/:miniapp_id/install", to: "store#uninstall"
+        # Store endpoints (TMCP Protocol Section 16.6)
+        get "store/categories", to: "store#categories"
+        get "store/apps", to: "store#apps"
+        get "store/apps/:miniapp_id", to: "store#show"
+        post "store/apps/:miniapp_id/install", to: "store#install"
+        delete "store/apps/:miniapp_id/install", to: "store#uninstall"
 
         # Client endpoints (TMCP Protocol Section 10.5, 16.8)
         get "capabilities", to: "client#capabilities"
