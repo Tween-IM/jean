@@ -26,7 +26,7 @@ class MiniAppRegistrationService
     webhook_secret = generate_webhook_secret
 
     miniapp = MiniApp.create!(
-      miniapp_id: miniapp_id,
+      app_id: miniapp_id,
       name: name,
       short_name: short_name,
       description: description,
@@ -53,7 +53,7 @@ class MiniAppRegistrationService
     MiniAppReviewService.run_automated_checks(miniapp)
 
     {
-      miniapp_id: miniapp.miniapp_id,
+      miniapp_id: miniapp.app_id,
       status: miniapp.status,
       credentials: {
         client_id: miniapp.client_id,
@@ -82,7 +82,7 @@ class MiniAppRegistrationService
     miniapp.update!(attributes)
 
     {
-      miniapp_id: miniapp.miniapp_id,
+      miniapp_id: miniapp.app_id,
       status: miniapp.status,
       updated_at: miniapp.updated_at.iso8601
     }
@@ -107,7 +107,7 @@ class MiniAppRegistrationService
     MiniAppReviewService.run_automated_checks(miniapp)
 
     {
-      miniapp_id: miniapp.miniapp_id,
+      miniapp_id: miniapp.app_id,
       status: miniapp.status,
       submitted_at: miniapp.submitted_at.iso8601
     }
@@ -119,7 +119,7 @@ class MiniAppRegistrationService
     end
 
     appeal = MiniAppAppeal.create!(
-      miniapp_id: miniapp.miniapp_id,
+      miniapp_id: miniapp.app_id,
       user_id: user_id,
       reason: reason,
       supporting_info: supporting_info,
@@ -134,7 +134,7 @@ class MiniAppRegistrationService
 
     {
       appeal_id: appeal.id,
-      miniapp_id: miniapp.miniapp_id,
+      miniapp_id: miniapp.app_id,
       status: miniapp.status,
       appeal_status: appeal.status,
       created_at: appeal.created_at.iso8601

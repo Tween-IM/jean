@@ -129,6 +129,8 @@ class TepTokenService
         payload = decoded[0]
         headers = decoded[1]
 
+        # Validate algorithm to prevent algorithm confusion attacks
+        validate_algorithm!(headers)
         validate_issuer!(payload)
         validate_audience!(payload)
         validate_token_type!(payload)

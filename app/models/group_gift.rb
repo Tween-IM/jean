@@ -59,7 +59,7 @@ class GroupGift < ApplicationRecord
         raise GiftError.new("GIFT_EXPIRED", "Gift has expired")
       end
 
-      amount = calculate_amount_for_opening
+      amount = get_next_opening_amount
 
       opening = gift.openings.create!(
         user_id: user_id,
@@ -77,7 +77,7 @@ class GroupGift < ApplicationRecord
     end
   end
 
-  def calculate_amount_for_opening
+  def get_next_opening_amount
     if distribution == "equal"
       calculate_equal_distribution.first
     else

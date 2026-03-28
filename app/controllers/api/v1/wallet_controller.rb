@@ -116,7 +116,7 @@ class Api::V1::WalletController < ApplicationController
 
       if matrix_token
         invite_result = MatrixService.ensure_as_in_room(room_id, matrix_token, "@_tmcp:tween.im")
-        Rails.logger.info "AS room invitation for P2P transfer: #{invite_result.inspect}"
+        Rails.logger.info "AS room invitation for P2P transfer: room=#{room_id}, success=#{invite_result[:success]}"
       end
     end
 
@@ -245,7 +245,7 @@ class Api::V1::WalletController < ApplicationController
     # Ensure AS is invited to the room so it can send messages
     if matrix_token
       invite_result = MatrixService.ensure_as_in_room(room_id, matrix_token, "@_tmcp:tween.im")
-      Rails.logger.info "AS room invitation result: #{invite_result.inspect}"
+      Rails.logger.info "AS room invitation result: room=#{room_id}, success=#{invite_result[:success]}"
     end
 
     # Get room members from Matrix
