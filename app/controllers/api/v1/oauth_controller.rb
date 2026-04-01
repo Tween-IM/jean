@@ -283,10 +283,10 @@ class Api::V1::OauthController < ApplicationController
         # Source of truth: Matrix user ID @username:tween.im
         matrix_user_id = if mas_username && !mas_username.empty?
                           "@#{mas_username}:tween.im"
-                        else
+        else
                           # Fallback: use MAS internal ID as matrix_user_id if no username
                           "@#{mas_internal_id}:tween.im"
-                        end
+        end
 
         user = User.find_or_create_by(matrix_user_id: matrix_user_id) do |u|
           u.mas_user_id = mas_internal_id
@@ -399,10 +399,10 @@ class Api::V1::OauthController < ApplicationController
        # Source of truth: Matrix user ID @username:tween.im
        matrix_user_id = if mas_username && !mas_username.empty?
                           "@#{mas_username}:tween.im"
-                        else
+       else
                           # Fallback: use MAS internal ID as matrix_user_id if no username
                           "@#{mas_internal_id}:tween.im"
-                        end
+       end
 
        user = User.find_or_create_by(matrix_user_id: matrix_user_id) do |u|
          u.mas_user_id = mas_internal_id
@@ -482,6 +482,14 @@ class Api::V1::OauthController < ApplicationController
   def authorize_scopes(user, application, requested_scopes)
     miniapp = MiniApp.find_by(app_id: application.uid)
     return { authorized_scopes: [], consent_required: false } unless miniapp
+
+    # Development bypass: auto-approve all scopes
+    if ENV["DEV_BYPASS_MAS"] == "true"
+      return {
+        authorized_scopes: requested_scopes,
+        consent_required: false
+      }
+    end
 
     sensitive_scopes = %w[wallet:pay wallet:request wallet:history messaging:send room:create room:invite]
     pre_approved_scopes = []

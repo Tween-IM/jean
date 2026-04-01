@@ -102,25 +102,47 @@ class MatrixEventService
         transfer_data["recipient_acceptance_required"] || transfer_data[:recipient_acceptance_required]
       )
 
+      room_id = transfer_data["room_id"] || transfer_data[:room_id]
+      return unless room_id
+
+      # Convert amount to string to avoid JSON float issues with Matrix
+      amount = transfer_data["amount"] || transfer_data[:amount]
+      amount_cents = (amount.to_f * 100).to_i if amount
+
+      # Get sender's display name for the body text
+      sender_display_name = sender["display_name"] || sender[:display_name] ||
+                           (sender["user_id"] || sender[:user_id]).to_s.split(":").first.gsub("@", "")
+
+      # Ensure currency is never empty - default to NGN for test environment
+      currency = transfer_data["currency"] || transfer_data[:currency]
+      currency = "NGN" if currency.nil? || currency.to_s.empty?
+
       event = {
         type: "m.tween.wallet.p2p",
+        room_id: room_id,
+        # Use sender's user_id so the event appears to come from the actual sender, not the bot
+        sender_id: sender["user_id"] || sender[:user_id],
         content: {
           msgtype: "m.tween.money",
-          body: "💸 Sent #{transfer_data['amount'] || transfer_data[:amount]} #{transfer_data['currency'] || transfer_data[:currency]}",
+          body: "💸 #{sender_display_name} sent #{amount} #{currency}",
           transfer_id: transfer_data["transfer_id"] || transfer_data[:transfer_id],
-          amount: transfer_data["amount"] || transfer_data[:amount],
-          currency: transfer_data["currency"] || transfer_data[:currency],
+          amount: amount.to_s,
+          amount_cents: amount_cents,
+          currency: currency,
           note: transfer_data["note"] || transfer_data[:note],
-          sender: { user_id: sender["user_id"] || sender[:user_id] },
-          recipient: { user_id: recipient["user_id"] || recipient[:user_id] },
+          sender: {
+            user_id: sender["user_id"] || sender[:user_id],
+            display_name: sender["display_name"] || sender[:display_name]
+          },
+          recipient: {
+            user_id: recipient["user_id"] || recipient[:user_id],
+            display_name: recipient["display_name"] || recipient[:display_name]
+          },
           status: status,
           recipient_acceptance_required: recipient_acceptance_required,
           timestamp: transfer_data["timestamp"] || transfer_data[:timestamp]
         }
       }
-
-      room_id = transfer_data["room_id"] || transfer_data[:room_id]
-      return unless room_id
 
       publish_event(event)
     end
@@ -270,26 +292,49 @@ class MatrixEventService
 
     private
 
+    # Publish event using Application Service identity assertion
+    # AS uses as_token as access_token and user_id query param to masquerade
+    # Events appear to come from the actual sender (Alice/Bob), not the bot
     def publish_event(event_data)
-      return unless MATRIX_ACCESS_TOKEN
+      # Use AS token for authentication (not user access token)
+      as_token = ENV["MATRIX_AS_TOKEN"]
+      return unless as_token
+
+      room_id = event_data[:room_id]
+      return unless room_id
+
+      # Determine sender - use explicit sender_id from event_data, or extract from content
+      # This makes events appear to come from Alice/Bob, not the bot
+      sender_id = event_data[:sender_id] ||
+                  event_data.dig(:content, :sender, :user_id) ||
+                  event_data.dig("content", "sender", "user_id")
+
+      if sender_id.nil?
+        Rails.logger.error "[MatrixEventService] No sender_id found for event, skipping"
+        return
+      end
 
       begin
-        uri = URI("#{MATRIX_API_URL}/_matrix/client/v3/rooms/#{event_data[:room_id]}/send/m.room.message")
+        # Build URI with user_id query param for identity assertion
+        # The AS sends the event on behalf of the actual user (Alice/Bob)
+        uri = URI("#{MATRIX_API_URL}/_matrix/client/v3/rooms/#{room_id}/send/#{event_data[:type]}")
+        uri.query = URI.encode_www_form({ "user_id" => sender_id })
+
         http = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl = true
+        http.use_ssl = (uri.scheme == "https")
 
         request = Net::HTTP::Post.new(uri)
-        request["Authorization"] = "Bearer #{MATRIX_ACCESS_TOKEN}"
+        request["Authorization"] = "Bearer #{as_token}"
         request["Content-Type"] = "application/json"
-        request.body = event_data.to_json
+        request.body = event_data[:content].to_json
 
         response = http.request(request)
 
         if response.code.to_i == 200
-          Rails.logger.info "Matrix event published: #{event_data[:type]}"
+          Rails.logger.info "Matrix event published: #{event_data[:type]} to room #{room_id}"
           JSON.parse(response.body)["event_id"]
         else
-          Rails.logger.error "Failed to publish Matrix event: #{response.body}"
+          Rails.logger.error "Failed to publish Matrix event: #{response.code} - #{response.body}"
           nil
         end
       rescue => e

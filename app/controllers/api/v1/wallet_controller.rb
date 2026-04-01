@@ -13,6 +13,8 @@ class Api::V1::WalletController < ApplicationController
                   :unauthorized
     when "INSUFFICIENT_FUNDS"
                   :unprocessable_entity
+    when "LIMIT_EXCEEDED", "DAILY_LIMIT_EXCEEDED", "TRANSACTION_LIMIT_EXCEEDED"
+                  :bad_request
     else
                   :bad_request
     end
@@ -23,6 +25,15 @@ class Api::V1::WalletController < ApplicationController
         message: e.message
       }
     }, status: status_code
+  end
+
+  rescue_from CircuitBreakerService::CircuitBreakerError do |e|
+    render json: {
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "Wallet service is temporarily unavailable. Please try again in a moment."
+      }
+    }, status: :service_unavailable
   end
 
   # GET /wallet/v1/balance - TMCP Protocol Section 6.2.1
@@ -100,28 +111,25 @@ class Api::V1::WalletController < ApplicationController
       return render json: { error: "duplicate_request", message: "Duplicate request with same idempotency key" }, status: :conflict
     end
 
-    recipient = User.find_by(matrix_user_id: params[:recipient])
-    unless recipient
-      return render json: { error: { code: "RECIPIENT_NO_WALLET", message: "Recipient does not have a wallet", recipient: params[:recipient], can_invite: true, invite_url: "tween://invite-wallet" } }, status: :not_found
+    recipient_id = params[:recipient]
+
+    # Check if recipient has a wallet via wallet service (not local DB)
+    recipient_resolution = WalletService.resolve_user(recipient_id, tep_token: @tep_token)
+    if recipient_resolution[:error]
+      return render json: { error: { code: "RECIPIENT_NO_WALLET", message: "Recipient does not have a wallet", recipient: recipient_id, can_invite: true, invite_url: "tween://invite-wallet" } }, status: :not_found
     end
 
     room_id = params[:room_id]
-    if room_id && !user_in_room?(@current_user.matrix_user_id, recipient.matrix_user_id, room_id)
+    if room_id && !user_in_room?(@current_user.matrix_user_id, recipient_id, room_id)
       return render json: { error: "forbidden", message: "Users do not share a room" }, status: :forbidden
     end
 
-    if room_id
-      tep_payload = TepTokenService.decode(@tep_token)
-      matrix_token = tep_payload["matrix_access_token"]
-
-      if matrix_token
-        invite_result = MatrixService.ensure_as_in_room(room_id, matrix_token, "@_tmcp:tween.im")
-        Rails.logger.info "AS room invitation for P2P transfer: room=#{room_id}, success=#{invite_result[:success]}"
-      end
-    end
+    # NOTE: We don't invite the AS bot to the room.
+    # Application Services can send events using the AS token + user_id query param
+    # without being room members. This keeps the bot invisible in room names.
 
     transfer_data = WalletService.initiate_p2p_transfer(
-      recipient.matrix_user_id,
+      recipient_id,
       params[:amount].to_f,
       params[:currency] || "USD",
       @tep_token,
@@ -129,6 +137,19 @@ class Api::V1::WalletController < ApplicationController
       note: params[:note],
       idempotency_key: params[:idempotency_key]
     )
+
+    # Store room_id in the transfer data for later use in confirm
+    if room_id
+      transfer_data["room_id"] = room_id
+      # Also cache it for confirm step - use symbol key after JSON fix
+      transfer_id_for_cache = transfer_data[:transfer_id] || transfer_data["transfer_id"]
+      Rails.cache.write("p2p_room:#{transfer_id_for_cache}", room_id, expires_in: 24.hours)
+      Rails.logger.info "[INITIATE_P2P] Cached room_id #{room_id} for transfer #{transfer_id_for_cache}"
+    end
+
+    # NOTE: Matrix event is NOT published here.
+    # Event will be published after confirm_p2p when transfer is actually completed
+    # or when recipient acceptance is required (after sender confirms)
 
     render json: transfer_data
   end
@@ -167,11 +188,36 @@ class Api::V1::WalletController < ApplicationController
       Rails.cache.write(cache_key, transfer_id, expires_in: 5.minutes)
     end
 
-    tep_payload = TepTokenService.decode(@tep_token)
-    matrix_token = tep_payload["matrix_access_token"]
+    # Add room_id to result from cache (stored during initiate)
+    cached_room_id = Rails.cache.read("p2p_room:#{transfer_id}")
+    result[:room_id] = cached_room_id if cached_room_id
 
-    if matrix_token && result[:room_id]
-      MatrixEventService.publish_p2p_transfer(result)
+    Rails.logger.info "[CONFIRM_P2P] Transfer #{transfer_id} - Status: #{result[:status]}, Room: #{result[:room_id]}, Cached: #{cached_room_id}"
+
+    # Publish Matrix event only after successful confirmation
+    # Event shows transfer is either completed or waiting for recipient
+    should_publish = result[:room_id].present? && %w[pending_recipient_acceptance completed].include?(result[:status])
+    Rails.logger.info "[CONFIRM_P2P] Should publish: #{should_publish}"
+    Rails.logger.info "[CONFIRM_P2P] Result from TweenPay: #{result.inspect}"
+    Rails.logger.info "[CONFIRM_P2P] Note from result: #{result[:note].inspect}"
+
+    if should_publish
+      event_data = {
+        transfer_id: result[:transfer_id],
+        amount: result[:amount],
+        currency: result[:currency],
+        sender: result[:sender],
+        recipient: result[:recipient],
+        status: result[:status] == "completed" ? "completed" : "pending_acceptance",
+        recipient_acceptance_required: result[:recipient_acceptance_required],
+        expires_at: result[:expires_at],
+        room_id: result[:room_id],
+        note: result[:note],
+        timestamp: Time.current.iso8601
+      }
+      Rails.logger.info "[CONFIRM_P2P] Event data with note: #{event_data.inspect}"
+      MatrixEventService.publish_p2p_transfer(event_data)
+      Rails.logger.info "Published P2P transfer event to room #{result[:room_id]} with status: #{result[:status]}"
     end
 
     render json: result
@@ -188,7 +234,7 @@ class Api::V1::WalletController < ApplicationController
         "completed",
         {
           user_id: @current_user.matrix_user_id,
-          accepted_at: result[:accepted_at],
+          accepted_at: result[:timestamp] || result[:accepted_at],
           accepted_by: "recipient"
         }
       )

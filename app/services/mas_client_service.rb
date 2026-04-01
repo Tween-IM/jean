@@ -48,6 +48,17 @@ class MasClientService
   end
 
   def refresh_access_token(refresh_token)
+    # Development bypass: return mock refreshed token
+    if ENV["DEV_BYPASS_MAS"] == "true"
+      return {
+        access_token: "mock_refreshed_#{SecureRandom.alphanumeric(16)}",
+        token_type: "Bearer",
+        expires_in: 86400,
+        refresh_token: "mock_rt_#{SecureRandom.alphanumeric(16)}",
+        expires_at: Time.current.to_i + 86400
+      }
+    end
+
     response = http_client.post(@token_url) do |req|
       req.headers["Content-Type"] = "application/x-www-form-urlencoded"
       req.body = URI.encode_www_form({
@@ -73,6 +84,11 @@ class MasClientService
   end
 
   def introspect_token(access_token)
+    # Development bypass: use Synapse whoami instead of MAS
+    if ENV["DEV_BYPASS_MAS"] == "true"
+      return introspect_via_synapse(access_token)
+    end
+
     response = http_client.post(@introspection_url) do |req|
       req.headers["Content-Type"] = "application/x-www-form-urlencoded"
       req.body = URI.encode_www_form({
@@ -85,6 +101,30 @@ class MasClientService
     parse_mas_error(response) unless response.success?
 
     JSON.parse(response.body)
+  end
+
+  # Development mode: validate token via Synapse whoami endpoint
+  def introspect_via_synapse(access_token)
+    synapse_url = ENV["MATRIX_API_URL"] || "http://localhost:8008"
+
+    response = http_client.get("#{synapse_url}/_matrix/client/v3/account/whoami") do |req|
+      req.headers["Authorization"] = "Bearer #{access_token}"
+    end
+
+    if response.success?
+      data = JSON.parse(response.body)
+      {
+        "active" => true,
+        "sub" => data["user_id"],
+        "username" => data["user_id"].gsub("@", "").split(":").first,
+        "scope" => "openid urn:matrix:org.matrix.msc2967.client:api:*"
+      }
+    else
+      { "active" => false }
+    end
+  rescue => e
+    Rails.logger.error "Synapse introspection failed: #{e.message}"
+    { "active" => false }
   end
 
   def refresh_access_token_for_matrix(current_token)
@@ -448,6 +488,9 @@ class MasClientService
   end
 
   def load_client_secret
+    # Allow empty client_secret in development mode
+    return if ENV["DEV_BYPASS_MAS"] == "true"
+
     if @client_secret_file && File.exist?(@client_secret_file)
       @client_secret = File.read(@client_secret_file).strip
     elsif !@client_secret

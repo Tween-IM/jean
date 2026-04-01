@@ -17,7 +17,7 @@ class MatrixService
 
     # If direct join failed, invite the AS user to the room
     if user_token
-      invite_result = invite_as_to_room(room_id, user_token)
+      invite_result = invite_as_to_room(room_id, user_token, as_user_id)
       if invite_result[:success]
         Rails.logger.info "AS invited to room: #{room_id}"
         # AS should auto-join via Matrix webhook when invited
@@ -30,9 +30,9 @@ class MatrixService
     { success: false, error: "cannot_access_room", message: "AS cannot join room and no user token to invite" }
   end
 
-  def self.invite_as_to_room(room_id, user_token)
-    # Invite @_tmcp:tween.im to the room using user's Matrix token
-    as_user_id = "@_tmcp:tween.im"
+  def self.invite_as_to_room(room_id, user_token, as_user = nil)
+    # Invite AS user to the room using user's Matrix token
+    as_user_id = as_user || "@_tmcp:#{ENV['MATRIX_DOMAIN'] || 'localhost'}"
     homeserver_url = ENV["MATRIX_API_URL"] || "https://core.tween.im"
 
     mas_client = MasClientService.new

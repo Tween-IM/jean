@@ -82,6 +82,23 @@ Rails.application.routes.draw do
   end
   use_doorkeeper
 
+  # OAuth2 namespace aliases for backward compatibility
+  # Supports both /oauth2/* and /api/v1/oauth/* paths
+  scope "/oauth2" do
+    get "authorize", to: "api/v1/oauth#authorize"
+    post "token", to: "api/v1/oauth#token"
+    post "introspect", to: "api/v1/oauth#introspect"
+    post "consent", to: "api/v1/oauth#consent"
+    get "callback", to: "api/v1/oauth#callback"
+  end
+
+  # Additional OAuth2 device endpoints
+  scope "/oauth2/device" do
+    post "authorization", to: "api/v1/oauth/device_authorization#create"
+    get "/", to: "api/v1/oauth/device_authorization#show"
+    post "token", to: "api/v1/oauth/device_token#create"
+  end
+
     # Matrix Application Service endpoints (PROTO Section 3.1.2)
     scope "/_matrix/app/v1" do
       put "transactions/:txn_id", to: "matrix#transactions"

@@ -12,12 +12,76 @@ class WalletService
   end
 
   # Circuit breakers for different operations (PROTO Section 7.7)
-  @@circuit_breakers = {
-    balance: CircuitBreakerService.new("wallet_balance"),
-    payments: CircuitBreakerService.new("wallet_payments"),
-    transfers: CircuitBreakerService.new("wallet_transfers"),
-    verification: CircuitBreakerService.new("wallet_verification")
-  }
+  # Per-user circuit breakers to prevent one user from affecting others
+  @@circuit_breakers = {}
+  @@circuit_breaker_access_times = {}
+  @@circuit_breaker_mutex = Mutex.new
+  MAX_CIRCUIT_BREAKERS = 10_000 # LRU limit
+
+  def self.get_circuit_breaker(user_id, operation)
+    @@circuit_breaker_mutex.synchronize do
+      key = "#{user_id}:#{operation}"
+
+      # Update access time for LRU tracking
+      @@circuit_breaker_access_times[key] = Time.current
+
+      # Evict oldest entries if over limit
+      evict_oldest_if_needed
+
+      @@circuit_breakers[key] ||= CircuitBreakerService.new("#{operation}:#{user_id}")
+    end
+  end
+
+  def self.reset_circuit_breakers_for_user(user_id)
+    @@circuit_breaker_mutex.synchronize do
+      [ :balance, :payments, :transfers, :verification ].each do |operation|
+        key = "#{user_id}:#{operation}"
+        @@circuit_breakers.delete(key)
+        @@circuit_breaker_access_times.delete(key)
+      end
+    end
+  end
+
+  def self.circuit_breaker_stats
+    @@circuit_breaker_mutex.synchronize do
+      {
+        total_circuit_breakers: @@circuit_breakers.size,
+        max_allowed: MAX_CIRCUIT_BREAKERS,
+        operations: @@circuit_breakers.keys.group_by { |k| k.split(":").last }.transform_values(&:count)
+      }
+    end
+  end
+
+  private
+
+  def self.evict_oldest_if_needed
+    return unless @@circuit_breakers.size >= MAX_CIRCUIT_BREAKERS
+
+    # Sort by access time and remove oldest 10%
+    sorted = @@circuit_breaker_access_times.sort_by { |_, time| time }
+    to_remove = (MAX_CIRCUIT_BREAKERS * 0.1).ceil
+
+    sorted.first(to_remove).each do |key, _|
+      @@circuit_breakers.delete(key)
+      @@circuit_breaker_access_times.delete(key)
+    end
+
+    Rails.logger.info "[CircuitBreaker] Evicted #{to_remove} old circuit breakers. Remaining: #{@@circuit_breakers.size}"
+  end
+
+  # Extract user_id from TEP token for per-user circuit breaking
+  def self.extract_user_id_from_tep(tep_token)
+    return "anonymous" if tep_token.blank?
+
+    begin
+      # Decode JWT without verification to get sub claim
+      payload = JWT.decode(tep_token.split(".").second, nil, false).first
+      payload["sub"] || "anonymous"
+    rescue
+      # Fallback to token hash if we can't decode
+      Digest::SHA256.hexdigest(tep_token)[0, 16]
+    end
+  end
 
   # Configuration from initializer
   WALLET_API_BASE_URL = ENV.fetch("WALLET_API_BASE_URL", "https://wallet.tween.im")
@@ -31,11 +95,11 @@ class WalletService
       "Accept" => "application/json"
     }
 
-    if WALLET_API_KEY.present?
+    if WALLET_API_KEY.present? && !headers["Authorization"]
       default_headers["Authorization"] = "Bearer #{WALLET_API_KEY}"
     end
 
-    headers.merge!(default_headers)
+    headers = default_headers.merge(headers)
 
     begin
       response = case method.to_sym
@@ -63,7 +127,7 @@ class WalletService
         raise WalletError.new("Wallet service unavailable (HTTP #{response.status})")
       end
 
-      JSON.parse(response.body)
+      JSON.parse(response.body, symbolize_names: true)
     rescue Faraday::Error => e
       Rails.logger.error "Wallet API connection error: #{e.message}"
       raise WalletError.new("Wallet service unavailable")
@@ -90,13 +154,13 @@ class WalletService
   end
 
   def self.get_balance(user_id, tep_token = nil)
-    @@circuit_breakers[:balance].call do
+    get_circuit_breaker(user_id, :balance).call do
       Rails.logger.info "Getting balance for user #{user_id}"
 
       # Call tween-pay TMCP balance endpoint
       data = make_wallet_request(:get, "/api/v1/tmcp/wallets/balance",
                                   nil, { "Authorization" => "Bearer #{tep_token}" })
-      data = data.symbolize_keys
+      data = deep_symbolize_keys(data)
 
       # Transform response to match jean's expected format
       {
@@ -125,7 +189,7 @@ class WalletService
   end
 
   def self.get_transactions(user_id, limit: 50, offset: 0, tep_token: nil)
-    @@circuit_breakers[:balance].call do
+    get_circuit_breaker(user_id, :balance).call do
       Rails.logger.info "Getting transactions for user #{user_id}"
 
       # Call tween-pay TMCP transactions endpoint
@@ -147,7 +211,7 @@ class WalletService
   end
 
   def self.resolve_user(user_id, tep_token: nil)
-    @@circuit_breakers[:verification].call do
+    get_circuit_breaker(user_id, :verification).call do
       # Call tween-pay TMCP user resolution endpoint
       begin
         data = make_wallet_request(:get, "/api/v1/tmcp/users/resolve/#{user_id}",
@@ -184,7 +248,8 @@ class WalletService
   end
 
   def self.initiate_p2p_transfer(recipient_user_id, amount, currency, tep_token, options = {})
-    @@circuit_breakers[:transfers].call do
+    user_id = extract_user_id_from_tep(tep_token)
+    get_circuit_breaker(user_id, :transfers).call do
       request_body = {
         recipient: recipient_user_id,
         amount: amount,
@@ -203,7 +268,8 @@ class WalletService
   end
 
   def self.confirm_p2p_transfer(transfer_id, auth_proof, tep_token)
-    @@circuit_breakers[:transfers].call do
+    user_id = extract_user_id_from_tep(tep_token)
+    get_circuit_breaker(user_id, :transfers).call do
       request_body = {
         auth_proof: auth_proof
       }
@@ -217,7 +283,8 @@ class WalletService
   end
 
   def self.accept_p2p_transfer(transfer_id, tep_token)
-    @@circuit_breakers[:transfers].call do
+    user_id = extract_user_id_from_tep(tep_token)
+    get_circuit_breaker(user_id, :transfers).call do
       response = make_wallet_request(:post, "/api/v1/tmcp/transfers/p2p/#{transfer_id}/accept",
                                    nil,
                                    { "Authorization" => "Bearer #{tep_token}" })
@@ -227,7 +294,8 @@ class WalletService
   end
 
   def self.reject_p2p_transfer(transfer_id, tep_token = nil, reason = nil)
-    @@circuit_breakers[:transfers].call do
+    user_id = tep_token.present? ? extract_user_id_from_tep(tep_token) : "system"
+    get_circuit_breaker(user_id, :transfers).call do
       headers = {}
       if tep_token
         headers["Authorization"] = "Bearer #{tep_token}"
@@ -248,7 +316,8 @@ class WalletService
   end
 
   def self.get_transfer_info(transfer_id)
-    @@circuit_breakers[:transfers].call do
+    # Internal endpoint - use system circuit breaker
+    get_circuit_breaker("system", :transfers).call do
       internal_api_key = ENV.fetch("WALLET_INTERNAL_API_KEY", "")
 
       response = make_wallet_request(:get, "/api/v1/internal/transfers/#{transfer_id}",
@@ -260,7 +329,8 @@ class WalletService
   end
 
   def self.create_payment_request(amount, currency, description, tep_token, options = {})
-    @@circuit_breakers[:payments].call do
+    user_id = extract_user_id_from_tep(tep_token)
+    get_circuit_breaker(user_id, :payments).call do
       request_body = {
         amount: amount,
         currency: currency,
@@ -279,7 +349,8 @@ class WalletService
   end
 
   def self.authorize_payment(payment_id, auth_proof, tep_token)
-    @@circuit_breakers[:payments].call do
+    user_id = extract_user_id_from_tep(tep_token)
+    get_circuit_breaker(user_id, :payments).call do
       request_body = {
         auth_proof: auth_proof
       }
@@ -314,5 +385,19 @@ class WalletService
       next_level: 3,
       upgrade_requirements: [ "address_proof", "enhanced_id" ]
     }
+  end
+
+  # Recursively symbolize keys in a hash
+  def self.deep_symbolize_keys(obj)
+    case obj
+    when Hash
+      obj.each_with_object({}) do |(key, value), result|
+        result[key.to_sym] = deep_symbolize_keys(value)
+      end
+    when Array
+      obj.map { |item| deep_symbolize_keys(item) }
+    else
+      obj
+    end
   end
 end
