@@ -13,74 +13,73 @@ class WalletService
 
   # Circuit breakers for different operations (PROTO Section 7.7)
   # Per-user circuit breakers to prevent one user from affecting others
-  @@circuit_breakers = {}
-  @@circuit_breaker_access_times = {}
-  @@circuit_breaker_mutex = Mutex.new
+  # Using Concurrent::Hash for thread-safe access
+  require 'concurrent'
+
+  CIRCUIT_BREAKERS = Concurrent::Hash.new
+  CIRCUIT_BREAKER_ACCESS_TIMES = Concurrent::Hash.new
+  CIRCUIT_BREAKER_MUTEX = Mutex.new
   MAX_CIRCUIT_BREAKERS = 10_000 # LRU limit
 
   def self.get_circuit_breaker(user_id, operation)
-    @@circuit_breaker_mutex.synchronize do
-      key = "#{user_id}:#{operation}"
+    key = "#{user_id}:#{operation}"
 
-      # Update access time for LRU tracking
-      @@circuit_breaker_access_times[key] = Time.current
+    # Update access time for LRU tracking (thread-safe)
+    CIRCUIT_BREAKER_ACCESS_TIMES[key] = Time.current.to_f
 
-      # Evict oldest entries if over limit
+    # Check if we need to evict old entries (do this periodically, not every call)
+    if CIRCUIT_BREAKERS.size >= MAX_CIRCUIT_BREAKERS && rand < 0.01 # 1% chance to trigger eviction
       evict_oldest_if_needed
+    end
 
-      @@circuit_breakers[key] ||= CircuitBreakerService.new("#{operation}:#{user_id}")
+    # Return existing or create new circuit breaker (thread-safe atomic operation)
+    CIRCUIT_BREAKERS.compute_if_absent(key) do
+      CircuitBreakerService.new("#{operation}:#{user_id}")
     end
   end
 
   def self.reset_circuit_breakers_for_user(user_id)
-    @@circuit_breaker_mutex.synchronize do
-      [ :balance, :payments, :transfers, :verification ].each do |operation|
-        key = "#{user_id}:#{operation}"
-        @@circuit_breakers.delete(key)
-        @@circuit_breaker_access_times.delete(key)
-      end
+    [ :balance, :payments, :transfers, :verification ].each do |operation|
+      key = "#{user_id}:#{operation}"
+      CIRCUIT_BREAKERS.delete(key)
+      CIRCUIT_BREAKER_ACCESS_TIMES.delete(key)
     end
   end
 
   def self.circuit_breaker_stats
-    @@circuit_breaker_mutex.synchronize do
-      {
-        total_circuit_breakers: @@circuit_breakers.size,
-        max_allowed: MAX_CIRCUIT_BREAKERS,
-        operations: @@circuit_breakers.keys.group_by { |k| k.split(":").last }.transform_values(&:count)
-      }
-    end
+    {
+      total_circuit_breakers: CIRCUIT_BREAKERS.size,
+      max_allowed: MAX_CIRCUIT_BREAKERS,
+      operations: CIRCUIT_BREAKERS.keys.group_by { |k| k.split(":").last }.transform_values(&:count)
+    }
   end
 
   private
 
   def self.evict_oldest_if_needed
-    return unless @@circuit_breakers.size >= MAX_CIRCUIT_BREAKERS
+    # Use mutex only for the eviction operation, not for normal reads
+    CIRCUIT_BREAKER_MUTEX.synchronize do
+      return unless CIRCUIT_BREAKERS.size >= MAX_CIRCUIT_BREAKERS
 
-    # Sort by access time and remove oldest 10%
-    sorted = @@circuit_breaker_access_times.sort_by { |_, time| time }
-    to_remove = (MAX_CIRCUIT_BREAKERS * 0.1).ceil
+      # Sort by access time and remove oldest 10%
+      sorted = CIRCUIT_BREAKER_ACCESS_TIMES.sort_by { |_, time| time }
+      to_remove = (MAX_CIRCUIT_BREAKERS * 0.1).ceil
 
-    sorted.first(to_remove).each do |key, _|
-      @@circuit_breakers.delete(key)
-      @@circuit_breaker_access_times.delete(key)
+      sorted.first(to_remove).each do |key, _|
+        CIRCUIT_BREAKERS.delete(key)
+        CIRCUIT_BREAKER_ACCESS_TIMES.delete(key)
+      end
+
+      Rails.logger.info "[CircuitBreaker] Evicted #{to_remove} old circuit breakers. Remaining: #{CIRCUIT_BREAKERS.size}"
     end
-
-    Rails.logger.info "[CircuitBreaker] Evicted #{to_remove} old circuit breakers. Remaining: #{@@circuit_breakers.size}"
   end
 
-  # Extract user_id from TEP token for per-user circuit breaking
+  # Extract a stable identifier from TEP token for per-user circuit breaking.
+  # Uses a deterministic hash of the token itself so we never need to decode the JWT.
   def self.extract_user_id_from_tep(tep_token)
     return "anonymous" if tep_token.blank?
 
-    begin
-      # Decode JWT without verification to get sub claim
-      payload = JWT.decode(tep_token.split(".").second, nil, false).first
-      payload["sub"] || "anonymous"
-    rescue
-      # Fallback to token hash if we can't decode
-      Digest::SHA256.hexdigest(tep_token)[0, 16]
-    end
+    Digest::SHA256.hexdigest(tep_token)[0, 32]
   end
 
   # Configuration from initializer
