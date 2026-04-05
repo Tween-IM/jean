@@ -282,11 +282,11 @@ class Api::V1::OauthController < ApplicationController
 
         # Source of truth: Matrix user ID @username:tween.im
         matrix_user_id = if mas_username && !mas_username.empty?
-                          "@#{mas_username}:tween.im"
-        else
-                          # Fallback: use MAS internal ID as matrix_user_id if no username
-                          "@#{mas_internal_id}:tween.im"
-        end
+                           "@#{mas_username}:tween.im"
+                         else
+                           # Fallback: use MAS internal ID as matrix_user_id if no username
+                           "@#{mas_internal_id}:tween.im"
+                         end
 
         user = User.find_or_create_by(matrix_user_id: matrix_user_id) do |u|
           u.mas_user_id = mas_internal_id
@@ -398,11 +398,11 @@ class Api::V1::OauthController < ApplicationController
 
        # Source of truth: Matrix user ID @username:tween.im
        matrix_user_id = if mas_username && !mas_username.empty?
-                          "@#{mas_username}:tween.im"
-       else
-                          # Fallback: use MAS internal ID as matrix_user_id if no username
-                          "@#{mas_internal_id}:tween.im"
-       end
+                           "@#{mas_username}:tween.im"
+                         else
+                           # Fallback: use MAS internal ID as matrix_user_id if no username
+                           "@#{mas_internal_id}:tween.im"
+                         end
 
        user = User.find_or_create_by(matrix_user_id: matrix_user_id) do |u|
          u.mas_user_id = mas_internal_id

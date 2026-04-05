@@ -140,10 +140,9 @@ class Api::V1::WalletController < ApplicationController
 
     # Store room_id in the transfer data for later use in confirm
     if room_id
-      transfer_data["room_id"] = room_id
-      # Also cache it for confirm step - use symbol key after JSON fix
-      transfer_id_for_cache = transfer_data[:transfer_id] || transfer_data["transfer_id"]
-      Rails.cache.write("p2p_room:#{transfer_id_for_cache}", room_id, expires_in: 24.hours)
+      transfer_data[:room_id] = room_id
+      transfer_id_for_cache = transfer_data[:transfer_id]
+      Rails.cache.write("#{Rails.env}:p2p_room:#{transfer_id_for_cache}", room_id, expires_in: 24.hours)
       Rails.logger.info "[INITIATE_P2P] Cached room_id #{room_id} for transfer #{transfer_id_for_cache}"
     end
 
@@ -189,7 +188,7 @@ class Api::V1::WalletController < ApplicationController
     end
 
     # Add room_id to result from cache (stored during initiate)
-    cached_room_id = Rails.cache.read("p2p_room:#{transfer_id}")
+    cached_room_id = Rails.cache.read("#{Rails.env}:p2p_room:#{transfer_id}")
     result[:room_id] = cached_room_id if cached_room_id
 
     Rails.logger.info "[CONFIRM_P2P] Transfer #{transfer_id} - Status: #{result[:status]}, Room: #{result[:room_id]}, Cached: #{cached_room_id}"
