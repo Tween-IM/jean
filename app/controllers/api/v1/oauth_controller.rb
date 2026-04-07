@@ -501,7 +501,9 @@ class Api::V1::OauthController < ApplicationController
           user_id: user.mas_user_id,
           miniapp_id: miniapp.app_id,
           scope: scope
-        )
+        ) do |approval|
+          approval.approved_at = Time.current
+        end
       end
 
       return {

@@ -13,11 +13,11 @@ class WalletService
 
   # Circuit breakers for different operations (PROTO Section 7.7)
   # Per-user circuit breakers to prevent one user from affecting others
-  # Using Concurrent::Hash for thread-safe access
+  # Using Concurrent::Map for thread-safe atomic operations
   require 'concurrent'
 
-  CIRCUIT_BREAKERS = Concurrent::Hash.new
-  CIRCUIT_BREAKER_ACCESS_TIMES = Concurrent::Hash.new
+  CIRCUIT_BREAKERS = Concurrent::Map.new
+  CIRCUIT_BREAKER_ACCESS_TIMES = Concurrent::Map.new
   CIRCUIT_BREAKER_MUTEX = Mutex.new
   MAX_CIRCUIT_BREAKERS = 10_000 # LRU limit
 
@@ -33,6 +33,7 @@ class WalletService
     end
 
     # Return existing or create new circuit breaker (thread-safe atomic operation)
+    # Concurrent::Map has compute_if_absent for atomic operations
     CIRCUIT_BREAKERS.compute_if_absent(key) do
       CircuitBreakerService.new("#{operation}:#{user_id}")
     end
