@@ -491,6 +491,25 @@ class Api::V1::OauthController < ApplicationController
       }
     end
 
+    # Auto-approve first-party pre-installed mini-apps (like TweenPay Wallet)
+    # These are owned by the platform and don't require explicit user consent
+    first_party_miniapps = ENV.fetch("FIRST_PARTY_MINIAPPS", "ma_tweenpay").split(",")
+    if first_party_miniapps.include?(miniapp.app_id)
+      # Create authorization approvals if they don't exist
+      requested_scopes.each do |scope|
+        AuthorizationApproval.find_or_create_by(
+          user_id: user.mas_user_id,
+          miniapp_id: miniapp.app_id,
+          scope: scope
+        )
+      end
+
+      return {
+        authorized_scopes: requested_scopes,
+        consent_required: false
+      }
+    end
+
     sensitive_scopes = %w[wallet:pay wallet:request wallet:history messaging:send room:create room:invite]
     pre_approved_scopes = []
     consent_required_scopes = []
