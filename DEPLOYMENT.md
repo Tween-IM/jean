@@ -132,6 +132,11 @@ MAS_INTROSPECTION_URL=https://auth.tween.im/oauth2/introspect
 MAS_REVOCATION_URL=https://auth.tween.im/oauth2/revoke
 
 # Matrix Homeserver
+# AS_TOKEN: Synapse sends this token in Authorization headers when pushing events to Jean.
+#           Must match the `as_token` in Synapse's appservice registration file.
+MATRIX_AS_TOKEN=54280d605e23adf6bd5d66ee07a09196dbab0bd87d35f8ecc1fd70669f709502
+# HS_TOKEN: Jean uses this token to authenticate requests BACK to Synapse (e.g. sending messages).
+#           Must match the `hs_token` in Synapse's appservice registration file.
 MATRIX_HS_TOKEN=874542cda496ffd03f8fd283ad37d8837572aad0734e92225c5f7fffd8c91bd1
 MATRIX_API_URL=https://matrix.tween.example
 MATRIX_ACCESS_TOKEN=mas_generated_token

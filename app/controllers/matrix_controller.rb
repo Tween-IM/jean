@@ -193,7 +193,7 @@ class MatrixController < ApplicationController
     # Extract token from "Bearer {token}" format (case-insensitive)
     provided_token = auth_header&.sub(/^Bearer\s+/i, "")
 
-    expected_token = ENV["MATRIX_HS_TOKEN"] # Token we registered with homeserver
+    expected_token = ENV["MATRIX_AS_TOKEN"] # Synapse sends as_token when pushing events to AS
 
     unless provided_token == expected_token
       Rails.logger.warn "Matrix AS authentication failed: provided_token=#{provided_token&.first(10)}..., expected_token=#{expected_token&.first(10)}..."
