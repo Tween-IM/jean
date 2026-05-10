@@ -38,3 +38,5 @@
 *.sqlite3
 config/tmcp_private_key.pem
 config/tmcp_public_key.pem
+/app/assets/builds/*
+!/app/assets/builds/.keep

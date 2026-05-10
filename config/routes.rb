@@ -139,6 +139,20 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
+  # Admin routes
+  get "admin/login", to: "admin/sessions#new", as: :admin_login
+  post "admin/login", to: "admin/sessions#create"
+  get "admin/mfa", to: "admin/sessions#mfa", as: :admin_mfa
+  post "admin/mfa", to: "admin/sessions#verify_mfa"
+  delete "admin/logout", to: "admin/sessions#destroy", as: :admin_logout
+
+  namespace :admin do
+    get "dashboard", to: "dashboard#index", as: :dashboard
+    resources :mini_apps, only: [:index, :show, :edit, :update, :destroy], path: "mini-apps"
+    resources :users, only: [:index, :show, :edit, :update]
+    resources :oauth_applications, only: [:index, :show, :destroy], path: "oauth-apps"
+  end
+
   # Defines the root path route ("/")
   # root "posts#index"
 end

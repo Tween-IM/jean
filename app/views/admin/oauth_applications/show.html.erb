@@ -1,0 +1,88 @@
+<div class="mb-6">
+  <%= link_to "← Back to OAuth Apps", admin_oauth_applications_path, class: "text-sm text-slate-500 hover:text-slate-700" %>
+</div>
+
+<div class="mb-8 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-slate-900"><%= @application.name %></h1>
+    <p class="text-slate-500 mt-1"><%= @application.uid %></p>
+  </div>
+  <% if current_admin_user&.has_admin_permission?(:manage_oauth) %>
+    <%= button_to "Delete", admin_oauth_application_path(@application), method: :delete, class: "bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer", data: { turbo_confirm: "Are you sure you want to delete this OAuth application?" } %>
+  <% end %>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <!-- Details -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Application Details</h2>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Name</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @application.name %></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Client ID</dt>
+          <dd class="mt-1 text-sm text-slate-900 font-mono"><%= @application.uid %></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Confidential</dt>
+          <dd class="mt-1">
+            <span class="px-2 py-1 text-xs font-medium rounded-full <%= @application.confidential? ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700' %>">
+              <%= @application.confidential? ? "Yes" : "No" %>
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Scopes</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @application.scopes %></dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-sm font-medium text-slate-500">Redirect URI</dt>
+          <dd class="mt-1 text-sm text-slate-900 break-all"><%= @application.redirect_uri %></dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Access Tokens -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Recent Access Tokens</h2>
+      <% if @access_tokens.any? %>
+        <div class="divide-y divide-slate-100">
+          <% @access_tokens.each do |token| %>
+            <div class="py-3 flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-slate-900 font-mono"><%= token.token.first(16) %>...</p>
+                <p class="text-xs text-slate-500"><%= token.scopes %> · <%= token.revoked_at ? "Revoked" : "Active" %></p>
+              </div>
+              <span class="text-xs text-slate-400"><%= time_ago_in_words(token.created_at) %> ago</span>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-slate-500 text-sm">No access tokens.</p>
+      <% end %>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+    <!-- Access Grants -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Recent Access Grants</h2>
+      <% if @access_grants.any? %>
+        <div class="divide-y divide-slate-100">
+          <% @access_grants.each do |grant| %>
+            <div class="py-3">
+              <p class="text-sm font-medium text-slate-900 font-mono"><%= grant.token.first(16) %>...</p>
+              <p class="text-xs text-slate-500"><%= grant.scopes %> · <%= grant.revoked_at ? "Revoked" : "Active" %></p>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-slate-500 text-sm">No access grants.</p>
+      <% end %>
+    </div>
+  </div>
+</div>

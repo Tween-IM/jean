@@ -1,0 +1,42 @@
+<div class="mb-8">
+  <h1 class="text-3xl font-bold text-slate-900">OAuth Applications</h1>
+  <p class="text-slate-500 mt-1">Manage registered OAuth applications</p>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+  <table class="min-w-full divide-y divide-slate-200">
+    <thead class="bg-slate-50">
+      <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Client ID</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Confidential</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Scopes</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Created</th>
+        <th class="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-slate-200">
+      <% @applications.records.each do |app| %>
+        <tr class="hover:bg-slate-50">
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900"><%= app.name %></td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 font-mono"><%= app.uid %></td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-2 py-1 text-xs font-medium rounded-full <%= app.confidential? ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700' %>">
+              <%= app.confidential? ? "Yes" : "No" %>
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500"><%= app.scopes %></td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500"><%= app.created_at.strftime("%b %d, %Y") %></td>
+          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <%= link_to "View", admin_oauth_application_path(app), class: "text-indigo-600 hover:text-indigo-900 mr-3" %>
+            <% if current_admin_user&.has_admin_permission?(:manage_oauth) %>
+              <%= button_to "Delete", admin_oauth_application_path(app), method: :delete, class: "text-red-600 hover:text-red-900 bg-transparent border-none cursor-pointer", data: { turbo_confirm: "Are you sure?" } %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <%= render "admin/shared/pagination", collection: @applications %>
+</div>

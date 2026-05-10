@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_16_173558) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_160653) do
   create_table "authorization_approvals", force: :cascade do |t|
     t.string "approval_method"
     t.datetime "approved_at"
@@ -152,11 +152,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_16_173558) do
   end
 
   create_table "users", force: :cascade do |t|
+    t.boolean "admin_mfa_enabled", default: false, null: false
+    t.string "admin_mfa_secret"
     t.datetime "created_at", null: false
     t.string "mas_user_id"
     t.string "matrix_homeserver"
     t.string "matrix_user_id"
     t.string "matrix_username"
+    t.string "platform_role", default: "none", null: false
     t.integer "status"
     t.datetime "updated_at", null: false
     t.string "wallet_id"

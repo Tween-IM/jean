@@ -1,0 +1,122 @@
+<div class="mb-6">
+  <%= link_to "← Back to Users", admin_users_path, class: "text-sm text-slate-500 hover:text-slate-700" %>
+</div>
+
+<div class="mb-8 flex items-center justify-between">
+  <div>
+    <h1 class="text-3xl font-bold text-slate-900"><%= @user.matrix_username || @user.matrix_user_id %></h1>
+    <p class="text-slate-500 mt-1"><%= @user.wallet_id %></p>
+  </div>
+  <% if current_admin_user&.has_admin_permission?(:manage_users) %>
+    <%= link_to "Edit", edit_admin_user_path(@user), class: "bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors" %>
+  <% end %>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <!-- Details -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Details</h2>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Matrix User ID</dt>
+          <dd class="mt-1 text-sm text-slate-900 font-mono"><%= @user.matrix_user_id %></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Matrix Username</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @user.matrix_username %></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Homeserver</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @user.matrix_homeserver %></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Wallet ID</dt>
+          <dd class="mt-1 text-sm text-slate-900 font-mono"><%= @user.wallet_id %></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">MAS User ID</dt>
+          <dd class="mt-1 text-sm text-slate-900 font-mono"><%= @user.mas_user_id || "—" %></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Status</dt>
+          <dd class="mt-1">
+            <span class="px-2 py-1 text-xs font-medium rounded-full <%= @user.active? ? 'bg-green-100 text-green-700' : @user.suspended? ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700' %>">
+              <%= @user.status %>
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Platform Role</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @user.platform_role %></dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-slate-500">Joined</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @user.created_at.strftime("%b %d, %Y %H:%M") %></dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Installations -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Mini-App Installations</h2>
+      <% if @installations.any? %>
+        <div class="divide-y divide-slate-100">
+          <% @installations.each do |inst| %>
+            <div class="py-3 flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-slate-900"><%= inst.mini_app&.name || inst.mini_app_id %></p>
+                <p class="text-xs text-slate-500">Version <%= inst.version %> · <%= inst.status %></p>
+              </div>
+              <span class="text-xs text-slate-400"><%= time_ago_in_words(inst.created_at) %> ago</span>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-slate-500 text-sm">No installations yet.</p>
+      <% end %>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+    <!-- MFA Methods -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">MFA Methods</h2>
+      <% if @mfa_methods.any? %>
+        <div class="space-y-3">
+          <% @mfa_methods.each do |mfa| %>
+            <div class="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+              <div>
+                <p class="text-sm font-medium text-slate-900"><%= mfa.method_type %></p>
+                <p class="text-xs text-slate-500"><%= mfa.device_id %></p>
+              </div>
+              <span class="px-2 py-1 text-xs font-medium rounded-full <%= mfa.enabled? ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700' %>">
+                <%= mfa.enabled? ? "Enabled" : "Disabled" %>
+              </span>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-slate-500 text-sm">No MFA methods registered.</p>
+      <% end %>
+    </div>
+
+    <!-- Storage Entries -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Recent Storage</h2>
+      <% if @storage_entries.any? %>
+        <div class="divide-y divide-slate-100">
+          <% @storage_entries.each do |entry| %>
+            <div class="py-3">
+              <p class="text-sm font-medium text-slate-900"><%= entry.key %></p>
+              <p class="text-xs text-slate-500"><%= entry.miniapp_id %> · <%= time_ago_in_words(entry.created_at) %> ago</p>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-slate-500 text-sm">No storage entries.</p>
+      <% end %>
+    </div>
+  </div>
+</div>

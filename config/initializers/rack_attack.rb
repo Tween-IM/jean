@@ -26,6 +26,16 @@ class Rack::Attack
     req.ip if req.path.match?(%r{/wallet/v1/})
   end
 
+  # Admin login: 5 requests per minute
+  throttle("admin_logins/ip", limit: 5, period: 1.minute) do |req|
+    req.ip if req.path.start_with?("/admin/login") && req.post?
+  end
+
+  # Admin MFA: 5 requests per minute
+  throttle("admin_mfa/ip", limit: 5, period: 1.minute) do |req|
+    req.ip if req.path.start_with?("/admin/mfa") && req.post?
+  end
+
   # User resolution: 100 requests per minute per user
   throttle("resolve/user", limit: 100, period: 1.minute) do |req|
     if req.path.match?(%r{/wallet/v1/resolve/})

@@ -73,7 +73,9 @@ Rails.application.configure do
     # Allow requests from docker host and production domain
     config.hosts << "docker:3000"
     config.hosts << "host.docker.internal"
+    config.hosts << "host.docker.internal:3001"
     config.hosts << "localhost"
+    config.hosts << "localhost:3001"
     config.hosts << "tmcp.tween.im"
     config.hosts << "pay.tween.im"
     config.hosts << "wallet.tween.im"
