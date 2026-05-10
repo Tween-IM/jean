@@ -168,6 +168,14 @@ class StorageService
       entries = StorageEntry.user_miniapp_entries(user, miniapp_id)
       entries.sum { |e| e.value.to_json.bytesize }
     end
+
+    def cleanup_user_app_data(user_id, miniapp_id)
+      # user_id is the Matrix user ID string (e.g. @mona:localhost)
+      entries = StorageEntry.user_miniapp_entries(user_id, miniapp_id)
+      count = entries.count
+      entries.destroy_all
+      count
+    end
   end
 
   class StorageError < StandardError; end

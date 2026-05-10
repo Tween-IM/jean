@@ -57,24 +57,32 @@ class Api::V1::StoreController < ApplicationController
     total_count = query.count
     apps = query.limit(limit).offset(offset)
 
-    # Format response
+    # Format response — align with TMCP-001 Section 16.6 and Flutter client expectations
     app_data = apps.map do |app|
       manifest = app.manifest || {}
+      dev = manifest["developer"] || {}
+      rating = manifest["rating"] || 4.5
+      rating_count = manifest["rating_count"] || 100
       {
-        miniapp_id: app.app_id,
+        mini_app_id: app.app_id,
         name: app.name,
+        description: app.description || manifest["description"] || "",
         classification: app.classification,
-        category: manifest["category"],
-        rating: {
-          average: manifest["rating"] || 4.5,
-          count: manifest["rating_count"] || 100
-        },
+        category: manifest["category"] || "utilities",
+        rating: rating.is_a?(Hash) ? rating["average"] : rating,
+        review_count: rating.is_a?(Hash) ? rating["count"] : rating_count,
         install_count: app.install_count || 0,
         icon_url: manifest["icon_url"] || "https://cdn.tween.example/icons/default.png",
         version: app.version,
+        entry_url: manifest["entry_url"] || "https://tween.im/apps/#{app.app_id}",
         preinstalled: app.classification == "official" && manifest["preinstalled"],
         installed: @current_user ? current_user_installed?(app.app_id) : false,
-        developer: manifest["developer"] || {}
+        developer_name: dev["name"] || "Unknown Developer",
+        screenshots: manifest["screenshots"] || [],
+        gradient_colors: manifest["gradient_colors"] || [],
+        icon_color: manifest["icon_color"],
+        sample_prompt: manifest["sample_prompt"],
+        permissions: manifest["permissions"] || []
       }
     end
 
@@ -103,14 +111,17 @@ class Api::V1::StoreController < ApplicationController
 
     # Format app data (same structure as apps list)
     manifest = app.manifest || {}
+    dev = manifest["developer"] || {}
+    rating = manifest["rating"] || 4.5
+    rating_count = manifest["rating_count"] || 100
     app_data = {
-      miniapp_id: app.app_id,
+      mini_app_id: app.app_id,
       name: app.name,
       short_name: manifest["short_name"] || app.name[0..15],
-      description: app.description,
-      long_description: manifest["long_description"] || app.description,
+      description: app.description || manifest["description"] || "",
+      long_description: manifest["long_description"] || app.description || "",
       classification: app.classification,
-      category: manifest["category"],
+      category: manifest["category"] || "utilities",
       icon_url: manifest["icon_url"] || "https://cdn.tween.example/icons/default.png",
       marketing: {
         screenshots: manifest["screenshots"] || [],
@@ -120,15 +131,17 @@ class Api::V1::StoreController < ApplicationController
       version: app.version,
       updated_at: app.updated_at || app.created_at,
       size: manifest["size"],
-      developer: manifest["developer"] || {},
-      rating: {
-        average: manifest["rating"] || 4.5,
-        count: manifest["rating_count"] || 100
-      },
+      developer_name: dev["name"] || "Unknown Developer",
+      rating: rating.is_a?(Hash) ? rating["average"] : rating,
+      review_count: rating.is_a?(Hash) ? rating["count"] : rating_count,
       install_count: app.install_count || 0,
+      entry_url: manifest["entry_url"] || "https://tween.im/apps/#{app.app_id}",
       preinstalled: app.classification == "official" && manifest["preinstalled"],
       installed: @current_user ? current_user_installed?(app.app_id) : false,
-      permissions: manifest["permissions"] || {}
+      permissions: manifest["permissions"] || {},
+      gradient_colors: manifest["gradient_colors"] || [],
+      icon_color: manifest["icon_color"],
+      sample_prompt: manifest["sample_prompt"]
     }
 
     render json: {
@@ -222,7 +235,7 @@ class Api::V1::StoreController < ApplicationController
     )
 
     # Clean up storage data (PROTO Section 10.3.8)
-    StorageService.cleanup_user_app_data(@current_user.id, miniapp_id)
+    StorageService.cleanup_user_app_data(@current_user.matrix_user_id, miniapp_id)
 
     render json: {
       miniapp_id: miniapp_id,

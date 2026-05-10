@@ -188,3 +188,57 @@ official_mini_apps:
           - testing
       features:
         - test_functionality
+
+  - app_id: ma_tweenmart
+    name: Tween Mart
+    description: Demo e-commerce mini-app exercising all TMCP functionality
+    version: "1.0.0"
+    classification: official
+    oauth_client_type: public
+    developer_name: Tween IM
+    manifest:
+      permissions:
+        - user_read
+        - wallet_balance
+        - wallet_pay
+        - wallet_history
+        - storage_read
+        - storage_write
+        - messaging_send
+      scopes:
+        - user:read
+        - wallet:balance
+        - wallet:pay
+        - wallet:history
+        - storage:read
+        - storage:write
+        - messaging:send
+      entry_url: "https://tmcp.tween.im/demo-miniapp/index.html"
+      redirect_uris:
+        - "https://tmcp.tween.im/demo-miniapp/callback"
+      webhook_url: "https://api.tween.im/webhooks/tweenmart"
+      icon_url: "https://cdn.tween.im/icons/tweenmart.png"
+      category: shopping
+      rating: 5.0
+      rating_count: 42
+      gradient_colors:
+        - "#6366F1"
+        - "#8B5CF6"
+      icon_color: "#6366F1"
+      sample_prompt: "@Tween Mart buy wireless earbuds"
+      screenshots:
+        - "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600"
+        - "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=600"
+      categories:
+        - shopping
+          - demo
+          - marketplace
+      features:
+        - product_catalog
+        - shopping_cart
+        - secure_payments
+        - p2p_transfers
+        - group_gifts
+        - storage_sync
+        - social_sharing
+        - scope_management
