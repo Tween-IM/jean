@@ -61,9 +61,10 @@ module TmcpServer
     # Session store for OAuth flow and admin dashboard
     config.session_store :cookie_store, key: "_tmcp_session"
 
-    # Enable cookie/session middleware for admin dashboard in api-only app
+    # Enable cookie/session/flash middleware for admin dashboard in api-only app
     config.middleware.use ActionDispatch::Cookies
     config.middleware.use ActionDispatch::Session::CookieStore, key: "_tmcp_session"
+    config.middleware.use ActionDispatch::Flash
 
     # CORS configuration for mini-app access
     config.middleware.insert_before 0, Rack::Cors do
