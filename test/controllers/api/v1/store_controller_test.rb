@@ -36,8 +36,8 @@ class Api::V1::StoreControllerTest < ActionDispatch::IntegrationTest
       classification: :community,
       status: :active,
       manifest: {
-        permissions: [ "storage_read", "user_read" ],
-        scopes: [ "storage_read", "user_read" ],
+        permissions: [ "storage:read", "user:read" ],
+        scopes: [ "storage:read", "user:read" ],
         category: "shopping",
         rating: 4.5,
         rating_count: 100,
@@ -53,8 +53,15 @@ class Api::V1::StoreControllerTest < ActionDispatch::IntegrationTest
     response_data = JSON.parse(response.body)
     assert response_data["apps"].is_a?(Array)
     # Check that our created app is in the list
-    app_ids = response_data["apps"].map { |app| app["miniapp_id"] }
+    app_ids = response_data["apps"].map { |app| app["mini_app_id"] }
     assert_includes app_ids, mini_app.app_id
+    # Verify new response format keys
+    app = response_data["apps"].find { |a| a["mini_app_id"] == mini_app.app_id }
+    assert app["description"].is_a?(String)
+    assert app["entry_url"].is_a?(String)
+    assert app["developer_name"].is_a?(String)
+    assert app["rating"].is_a?(Numeric)
+    assert app["review_count"].is_a?(Integer)
   end
 
   teardown do

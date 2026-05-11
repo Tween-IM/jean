@@ -212,7 +212,7 @@ class Api::V1::OauthControllerTest < ActionDispatch::IntegrationTest
       version: "1.0.0",
       classification: :official,
       status: :active,
-      manifest: { "scopes" => [], "permissions" => {} }
+      manifest: { "scopes" => ["user:read", "wallet:pay"], "permissions" => {} }
     )
 
     app = Doorkeeper::Application.create!(
@@ -257,7 +257,7 @@ class Api::V1::OauthControllerTest < ActionDispatch::IntegrationTest
       version: "1.0.0",
       classification: :official,
       status: :active,
-      manifest: { "scopes" => [], "permissions" => {} }
+      manifest: { "scopes" => ["user:read"], "permissions" => {} }
     )
 
     app = Doorkeeper::Application.create!(
@@ -294,9 +294,9 @@ class Api::V1::OauthControllerTest < ActionDispatch::IntegrationTest
       name: "Test Third-Party App",
       description: "A test third-party mini-app",
       version: "1.0.0",
-      classification: :community,
+      classification: :verified,
       status: :active,
-      manifest: { "scopes" => [], "permissions" => {} }
+      manifest: { "scopes" => ["user:read", "wallet:pay"], "permissions" => {} }
     )
 
     app = Doorkeeper::Application.create!(
@@ -338,7 +338,7 @@ class Api::V1::OauthControllerTest < ActionDispatch::IntegrationTest
       version: "1.0.0",
       classification: :official,
       status: :active,
-      manifest: { "scopes" => [], "permissions" => {} }
+      manifest: { "scopes" => ["user:read", "wallet:pay"], "permissions" => {} }
     )
 
     app = Doorkeeper::Application.create!(
@@ -356,5 +356,60 @@ class Api::V1::OauthControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, result[:consent_required]
 
     ENV["FIRST_PARTY_MINIAPPS"] = original_env if original_env
+  end
+
+  test "refresh token should be invalidated after use" do
+    refresh_token = "rt_test_refresh_#{@unique_suffix}"
+    refresh_data = {
+      user_id: @user.matrix_user_id,
+      miniapp_id: @miniapp_id,
+      scope: ["user:read"],
+      created_at: Time.current.to_i
+    }
+    Rails.cache.write("refresh_token:#{refresh_token}", refresh_data, expires_in: 30.days)
+
+    post "/api/v1/oauth/token",
+      params: {
+        grant_type: "refresh_token",
+        refresh_token: refresh_token
+      }
+
+    assert_response :success
+    response_data = JSON.parse(response.body)
+    assert_not_nil response_data["refresh_token"]
+    assert_not_equal refresh_token, response_data["refresh_token"]
+
+    # Old refresh token should no longer be valid
+    assert_nil Rails.cache.read("refresh_token:#{refresh_token}")
+  end
+
+  test "should reject unregistered scopes during token exchange" do
+    @user.update!(mas_user_id: "user_esc_#{@unique_suffix}") unless @user.mas_user_id
+
+    # Mini-app only registered for user:read, not wallet:pay
+    restricted_app_id = "ma_restricted#{@unique_suffix}"
+    MiniApp.create!(
+      app_id: restricted_app_id,
+      name: "Restricted App",
+      description: "A restricted mini-app",
+      version: "1.0.0",
+      classification: :community,
+      status: :active,
+      manifest: { "scopes" => ["user:read"], "permissions" => {} }
+    )
+
+    Doorkeeper::Application.create!(
+      name: "Restricted App",
+      uid: restricted_app_id,
+      secret: "test_secret_123",
+      redirect_uri: @redirect_uri,
+      scopes: "user:read"
+    )
+
+    controller = Api::V1::OauthController.new
+    result = controller.send(:authorize_scopes, @user, Doorkeeper::Application.find_by(uid: restricted_app_id), ["user:read", "wallet:pay"])
+
+    assert_equal "invalid_scope", result[:error]
+    assert_includes result[:unregistered_scopes], "wallet:pay"
   end
 end

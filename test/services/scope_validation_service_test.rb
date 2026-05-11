@@ -120,4 +120,27 @@ class ScopeValidationServiceTest < ActiveSupport::TestCase
 
     assert_equal "wallet:pay storage:read", tep_scopes
   end
+
+  test "#check_scope_registration validates against manifest scopes" do
+    unique_id = SecureRandom.alphanumeric(8).downcase
+    miniapp = MiniApp.create!(
+      app_id: "ma_testscopes#{unique_id}",
+      name: "Scope Test App",
+      description: "Test",
+      version: "1.0.0",
+      classification: :verified,
+      status: :active,
+      manifest: { "scopes" => ["user:read", "storage:read"], "permissions" => {} }
+    )
+
+    # Registered scopes should pass
+    assert @validator.check_scope_registration(miniapp.app_id, ["user:read"])
+
+    # Unregistered scopes should raise
+    error = assert_raises(ScopeValidationService::ScopeError) do
+      @validator.check_scope_registration(miniapp.app_id, ["user:read", "wallet:pay"])
+    end
+    assert_equal "ESCALATION_ATTEMPT", error.code
+    assert_includes error.details[:scopes], "wallet:pay"
+  end
 end

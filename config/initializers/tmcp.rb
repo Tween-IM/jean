@@ -15,7 +15,7 @@ Rails.application.configure do
     oauth_refresh_token_expiry: 30.days,
 
     # Payment Configuration
-    payment_request_expiry: 5.minutes,
+    payment_request_expiry: 30.minutes,
     p2p_transfer_expiry: 24.hours,
     max_transaction_amount: 50000.00,
     mfa_threshold: 50.00,

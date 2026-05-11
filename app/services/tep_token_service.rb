@@ -26,10 +26,15 @@ class TepTokenService
     def load_key
       if ENV["TMCP_PRIVATE_KEY"].present?
         @_private_key = OpenSSL::PKey::RSA.new(ENV["TMCP_PRIVATE_KEY"])
-      else
+      elsif Rails.env.test?
+        # In test environment, generate a temporary key if none is provided
         @_private_key = OpenSSL::PKey::RSA.new(2048)
+      else
+        # Soft fail: allow boot without key, but token issuance/introspection will fail at runtime
+        @_private_key = nil
+        Rails.logger.error "TMCP_PRIVATE_KEY is not configured. TEP token signing and local introspection will fail."
       end
-      @_public_key = @_private_key.public_key
+      @_public_key = @_private_key&.public_key
     end
 
     def reset_keys!

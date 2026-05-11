@@ -186,7 +186,7 @@ class ScopeValidationService
 
     raise ScopeError.new("NOT_FOUND", "Mini-app not found") unless miniapp
 
-    registered_scopes = miniapp.manifest["permissions"] || []
+    registered_scopes = miniapp.manifest["scopes"] || []
 
     unregistered = requested_scopes.reject { |s| registered_scopes.include?(s) }
 

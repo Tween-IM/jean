@@ -250,12 +250,7 @@ class Api::V1::OauthController < ApplicationController
       end
     end
 
-    mas_client = MasClientService.new(
-      client_id: ENV["MAS_CLIENT_ID"] || "tmcp-server",
-      client_secret: ENV["MAS_CLIENT_SECRET"],
-      token_url: ENV["MAS_TOKEN_URL"] || "https://mas.tween.example/oauth2/token",
-      introspection_url: ENV["MAS_INTROSPECTION_URL"] || "https://mas.tween.example/oauth2/introspect"
-    )
+    mas_client = oauth_mas_client
 
     begin
       introspection_response = mas_client.introspect_token(subject_token)
@@ -280,12 +275,13 @@ class Api::V1::OauthController < ApplicationController
         mas_internal_id = introspection_response["sub"]
         device_id = introspection_response["device_id"]
 
-        # Source of truth: Matrix user ID @username:tween.im
+        matrix_domain = ENV["MATRIX_DOMAIN"] || "tween.im"
+        # Source of truth: Matrix user ID @username:{matrix_domain}
         matrix_user_id = if mas_username && !mas_username.empty?
-                           "@#{mas_username}:tween.im"
+                           "@#{mas_username}:#{matrix_domain}"
                          else
                            # Fallback: use MAS internal ID as matrix_user_id if no username
-                           "@#{mas_internal_id}:tween.im"
+                           "@#{mas_internal_id}:#{matrix_domain}"
                          end
 
         user = User.find_or_create_by(matrix_user_id: matrix_user_id) do |u|
@@ -293,16 +289,25 @@ class Api::V1::OauthController < ApplicationController
           u.matrix_user_id = matrix_user_id
 
           if mas_username && !mas_username.empty?
-            u.matrix_username = "#{mas_username}:tween.im"
-            u.matrix_homeserver = "tween.im"
+            u.matrix_username = "#{mas_username}:#{matrix_domain}"
+            u.matrix_homeserver = matrix_domain
           else
             # Fallback for internal ID
-            u.matrix_username = "#{mas_internal_id}:tween.im"
-            u.matrix_homeserver = "tween.im"
+            u.matrix_username = "#{mas_internal_id}:#{matrix_domain}"
+            u.matrix_homeserver = matrix_domain
           end
         end
 
       authorization_result = authorize_scopes(user, application, scopes)
+
+      if authorization_result[:error]
+        render json: {
+          error: authorization_result[:error],
+          error_description: authorization_result[:error_description],
+          unregistered_scopes: authorization_result[:unregistered_scopes]
+        }, status: :bad_request
+        return
+      end
 
       if authorization_result[:consent_required]
         render json: {
@@ -367,12 +372,7 @@ class Api::V1::OauthController < ApplicationController
       }, status: :unauthorized
     end
 
-    mas_client = MasClientService.new(
-      client_id: ENV["MAS_CLIENT_ID"] || "tmcp-server",
-      client_secret: ENV["MAS_CLIENT_SECRET"],
-      token_url: ENV["MAS_TOKEN_URL"] || "https://mas.tween.example/oauth2/token",
-      introspection_url: ENV["MAS_INTROSPECTION_URL"] || "https://mas.tween.example/oauth2/introspect"
-    )
+    mas_client = oauth_mas_client
 
     begin
       introspection_response = mas_client.introspect_token(matrix_access_token)
@@ -396,12 +396,13 @@ class Api::V1::OauthController < ApplicationController
        mas_username = introspection_response["username"]
        mas_internal_id = introspection_response["sub"]
 
-       # Source of truth: Matrix user ID @username:tween.im
+       matrix_domain = ENV["MATRIX_DOMAIN"] || "tween.im"
+       # Source of truth: Matrix user ID @username:{matrix_domain}
        matrix_user_id = if mas_username && !mas_username.empty?
-                           "@#{mas_username}:tween.im"
+                           "@#{mas_username}:#{matrix_domain}"
                          else
                            # Fallback: use MAS internal ID as matrix_user_id if no username
-                           "@#{mas_internal_id}:tween.im"
+                           "@#{mas_internal_id}:#{matrix_domain}"
                          end
 
        user = User.find_or_create_by(matrix_user_id: matrix_user_id) do |u|
@@ -409,20 +410,43 @@ class Api::V1::OauthController < ApplicationController
          u.matrix_user_id = matrix_user_id
 
          if mas_username && !mas_username.empty?
-           u.matrix_username = "#{mas_username}:tween.im"
-           u.matrix_homeserver = "tween.im"
+           u.matrix_username = "#{mas_username}:#{matrix_domain}"
+           u.matrix_homeserver = matrix_domain
          else
            # Fallback for internal ID
-           u.matrix_username = "#{mas_internal_id}:tween.im"
-           u.matrix_homeserver = "tween.im"
+           u.matrix_username = "#{mas_internal_id}:#{matrix_domain}"
+           u.matrix_homeserver = matrix_domain
          end
        end
 
       scopes = auth_request["scope"]
+
+      authorization_result = authorize_scopes(user, application, scopes)
+
+      if authorization_result[:error]
+        render json: {
+          error: authorization_result[:error],
+          error_description: authorization_result[:error_description],
+          unregistered_scopes: authorization_result[:unregistered_scopes]
+        }, status: :bad_request
+        return
+      end
+
+      if authorization_result[:consent_required]
+        render json: {
+          error: "consent_required",
+          error_description: "User must approve sensitive scopes",
+          consent_required_scopes: authorization_result[:consent_required_scopes],
+          pre_approved_scopes: authorization_result[:pre_approved_scopes],
+          consent_ui_endpoint: "/oauth2/consent?session=#{authorization_result[:session_id]}"
+        }, status: :forbidden
+        return
+      end
+
       tep_response = mas_client.exchange_matrix_token_for_tep(
         matrix_access_token,
         auth_request["client_id"],
-        scopes,
+        authorization_result[:authorized_scopes],
         {},
         introspection_response
       )
@@ -440,6 +464,7 @@ class Api::V1::OauthController < ApplicationController
   def handle_refresh_token_flow(params)
     refresh_token = params[:refresh_token]
     refresh_data = Rails.cache.read("refresh_token:#{refresh_token}")
+    refresh_data = refresh_data.with_indifferent_access if refresh_data.is_a?(Hash)
 
     unless refresh_data
       render json: {
@@ -469,6 +494,7 @@ class Api::V1::OauthController < ApplicationController
 
     new_refresh_token = SecureRandom.urlsafe_base64(32)
     Rails.cache.write("refresh_token:#{new_refresh_token}", refresh_data, expires_in: 30.days)
+    Rails.cache.delete("refresh_token:#{refresh_token}")
 
     render json: {
       access_token: access_token,
@@ -482,6 +508,19 @@ class Api::V1::OauthController < ApplicationController
   def authorize_scopes(user, application, requested_scopes)
     miniapp = MiniApp.find_by(app_id: application.uid)
     return { authorized_scopes: [], consent_required: false } unless miniapp
+
+    # Validate requested scopes are registered for this mini-app (TMCP Section 5.5)
+    begin
+      ScopeValidationService.new.check_scope_registration(miniapp.app_id, requested_scopes)
+    rescue ScopeValidationService::ScopeError => e
+      return {
+        authorized_scopes: [],
+        consent_required: false,
+        error: "invalid_scope",
+        error_description: e.message,
+        unregistered_scopes: e.details[:scopes]
+      }
+    end
 
     # Development bypass: auto-approve all scopes
     if ENV["DEV_BYPASS_MAS"] == "true"
@@ -577,18 +616,14 @@ class Api::V1::OauthController < ApplicationController
   end
 
   def introspect_matrix_token(token)
-    mas_client = MasClientService.new(
-      client_id: ENV["MAS_CLIENT_ID"] || "tmcp-server",
-      client_secret: ENV["MAS_CLIENT_SECRET"],
-      token_url: ENV["MAS_TOKEN_URL"] || "https://mas.tween.example/oauth2/token",
-      introspection_url: ENV["MAS_INTROSPECTION_URL"] || "https://mas.tween.example/oauth2/introspect"
-    )
+    mas_client = oauth_mas_client
 
     introspection_response = mas_client.introspect_token(token)
 
+    matrix_domain = ENV["MATRIX_DOMAIN"] || "tween.im"
     # Transform MAS response to return matrix user ID instead of internal MAS ID
     matrix_user_id = if introspection_response["username"]&.present?
-      "@#{introspection_response["username"]}:tween.im"
+      "@#{introspection_response["username"]}:#{matrix_domain}"
     else
       # Fallback: use MAS internal ID if no username available
       introspection_response["sub"]
@@ -602,5 +637,15 @@ class Api::V1::OauthController < ApplicationController
     render json: transformed_response
   rescue MasClientService::InvalidTokenError, MasClientService::MasError => e
     render json: { active: false, error: e.message }, status: :ok
+  end
+
+  # Reuse a single MAS client instance per request to benefit from connection pooling
+  def oauth_mas_client
+    @oauth_mas_client ||= MasClientService.new(
+      client_id: ENV["MAS_CLIENT_ID"] || "tmcp-server",
+      client_secret: ENV["MAS_CLIENT_SECRET"],
+      token_url: ENV["MAS_TOKEN_URL"] || "https://mas.tween.example/oauth2/token",
+      introspection_url: ENV["MAS_INTROSPECTION_URL"] || "https://mas.tween.example/oauth2/introspect"
+    )
   end
 end
