@@ -120,8 +120,8 @@ class TepTokenService
     def decode(token)
       begin
         jwt_token = token
-        if token.start_with?("tep.")
-          jwt_token = token[4..-1]
+        while jwt_token.start_with?("tep.")
+          jwt_token = jwt_token[4..-1]
         end
 
         decoded = JWT.decode(jwt_token, public_key, true, {

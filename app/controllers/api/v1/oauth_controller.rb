@@ -1,6 +1,4 @@
 class Api::V1::OauthController < Api::BaseController
-  skip_before_action :verify_authenticity_token, only: [ :authorize, :token, :device_code, :device_token ]
-
   def authorize
     raw_params = params
 
