@@ -292,7 +292,7 @@ class MasClientService
     end
 
     {
-      access_token: "tep.#{tep_token}",
+      access_token: tep_token,
       token_type: "Bearer",
       expires_in: 86400,
       refresh_token: tep_refresh_token,
