@@ -19,7 +19,7 @@ class Admin::SessionsTest < ActionDispatch::IntegrationTest
   test "login page is accessible" do
     get admin_login_path
     assert_response :success
-    assert_select "h1", "TMCP Admin"
+    assert_select "h1", "Welcome back"
   end
 
   test "admin can log in with matrix user id" do
