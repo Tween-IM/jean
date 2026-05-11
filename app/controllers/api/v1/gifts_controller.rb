@@ -1,4 +1,4 @@
-class Api::V1::GiftsController < ApplicationController
+class Api::V1::GiftsController < Api::BaseController
   # TMCP Protocol Section 7.5: Group Gift Distribution
 
   before_action :authenticate_tep_token

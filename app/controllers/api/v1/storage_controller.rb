@@ -1,4 +1,4 @@
-class Api::V1::StorageController < ApplicationController
+class Api::V1::StorageController < Api::BaseController
   # TMCP Protocol Section 10.3: Mini-App Storage System
 
   before_action :authenticate_tep_token

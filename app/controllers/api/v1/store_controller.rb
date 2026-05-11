@@ -1,4 +1,4 @@
-class Api::V1::StoreController < ApplicationController
+class Api::V1::StoreController < Api::BaseController
   # TMCP Protocol Section 16.6: Mini-App Store Protocol
 
   before_action :authenticate_tep_token, except: [ :categories, :apps ]

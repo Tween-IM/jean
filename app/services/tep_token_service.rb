@@ -72,7 +72,8 @@ class TepTokenService
 
       headers = { kid: KEY_ID }
 
-      JWT.encode(jwt_payload, private_key, ALGORITHM, headers)
+      jwt = JWT.encode(jwt_payload, private_key, ALGORITHM, headers)
+      "tep.#{jwt}"
     end
 
     def build_default_authorization_context(payload)

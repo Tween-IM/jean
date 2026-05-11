@@ -78,8 +78,9 @@ class TepTokenServiceTest < ActiveSupport::TestCase
       { user_id: @user_id, miniapp_id: @miniapp_id }
     )
 
-    # Decode and modify token_type
-    decoded = JWT.decode(token, nil, false)
+    # Decode and modify token_type (strip tep. prefix first)
+    jwt_token = token.start_with?("tep.") ? token[4..-1] : token
+    decoded = JWT.decode(jwt_token, nil, false)
     payload = decoded[0]
     payload["token_type"] = "wrong_type"
 
@@ -95,7 +96,9 @@ class TepTokenServiceTest < ActiveSupport::TestCase
       { user_id: @user_id, miniapp_id: @miniapp_id }
     )
 
-    decoded = JWT.decode(token, nil, false)
+    # Strip tep. prefix before raw JWT decode
+    jwt_token = token.start_with?("tep.") ? token[4..-1] : token
+    decoded = JWT.decode(jwt_token, nil, false)
     headers = decoded.last
 
     assert_equal "RS256", headers["alg"]
@@ -213,8 +216,9 @@ class TepTokenServiceTest < ActiveSupport::TestCase
       { user_id: @user_id, miniapp_id: @miniapp_id }
     )
 
-    # Decode without verification to check algorithm
-    decoded = JWT.decode(token, nil, false)
+    # Decode without verification to check algorithm (strip tep. prefix first)
+    jwt_token = token.start_with?("tep.") ? token[4..-1] : token
+    decoded = JWT.decode(jwt_token, nil, false)
     headers = decoded.last
 
     assert_equal "RS256", headers["alg"]

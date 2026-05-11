@@ -1,4 +1,4 @@
-class Api::V1::ClientController < ApplicationController
+class Api::V1::ClientController < Api::BaseController
   # TMCP Protocol Section 10.5: Capability Negotiation
 
   before_action :authenticate_tep_token

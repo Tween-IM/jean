@@ -1,4 +1,4 @@
-class Api::V1::WalletController < ApplicationController
+class Api::V1::WalletController < Api::BaseController
   # TMCP Protocol Section 6: Wallet Integration Layer
 
   before_action :authenticate_tep_token

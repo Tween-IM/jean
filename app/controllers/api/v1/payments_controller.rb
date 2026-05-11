@@ -1,4 +1,4 @@
-class Api::V1::PaymentsController < ApplicationController
+class Api::V1::PaymentsController < Api::BaseController
   # TMCP Protocol Section 7.3-7.4: Mini-App Payment Processing with MFA
 
   before_action :authenticate_tep_token
