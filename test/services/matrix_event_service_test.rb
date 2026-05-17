@@ -8,20 +8,23 @@ class MatrixEventServiceTest < ActiveSupport::TestCase
 
     MatrixEventService.send(:remove_const, :MATRIX_API_URL) if MatrixEventService.const_defined?(:MATRIX_API_URL)
     MatrixEventService.const_set(:MATRIX_API_URL, @matrix_api_url)
+
+    # Reset and stub MATRIX_AS_TOKEN for publish_event
+    ENV["MATRIX_AS_TOKEN"] = "test_as_token"
   end
 
   teardown do
     MatrixEventService.send(:remove_const, :MATRIX_API_URL) if MatrixEventService.const_defined?(:MATRIX_API_URL)
     MatrixEventService.const_set(:MATRIX_API_URL, "https://matrix.example.com")
+    ENV.delete("MATRIX_AS_TOKEN")
   end
 
   test "should have payment_bot method" do
     assert_respond_to MatrixEventService, :payment_bot
   end
 
-  test "should return nil when MATRIX_ACCESS_TOKEN is not set" do
-    MatrixEventService.send(:remove_const, :MATRIX_ACCESS_TOKEN) if MatrixEventService.const_defined?(:MATRIX_ACCESS_TOKEN)
-    MatrixEventService.const_set(:MATRIX_ACCESS_TOKEN, nil)
+  test "should return nil when MATRIX_AS_TOKEN is not set" do
+    ENV.delete("MATRIX_AS_TOKEN")
 
     transfer_data = {
       "transfer_id" => "p2p_test123",
@@ -39,10 +42,7 @@ class MatrixEventServiceTest < ActiveSupport::TestCase
   end
 
   test "should publish P2P transfer event" do
-    MatrixEventService.send(:remove_const, :MATRIX_ACCESS_TOKEN) if MatrixEventService.const_defined?(:MATRIX_ACCESS_TOKEN)
-    MatrixEventService.const_set(:MATRIX_ACCESS_TOKEN, "test_token")
-
-    stub_request(:post, "#{@matrix_api_url}/_matrix/client/v3/rooms/#{CGI.escape(@room_id)}/send/m.room.message")
+    stub_request(:post, /matrix\.tween\.example/)
       .to_return(status: 200, body: '{"event_id":"$test_event_123"}')
 
     transfer_data = {
@@ -63,10 +63,7 @@ class MatrixEventServiceTest < ActiveSupport::TestCase
   end
 
   test "should publish gift created event" do
-    MatrixEventService.send(:remove_const, :MATRIX_ACCESS_TOKEN) if MatrixEventService.const_defined?(:MATRIX_ACCESS_TOKEN)
-    MatrixEventService.const_set(:MATRIX_ACCESS_TOKEN, "test_token")
-
-    stub_request(:post, "#{@matrix_api_url}/_matrix/client/v3/rooms/#{CGI.escape(@room_id)}/send/m.room.message")
+    stub_request(:post, /matrix\.tween\.example/)
       .to_return(status: 200, body: '{"event_id":"$gift_event_123"}')
 
     gift_data = {
@@ -85,10 +82,7 @@ class MatrixEventServiceTest < ActiveSupport::TestCase
   end
 
   test "should publish gift opened event" do
-    MatrixEventService.send(:remove_const, :MATRIX_ACCESS_TOKEN) if MatrixEventService.const_defined?(:MATRIX_ACCESS_TOKEN)
-    MatrixEventService.const_set(:MATRIX_ACCESS_TOKEN, "test_token")
-
-    stub_request(:post, "#{@matrix_api_url}/_matrix/client/v3/rooms/#{CGI.escape(@room_id)}/send/m.room.message")
+    stub_request(:post, /matrix\.tween\.example/)
       .to_return(status: 200, body: '{"event_id":"$gift_opened_123"}')
 
     opened_data = {
@@ -105,10 +99,7 @@ class MatrixEventServiceTest < ActiveSupport::TestCase
   end
 
   test "should publish authorization event" do
-    MatrixEventService.send(:remove_const, :MATRIX_ACCESS_TOKEN) if MatrixEventService.const_defined?(:MATRIX_ACCESS_TOKEN)
-    MatrixEventService.const_set(:MATRIX_ACCESS_TOKEN, "test_token")
-
-    stub_request(:post, "#{@matrix_api_url}/_matrix/client/v3/rooms/#{CGI.escape(@room_id)}/send/m.room.message")
+    stub_request(:post, /matrix\.tween\.example/)
       .to_return(status: 200, body: '{"event_id":"$auth_event_123"}')
 
     result = MatrixEventService.publish_authorization_event(
@@ -122,10 +113,7 @@ class MatrixEventServiceTest < ActiveSupport::TestCase
   end
 
   test "should publish miniapp lifecycle event" do
-    MatrixEventService.send(:remove_const, :MATRIX_ACCESS_TOKEN) if MatrixEventService.const_defined?(:MATRIX_ACCESS_TOKEN)
-    MatrixEventService.const_set(:MATRIX_ACCESS_TOKEN, "test_token")
-
-    stub_request(:post, "#{@matrix_api_url}/_matrix/client/v3/rooms/#{CGI.escape(@room_id)}/send/m.room.message")
+    stub_request(:post, /matrix\.tween\.example/)
       .to_return(status: 200, body: '{"event_id":"$lifecycle_event_123"}')
 
     app_data = {

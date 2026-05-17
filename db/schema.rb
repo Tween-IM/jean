@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_160653) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_17_095745) do
   create_table "authorization_approvals", force: :cascade do |t|
     t.string "approval_method"
     t.datetime "approved_at"
@@ -69,7 +69,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_160653) do
     t.integer "install_count", default: 0
     t.json "manifest"
     t.string "name"
+    t.text "rejection_reason"
+    t.datetime "reviewed_at"
+    t.integer "reviewer_id"
+    t.text "revision_request"
+    t.datetime "revision_requested_at"
     t.integer "status"
+    t.datetime "submitted_at"
     t.datetime "updated_at", null: false
     t.string "version"
     t.index ["app_id"], name: "index_mini_apps_on_app_id"

@@ -6,43 +6,108 @@
   <h1 class="text-3xl font-bold text-slate-900 mb-6">Edit Mini App</h1>
 
   <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-    <%= form_with model: [:admin, @mini_app], class: "space-y-6" do |f| %>
+    <%= form_tag admin_mini_app_path(@mini_app), method: :patch, class: "space-y-6" do %>
+      <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>" />
       <div>
-        <%= f.label :name, class: "block text-sm font-medium text-slate-700 mb-1" %>
-        <%= f.text_field :name, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
+        <%= label_tag "mini_app[name]", "Name", class: "block text-sm font-medium text-slate-700 mb-1" %>
+        <%= text_field_tag "mini_app[name]", @mini_app.name, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
       </div>
 
       <div>
-        <%= f.label :description, class: "block text-sm font-medium text-slate-700 mb-1" %>
-        <%= f.text_area :description, rows: 4, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
+        <%= label_tag "mini_app[description]", "Description", class: "block text-sm font-medium text-slate-700 mb-1" %>
+        <%= text_area_tag "mini_app[description]", @mini_app.description, rows: 4, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <%= f.label :status, class: "block text-sm font-medium text-slate-700 mb-1" %>
-          <%= f.select :status, MiniApp.statuses.keys.map { |s| [s.humanize, s] }, {}, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
+          <%= label_tag "mini_app[status]", "Status", class: "block text-sm font-medium text-slate-700 mb-1" %>
+          <%= select_tag "mini_app[status]", options_for_select(MiniApp.statuses.keys.map { |s| [s.humanize, s] }, @mini_app.status), class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
         </div>
 
         <div>
-          <%= f.label :classification, class: "block text-sm font-medium text-slate-700 mb-1" %>
-          <%= f.select :classification, MiniApp.classifications.keys.map { |c| [c.humanize, c] }, {}, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
+          <%= label_tag "mini_app[classification]", "Classification", class: "block text-sm font-medium text-slate-700 mb-1" %>
+          <%= select_tag "mini_app[classification]", options_for_select(MiniApp.classifications.keys.map { |c| [c.humanize, c] }, @mini_app.classification), class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
         </div>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <%= f.label :version, class: "block text-sm font-medium text-slate-700 mb-1" %>
-          <%= f.text_field :version, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
+          <%= label_tag "mini_app[version]", "Version", class: "block text-sm font-medium text-slate-700 mb-1" %>
+          <%= text_field_tag "mini_app[version]", @mini_app.version, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
         </div>
 
         <div>
-          <%= f.label :developer_name, class: "block text-sm font-medium text-slate-700 mb-1" %>
-          <%= f.text_field :developer_name, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
+          <%= label_tag "mini_app[developer_name]", "Developer Name", class: "block text-sm font-medium text-slate-700 mb-1" %>
+          <%= text_field_tag "mini_app[developer_name]", @mini_app.developer_name, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" %>
         </div>
       </div>
+
+      <% if @mini_app.classification == "official" %>
+      <div class="border-t border-slate-200 pt-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-medium text-slate-900">Manifest Editor</h3>
+            <p class="text-sm text-slate-500">Edit manifest fields for official apps</p>
+          </div>
+        </div>
+
+        <div class="space-y-6" data-controller="manifest-editor">
+          <div>
+            <%= label_tag "manifest[entry_url]", "Entry URL", class: "block text-sm font-medium text-slate-700 mb-1" %>
+            <%= text_field_tag "manifest[entry_url]", @mini_app.manifest["entry_url"], class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" %>
+          </div>
+
+          <div>
+            <%= label_tag "manifest[redirect_uris]", "Redirect URIs (one per line)", class: "block text-sm font-medium text-slate-700 mb-1" %>
+            <%= text_area_tag "manifest[redirect_uris]", (@mini_app.manifest["redirect_uris"] || []).join("\n"), rows: 3, class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" %>
+          </div>
+
+          <div>
+            <%= label_tag "manifest[icon_url]", "Icon URL", class: "block text-sm font-medium text-slate-700 mb-1" %>
+            <%= text_field_tag "manifest[icon_url]", @mini_app.manifest["icon_url"], class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" %>
+          </div>
+
+          <div>
+            <%= label_tag "manifest[webhook_url]", "Webhook URL", class: "block text-sm font-medium text-slate-700 mb-1" %>
+            <%= text_field_tag "manifest[webhook_url]", @mini_app.manifest["webhook_url"], class: "w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" %>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-3">Permissions</label>
+            <div class="space-y-4">
+              <% current_scopes = (@mini_app.manifest["scopes"] || []).compact %>
+              <% ApplicationHelper::PERMISSIONS_CATEGORIES.each do |category, perms| %>
+                <div class="border border-slate-200 rounded-lg p-4">
+                  <h4 class="text-sm font-semibold text-slate-800 mb-3"><%= category %></h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <% perms.each do |perm| %>
+                      <label class="flex items-start gap-2 p-2 rounded hover:bg-slate-50 cursor-pointer transition-colors group">
+                        <input type="checkbox"
+                               name="manifest[permissions][]"
+                               value="<%= perm[:key] %>"
+                               <%= current_scopes.include?(perm[:key]) ? "checked" : "" %>
+                               class="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                               data-manifest-editor-target="checkbox">
+                        <div class="flex-1">
+                          <span class="text-sm font-medium text-slate-700 group-hover:text-indigo-600"><%= perm[:key] %></span>
+                          <p class="text-xs text-slate-500 mt-0.5"><%= perm[:description] %></p>
+                        </div>
+                        <span class="text-xs px-1.5 py-0.5 rounded-full <%= perm[:sensitivity] == 'low' ? 'bg-green-100 text-green-700' : perm[:sensitivity] == 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700' %>">
+                          <%= perm[:sensitivity] %>
+                        </span>
+                      </label>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+      <% end %>
 
       <div class="flex items-center gap-3 pt-4">
-        <%= f.submit "Save Changes", class: "bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors cursor-pointer" %>
+        <%= submit_tag "Save Changes", class: "bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors cursor-pointer" %>
         <%= link_to "Cancel", admin_mini_app_path(@mini_app), class: "text-slate-600 hover:text-slate-800 font-medium" %>
       </div>
     <% end %>

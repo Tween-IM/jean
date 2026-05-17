@@ -2,11 +2,24 @@ module Admin
   class SessionsController < ActionController::Base
     layout "admin"
 
+    # Admin token from environment (fallback for development)
+    ADMIN_ACCESS_TOKEN = ENV.fetch("ADMIN_ACCESS_TOKEN", nil)
+
     def new
       redirect_to admin_dashboard_path if current_admin_user&.platform_admin?
     end
 
     def create
+      # Verify admin access token if configured
+      if ADMIN_ACCESS_TOKEN.present?
+        provided_token = params[:admin_token]&.strip
+        if provided_token != ADMIN_ACCESS_TOKEN
+          flash.now[:alert] = "Invalid admin access token."
+          render :new, status: :unprocessable_entity
+          return
+        end
+      end
+
       user = User.find_by(matrix_user_id: params[:matrix_user_id]&.strip)
 
       if user.nil? || !user.platform_admin?

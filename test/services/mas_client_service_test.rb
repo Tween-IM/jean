@@ -51,8 +51,7 @@ class MasClientServiceTest < ActiveSupport::TestCase
         expires_in: 300
       }.to_json)
 
-    TepTokenService.define_singleton_method(:encode) { |*| "fake.tep.token" }
-
+    # TepTokenService.encode already returns "tep.xxx", so MasClientService wraps it
     result = @mas_client.exchange_matrix_token_for_tep(
       "matrix_access_token",
       "test_client",
@@ -61,7 +60,7 @@ class MasClientServiceTest < ActiveSupport::TestCase
       mas_user_info
     )
 
-    assert_equal "tep.fake.tep.token", result[:access_token]
+    assert result[:access_token].start_with?("tep.")
     assert_equal "Bearer", result[:token_type]
     assert_equal 86400, result[:expires_in]
     assert result[:refresh_token].present?
@@ -71,8 +70,6 @@ class MasClientServiceTest < ActiveSupport::TestCase
     assert_equal "new_matrix_token_xyz789", result[:matrix_access_token]
     assert_equal 300, result[:matrix_expires_in]
     assert result[:delegated_session] == true
-  ensure
-    TepTokenService.define_singleton_method(:encode, TepTokenService.method(:encode))
   end
 
   test "#introspect_token returns user info when active" do

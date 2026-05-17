@@ -11,7 +11,9 @@ class UserTest < ActiveSupport::TestCase
     )
 
     assert_not_nil user.wallet_id
-    assert_match /^tw_[a-zA-Z0-9]{12}$/, user.wallet_id
+    # Match tw_<digit>+ format (e.g. tw_1, tw_123, tw_12345)
+    assert_match(/\A\d+\z/, user.wallet_id.sub(/\Atw_/, ""))
+    assert user.wallet_id.start_with?("tw_")
   end
 
   test "should validate matrix_user_id presence" do

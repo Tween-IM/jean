@@ -1,0 +1,220 @@
+<% content_for :title, "#{@mini_app.name} Review — TMCP Admin" %>
+
+<div class="mb-6 flex items-center justify-between">
+  <div>
+    <%= link_to "← Back to Queue", admin_mini_app_reviews_path, class: "text-sm text-slate-500 hover:text-slate-700" %>
+    <h1 class="text-xl font-semibold text-gray-900 mt-2"><%= @mini_app.name %></h1>
+    <p class="text-sm text-slate-500"><%= @mini_app.app_id %> · v<%= @mini_app.version %></p>
+  </div>
+
+  <div class="flex items-center gap-3">
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+      <%= @mini_app.classification_label %>
+    </span>
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+      Submitted <%= @mini_app.submitted_at ? "#{time_ago_in_words(@mini_app.submitted_at)} ago" : "not yet submitted" %>
+    </span>
+  </div>
+</div>
+
+<div class="grid grid-cols-3 gap-6">
+  <!-- Main Content -->
+  <div class="col-span-2 space-y-6">
+    <!-- App Details -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Application Details</h2>
+      <dl class="grid grid-cols-2 gap-4">
+        <div>
+          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Developer</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @mini_app.developer_name || "Unknown" %></dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Classification</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @mini_app.classification_label %></dd>
+        </div>
+        <div class="col-span-2">
+          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Description</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @mini_app.description || "No description provided" %></dd>
+        </div>
+        <div class="col-span-2">
+          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Entry URL</dt>
+          <dd class="mt-1 text-sm text-slate-900">
+            <%= @mini_app.manifest["entry_url"] || "Not specified" %>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Requested Scopes</dt>
+          <dd class="mt-1 text-sm text-slate-900">
+            <%= (@mini_app.manifest["scopes"] || []).join(", ") %>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Install Count</dt>
+          <dd class="mt-1 text-sm text-slate-900"><%= @mini_app.installation_count %></dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Automated Checks -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Automated Security Checks</h2>
+      <% if @automated_check %>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between py-2 border-b border-slate-100">
+            <span class="text-sm text-slate-600">HTTPS Only</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <%= @automated_check.https_only ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
+              <%= @automated_check.https_only ? "✓ Pass" : "✗ Fail" %>
+            </span>
+          </div>
+          <div class="flex items-center justify-between py-2 border-b border-slate-100">
+            <span class="text-sm text-slate-600">CSP Valid</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <%= @automated_check.csp_valid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
+              <%= @automated_check.csp_valid ? "✓ Pass" : "✗ Fail" %>
+            </span>
+          </div>
+          <div class="flex items-center justify-between py-2 border-b border-slate-100">
+            <span class="text-sm text-slate-600">No Hardcoded Credentials</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <%= @automated_check.no_credentials ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
+              <%= @automated_check.no_credentials ? "✓ Pass" : "✗ Fail" %>
+            </span>
+          </div>
+          <div class="flex items-center justify-between py-2 border-b border-slate-100">
+            <span class="text-sm text-slate-600">No Code Obfuscation</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <%= @automated_check.no_obfuscation ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
+              <%= @automated_check.no_obfuscation ? "✓ Pass" : "✗ Fail" %>
+            </span>
+          </div>
+          <div class="flex items-center justify-between py-2">
+            <span class="text-sm text-slate-600">Dependency Scan</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <%= @automated_check.dependency_scan_passed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
+              <%= @automated_check.dependency_scan_passed ? "✓ Pass" : "✗ Fail" %>
+            </span>
+          </div>
+        </div>
+        <p class="mt-4 text-xs text-slate-400">Last checked: <%= time_ago_in_words(@automated_check.created_at) %> ago</p>
+      <% else %>
+        <p class="text-sm text-slate-500">No automated checks have been run yet.</p>
+      <% end %>
+    </div>
+
+    <!-- Manifest -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Manifest</h2>
+      <pre class="p-4 bg-slate-950 text-slate-100 text-xs rounded-lg overflow-x-auto"><%= JSON.pretty_generate(@mini_app.manifest) %></pre>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+    <!-- Review Actions -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Review Actions</h2>
+      <div class="space-y-3">
+        <%= button_to "Approve & Activate", admin_approve_mini_app_review_path(@mini_app),
+            method: :post,
+            class: "w-full px-4 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors" %>
+
+        <button type="button" onclick="showRejectModal()"
+            class="w-full px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+          Reject Application
+        </button>
+
+        <button type="button" onclick="showRequestChangesModal()"
+            class="w-full px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">
+          Request Changes
+        </button>
+      </div>
+    </div>
+
+    <!-- Recent Installations -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <h2 class="text-lg font-semibold text-slate-900 mb-4">Recent Installations</h2>
+      <% if @installations.any? %>
+        <div class="divide-y divide-slate-100">
+          <% @installations.each do |inst| %>
+            <div class="py-3">
+              <p class="text-sm font-medium text-slate-900"><%= inst.user&.matrix_username || inst.user_id %></p>
+              <p class="text-xs text-slate-500">v<%= inst.version %> · <%= time_ago_in_words(inst.created_at) %> ago</p>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <p class="text-sm text-slate-500">No installations yet</p>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<!-- Request Changes Modal -->
+<div id="requestChangesModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex min-h-screen items-center justify-center px-4">
+    <div class="fixed inset-0 bg-black/50 transition-opacity" onclick="hideRequestChangesModal()"></div>
+    <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Request Changes</h3>
+      <p class="text-sm text-slate-600 mb-4">Describe what changes are needed before this application can be approved.</p>
+      <form action="<%= admin_request_changes_mini_app_review_path(@mini_app) %>" method="post">
+        <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Required Changes</label>
+          <textarea name="reason" rows="4" required,
+              class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm",
+              placeholder="Example: Please fix the HTTPS requirement. Your entry_url uses HTTP instead of HTTPS..."></textarea>
+        </div>
+        <div class="flex gap-3">
+          <button type="button" onclick="hideRequestChangesModal()"
+              class="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+              class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">
+            Send Request
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+  <div class="flex min-h-screen items-center justify-center px-4">
+    <div class="fixed inset-0 bg-black/50 transition-opacity" onclick="hideRejectModal()"></div>
+    <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Reject Application</h3>
+      <form action="<%= admin_reject_mini_app_review_path(@mini_app) %>" method="post">
+        <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Rejection Reason</label>
+          <textarea name="reason" rows="3" required,
+              class="w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm",
+              placeholder="Explain why this application is being rejected..."></textarea>
+        </div>
+        <div class="flex gap-3">
+          <button type="button" onclick="hideRejectModal()"
+              class="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+            Cancel
+          </button>
+          <button type="submit"
+              class="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg">
+            Reject Application
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function showRejectModal() {
+  document.getElementById('rejectModal').classList.remove('hidden');
+}
+function hideRejectModal() {
+  document.getElementById('rejectModal').classList.add('hidden');
+}
+function showRequestChangesModal() {
+  document.getElementById('requestChangesModal').classList.remove('hidden');
+}
+function hideRequestChangesModal() {
+  document.getElementById('requestChangesModal').classList.add('hidden');
+}
+</script>

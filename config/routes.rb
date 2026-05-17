@@ -148,9 +148,26 @@ Rails.application.routes.draw do
 
   namespace :admin do
     get "dashboard", to: "dashboard#index", as: :dashboard
-    resources :mini_apps, only: [:index, :show, :edit, :update, :destroy], path: "mini-apps"
+    resources :mini_apps, only: [:index, :show, :new, :create, :edit, :destroy], path: "mini-apps" do
+      member do
+        post :update
+        patch :update
+        put :update
+        delete :destroy
+        post :hard_delete
+        delete :hard_delete
+      end
+    end
     resources :users, only: [:index, :show, :edit, :update]
     resources :oauth_applications, only: [:index, :show, :destroy], path: "oauth-apps"
+
+    # Mini-app review workflow
+    get "mini-app-reviews", to: "mini_app_reviews#index", as: :mini_app_reviews
+    get "mini-app-reviews/:id", to: "mini_app_reviews#show", as: :mini_app_review
+    post "mini-app-reviews/:id/approve", to: "mini_app_reviews#approve", as: :approve_mini_app_review
+    post "mini-app-reviews/:id/reject", to: "mini_app_reviews#reject", as: :reject_mini_app_review
+    post "mini-app-reviews/:id/request-changes", to: "mini_app_reviews#request_changes", as: :request_changes_mini_app_review
+    post "mini-app-reviews/resolve-appeal", to: "mini_app_reviews#resolve_appeal", as: :resolve_mini_app_appeal
   end
 
   # Defines the root path route ("/")

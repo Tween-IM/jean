@@ -33,6 +33,8 @@
             <%= sidebar_link admin_dashboard_path, "Dashboard", "home" %>
             <%= sidebar_link admin_users_path, "Users", "people" %>
             <%= sidebar_link admin_mini_apps_path, "Mini Apps", "clipboard" %>
+            <% pending_count = MiniApp.under_review.count + MiniApp.appeal_submitted.count %>
+            <%= sidebar_link admin_mini_app_reviews_path, "Review Queue", "checkmark", badge_count: pending_count > 0 ? pending_count : nil %>
             <%= sidebar_link admin_oauth_applications_path, "OAuth Apps", "settings" %>
           </nav>
 
@@ -76,21 +78,23 @@
           </header>
 
           <!-- Flash Messages -->
-          <main class="flex-1 overflow-y-auto bg-gray-50/50">
+          <main class="flex-1 overflow-y-auto bg-gray-50/50 p-6">
+            <div class="max-w-7xl mx-auto">
             <% if flash[:notice] %>
-              <div class="mx-6 mt-4 p-4 rounded-xl border border-green-200 bg-green-50 text-green-800 text-sm flex items-start gap-3">
+              <div class="mb-4 p-4 rounded-xl border border-green-200 bg-green-50 text-green-800 text-sm flex items-start gap-3">
                 <%= fluent_icon "checkmark", class: "w-5 h-5 flex-shrink-0 text-green-600 mt-0.5" %>
                 <p><%= flash[:notice] %></p>
               </div>
             <% end %>
             <% if flash[:alert] %>
-              <div class="mx-6 mt-4 p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm flex items-start gap-3">
+              <div class="mb-4 p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm flex items-start gap-3">
                 <%= fluent_icon "alert", class: "w-5 h-5 flex-shrink-0 text-red-600 mt-0.5" %>
                 <p><%= flash[:alert] %></p>
               </div>
             <% end %>
 
             <%= yield %>
+            </div>
           </main>
         </div>
       </div>

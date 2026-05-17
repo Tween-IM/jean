@@ -10,6 +10,10 @@
   <% if current_admin_user&.has_admin_permission?(:manage_mini_apps) %>
     <div class="flex gap-3">
       <%= link_to "Edit", edit_admin_mini_app_path(@mini_app), class: "bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors" %>
+      <% if @mini_app.status != :removed %>
+        <a href="<%= admin_mini_app_path(@mini_app) %>" onclick="if(confirm('Archive this mini-app?')) { fetch('<%= admin_mini_app_path(@mini_app) %>', {method: 'DELETE', headers: {'X-CSRF-Token': '<%= form_authenticity_token %>'}}).then(() => window.location.href = '<%= admin_mini_apps_path %>'); } return false;" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">Archive</a>
+        <a href="<%= admin_mini_apps_path %>" onclick="if(confirm('PERMANENTLY delete this mini-app? This cannot be undone!')) { fetch('<%= hard_delete_admin_mini_app_path(@mini_app) %>', {method: 'DELETE', headers: {'X-CSRF-Token': '<%= form_authenticity_token %>'}}).then(() => window.location.href = '<%= admin_mini_apps_path %>'); } return false;" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">Destroy</a>
+      <% end %>
     </div>
   <% end %>
 </div>

@@ -5,6 +5,9 @@ class MatrixEventService
   MATRIX_API_URL = ENV["MATRIX_API_URL"] || "https://matrix.example.com"
   MATRIX_ACCESS_TOKEN = ENV["MATRIX_ACCESS_TOKEN"]
 
+  # Default sender for bot-initiated events (when no user sender is specified)
+  DEFAULT_SENDER = "@_tmcp_payments:tween.example".freeze
+
   class << self
     def payment_bot
       @payment_bot ||= PaymentBotService.new
@@ -177,6 +180,7 @@ class MatrixEventService
 
       event = {
         type: "m.tween.wallet.p2p.status",
+        sender_id: DEFAULT_SENDER,
         content: {
           transfer_id: transfer_id,
           status: status,
@@ -193,6 +197,7 @@ class MatrixEventService
     def publish_gift_created(gift_data)
       event = {
         type: "m.tween.gift",
+        sender_id: gift_data["creator_user_id"] || gift_data[:creator_user_id] || DEFAULT_SENDER,
         content: {
           msgtype: "m.tween.gift",
           body: "🎁 Gift: #{gift_data['total_amount']} #{gift_data['currency']}",
@@ -220,6 +225,7 @@ class MatrixEventService
     def publish_gift_opened(gift_id, opened_data)
       event = {
         type: "m.tween.gift.opened",
+        sender_id: opened_data["user_id"] || opened_data[:user_id] || DEFAULT_SENDER,
         content: {
           gift_id: gift_id,
           opened_by: opened_data["user_id"],
@@ -266,6 +272,7 @@ class MatrixEventService
 
       event = {
         type: "m.tween.miniapp.#{event_type}",
+        sender_id: user_id || DEFAULT_SENDER,
         content: event_content,
         room_id: room_id || get_user_room(user_id)
       }
@@ -277,6 +284,7 @@ class MatrixEventService
       event = {
         type: "m.room.tween.authorization",
         state_key: miniapp_id,
+        sender_id: user_id || DEFAULT_SENDER,
         content: {
           authorized: authorized,
           timestamp: Time.current.to_i,
@@ -304,15 +312,13 @@ class MatrixEventService
       return unless room_id
 
       # Determine sender - use explicit sender_id from event_data, or extract from content
-      # This makes events appear to come from Alice/Bob, not the bot
+      # This makes events appear to come from the actual sender (Alice/Bob), not the bot
       sender_id = event_data[:sender_id] ||
                   event_data.dig(:content, :sender, :user_id) ||
                   event_data.dig("content", "sender", "user_id")
 
-      if sender_id.nil?
-        Rails.logger.error "[MatrixEventService] No sender_id found for event, skipping"
-        return
-      end
+      # Fall back to default sender if none found
+      sender_id = DEFAULT_SENDER if sender_id.nil?
 
       begin
         # Build URI with user_id query param for identity assertion
