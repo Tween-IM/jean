@@ -62,6 +62,32 @@ Rails.application.routes.draw do
         post "client/bootstrap", to: "client#bootstrap"
         post "client/check-updates", to: "client#check_updates"
 
+        namespace :social do
+          resources :uploads, only: [ :create ]
+          resource :feed, only: [ :show ], controller: :feed
+          resources :videos, only: [ :create, :show, :destroy ] do
+            resource :like, only: [ :create, :destroy ], controller: :likes
+            resources :views, only: [ :create ]
+            resources :comments, only: [ :index, :create ]
+          end
+          resources :creators, only: [ :show ] do
+            resource :follow, only: [ :create, :destroy ], controller: :follows
+          end
+        end
+
+        namespace :commerce do
+          resources :merchants, only: [ :create, :show ]
+          resources :products, only: [ :index, :show, :create ]
+          resources :carts, only: [ :create, :show ] do
+            resources :items, only: [ :update, :destroy ], controller: :cart_items, param: :sku_id
+          end
+          resources :checkouts, only: [ :create, :show ]
+          resources :orders, only: [ :show ] do
+            resource :fulfillment, only: [ :create ], controller: :fulfillments
+            resources :refunds, only: [ :create ]
+          end
+        end
+
         # Permission Revocation endpoints (TMCP Protocol Section 5.6)
         post "auth/revoke", to: "auth_revocation#create"
         delete "auth/revoke", to: "auth_revocation#user_revoke"

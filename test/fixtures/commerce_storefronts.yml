@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  commerce_merchant: one
+  storefront_id: MyString
+  slug: MyString
+  display_name: MyString
+  description: MyText
+  status: MyString
+
+two:
+  commerce_merchant: two
+  storefront_id: MyString
+  slug: MyString
+  display_name: MyString
+  description: MyText
+  status: MyString

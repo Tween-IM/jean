@@ -1,0 +1,21 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  commerce_order: one
+  sku_id: MyString
+  product_id: MyString
+  title: MyString
+  quantity: 1
+  unit_price_cents: 1
+  line_total_cents: 1
+  currency: MyString
+
+two:
+  commerce_order: two
+  sku_id: MyString
+  product_id: MyString
+  title: MyString
+  quantity: 1
+  unit_price_cents: 1
+  line_total_cents: 1
+  currency: MyString

@@ -1,0 +1,19 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  merchant_id: MyString
+  miniapp_id: MyString
+  owner_user_id: MyString
+  display_name: MyString
+  status: MyString
+  wallet_id: MyString
+  webhook_url: MyString
+
+two:
+  merchant_id: MyString
+  miniapp_id: MyString
+  owner_user_id: MyString
+  display_name: MyString
+  status: MyString
+  wallet_id: MyString
+  webhook_url: MyString

@@ -1,0 +1,19 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  commerce_merchant: one
+  commerce_storefront: one
+  product_id: MyString
+  title: MyString
+  description: MyText
+  media_urls: 
+  status: MyString
+
+two:
+  commerce_merchant: two
+  commerce_storefront: two
+  product_id: MyString
+  title: MyString
+  description: MyText
+  media_urls: 
+  status: MyString

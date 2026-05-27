@@ -1,0 +1,25 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  user_id: MyString
+  handle: MyString
+  display_name: MyString
+  avatar_url: MyString
+  bio: MyText
+  follower_count: 1
+  following_count: 1
+  video_count: 1
+  verified: false
+  commerce_storefront_id: MyString
+
+two:
+  user_id: MyString
+  handle: MyString
+  display_name: MyString
+  avatar_url: MyString
+  bio: MyText
+  follower_count: 1
+  following_count: 1
+  video_count: 1
+  verified: false
+  commerce_storefront_id: MyString

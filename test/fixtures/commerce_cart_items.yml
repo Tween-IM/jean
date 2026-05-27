@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  commerce_cart: one
+  commerce_sku: one
+  quantity: 1
+  unit_price_cents: 1
+  line_total_cents: 1
+  currency: MyString
+
+two:
+  commerce_cart: two
+  commerce_sku: two
+  quantity: 1
+  unit_price_cents: 1
+  line_total_cents: 1
+  currency: MyString
