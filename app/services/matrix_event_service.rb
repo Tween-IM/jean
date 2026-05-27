@@ -7,6 +7,8 @@ class MatrixEventService
 
   # Default sender for bot-initiated events (when no user sender is specified)
   DEFAULT_SENDER = "@_tmcp_payments:tween.example".freeze
+  SOCIAL_BOT_USER = "@_tmcp_social:tween.example".freeze
+  COMMERCE_BOT_USER = "@_tmcp_commerce:tween.example".freeze
 
   class << self
     def payment_bot
@@ -275,6 +277,176 @@ class MatrixEventService
         sender_id: user_id || DEFAULT_SENDER,
         content: event_content,
         room_id: room_id || get_user_room(user_id)
+      }
+
+      publish_event(event)
+    end
+
+    def publish_video_published(video_data)
+      event = {
+        type: "m.tween.social.video.published",
+        sender_id: video_data["creator_id"] || video_data[:creator_id] || SOCIAL_BOT_USER,
+        content: {
+          msgtype: "m.tween.social.video",
+          body: "New video: #{video_data['caption'] || 'Video'}",
+          video_id: video_data["video_id"],
+          creator_id: video_data["creator_id"],
+          thumbnail_url: video_data["thumbnail_url"],
+          published_at: video_data["published_at"] || Time.current.iso8601
+        },
+        room_id: video_data["room_id"] || get_default_room
+      }
+
+      publish_event(event)
+    end
+
+    def publish_video_deleted(video_data)
+      event = {
+        type: "m.tween.social.video.deleted",
+        sender_id: SOCIAL_BOT_USER,
+        content: {
+          video_id: video_data["video_id"],
+          creator_id: video_data["creator_id"],
+          deleted_at: video_data["deleted_at"] || Time.current.iso8601
+        },
+        room_id: video_data["room_id"] || get_default_room
+      }
+
+      publish_event(event)
+    end
+
+    def publish_like_created(like_data)
+      event = {
+        type: "m.tween.social.like.created",
+        sender_id: like_data["user_id"] || like_data[:user_id] || DEFAULT_SENDER,
+        content: {
+          video_id: like_data["video_id"],
+          user_id: like_data["user_id"],
+          created_at: like_data["created_at"] || Time.current.iso8601
+        },
+        room_id: like_data["room_id"] || get_user_room(like_data["creator_id"] || like_data[:creator_id])
+      }
+
+      publish_event(event)
+    end
+
+    def publish_comment_created(comment_data)
+      event = {
+        type: "m.tween.social.comment.created",
+        sender_id: comment_data["author_id"] || comment_data[:author_id] || DEFAULT_SENDER,
+        content: {
+          msgtype: "m.tween.social.comment",
+          body: comment_data["body"],
+          video_id: comment_data["video_id"],
+          comment_id: comment_data["comment_id"],
+          author_id: comment_data["author_id"],
+          created_at: comment_data["created_at"] || Time.current.iso8601
+        },
+        room_id: comment_data["room_id"] || get_user_room(comment_data["creator_id"] || comment_data[:creator_id])
+      }
+
+      publish_event(event)
+    end
+
+    def publish_follow_created(follow_data)
+      event = {
+        type: "m.tween.social.follow.created",
+        sender_id: follow_data["follower_id"] || follow_data[:follower_id] || DEFAULT_SENDER,
+        content: {
+          follower_id: follow_data["follower_id"],
+          creator_id: follow_data["creator_id"],
+          created_at: follow_data["created_at"] || Time.current.iso8601
+        },
+        room_id: follow_data["room_id"] || get_user_room(follow_data["creator_id"] || follow_data[:creator_id])
+      }
+
+      publish_event(event)
+    end
+
+    def publish_moderation_updated(moderation_data)
+      event = {
+        type: "m.tween.social.moderation.updated",
+        sender_id: SOCIAL_BOT_USER,
+        content: {
+          video_id: moderation_data["video_id"],
+          moderation_status: moderation_data["moderation_status"],
+          creator_id: moderation_data["creator_id"],
+          message: moderation_data["message"],
+          updated_at: moderation_data["updated_at"] || Time.current.iso8601
+        },
+        room_id: moderation_data["room_id"] || get_user_room(moderation_data["creator_id"] || moderation_data[:creator_id])
+      }
+
+      publish_event(event)
+    end
+
+    def publish_order_created(order_data)
+      event = {
+        type: "m.tween.commerce.order.created",
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          msgtype: "m.tween.commerce.order",
+          order_id: order_data["order_id"],
+          payment_id: order_data["payment_id"],
+          merchant_id: order_data["merchant_id"],
+          buyer_user_id: order_data["buyer_user_id"],
+          status: order_data["status"],
+          total: order_data["total"],
+          created_at: order_data["created_at"] || Time.current.iso8601
+        },
+        room_id: order_data["room_id"] || get_user_room(order_data["buyer_user_id"] || order_data[:buyer_user_id])
+      }
+
+      publish_event(event)
+    end
+
+    def publish_order_updated(order_data)
+      event = {
+        type: "m.tween.commerce.order.updated",
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          order_id: order_data["order_id"],
+          status: order_data["status"],
+          fulfillment_status: order_data["fulfillment_status"],
+          updated_at: order_data["updated_at"] || Time.current.iso8601
+        },
+        room_id: order_data["room_id"] || get_user_room(order_data["buyer_user_id"] || order_data[:buyer_user_id])
+      }
+
+      publish_event(event)
+    end
+
+    def publish_checkout_created(checkout_data)
+      event = {
+        type: "m.tween.commerce.checkout.created",
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          checkout_id: checkout_data["checkout_id"],
+          cart_id: checkout_data["cart_id"],
+          merchant_id: checkout_data["merchant_id"],
+          buyer_user_id: checkout_data["buyer_user_id"],
+          expires_at: checkout_data["expires_at"],
+          created_at: checkout_data["created_at"] || Time.current.iso8601
+        },
+        room_id: checkout_data["room_id"] || get_user_room(checkout_data["buyer_user_id"] || checkout_data[:buyer_user_id])
+      }
+
+      publish_event(event)
+    end
+
+    def publish_refund_updated(refund_data)
+      event = {
+        type: "m.tween.commerce.refund.updated",
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          refund_id: refund_data["refund_id"],
+          order_id: refund_data["order_id"],
+          amount: refund_data["amount"],
+          status: refund_data["status"],
+          reason: refund_data["reason"],
+          updated_at: refund_data["updated_at"] || Time.current.iso8601
+        },
+        room_id: refund_data["room_id"] || get_user_room(refund_data["buyer_user_id"] || refund_data[:buyer_user_id])
       }
 
       publish_event(event)

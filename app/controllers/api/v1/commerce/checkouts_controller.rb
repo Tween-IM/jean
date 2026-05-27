@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
   def create
     require_scope("commerce:checkout")
@@ -48,6 +50,8 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     order = ::CommerceOrder.find_by!(order_id: checkout.order_id)
     checkout.update!(status: "completed", metadata: checkout.metadata.merge("authorization" => result))
     order.update!(status: "paid", metadata: order.metadata.merge("authorization" => result))
+    emit_order_created(order)
+    emit_checkout_created(checkout)
 
     render json: { checkout: checkout_json(checkout), order: order_json(order) }
   rescue WalletService::WalletError => e
@@ -160,5 +164,26 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     return ActionController::Parameters.new.permit! if params[:authorization].blank?
 
     params.require(:authorization).permit(:signature, :device_id, :timestamp, :mfa_token, metadata: {})
+  end
+
+  def emit_order_created(order)
+    MatrixEventService.publish_order_created(
+      order_id: order.order_id,
+      payment_id: order.payment_id,
+      merchant_id: order.commerce_merchant.merchant_id,
+      buyer_user_id: order.buyer_user_id,
+      status: order.status,
+      total: { amount: order.total_cents.to_s, currency: order.currency }
+    )
+  end
+
+  def emit_checkout_created(checkout)
+    MatrixEventService.publish_checkout_created(
+      checkout_id: checkout.checkout_id,
+      cart_id: checkout.commerce_cart.cart_id,
+      merchant_id: checkout.commerce_merchant.merchant_id,
+      buyer_user_id: checkout.buyer_user_id,
+      expires_at: checkout.expires_at.iso8601
+    )
   end
 end

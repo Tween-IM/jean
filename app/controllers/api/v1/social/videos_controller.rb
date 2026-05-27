@@ -11,6 +11,7 @@ class Api::V1::Social::VideosController < Api::V1::Social::BaseController
 
     if video.save
       attach_source_video(video, signed_blob_id)
+      emit_video_published(video) if video.status == "published"
       render json: { video: video_json(video) }, status: :created
     else
       render_errors(video)
@@ -33,6 +34,7 @@ class Api::V1::Social::VideosController < Api::V1::Social::BaseController
     return if ensure_video_owner(video)
 
     video.update!(status: "deleted", deleted_at: Time.current)
+    emit_video_deleted(video)
     head :no_content
   end
 
@@ -48,5 +50,23 @@ class Api::V1::Social::VideosController < Api::V1::Social::BaseController
     video.source_video.attach(signed_blob_id)
     video.update!(status: "processing")
     video.process_later
+  end
+
+  def emit_video_published(video)
+    MatrixEventService.publish_video_published(
+      video_id: video.video_id,
+      creator_id: video.creator_user_id,
+      caption: video.caption,
+      thumbnail_url: video.thumbnail_url,
+      published_at: video.published_at&.iso8601
+    )
+  end
+
+  def emit_video_deleted(video)
+    MatrixEventService.publish_video_deleted(
+      video_id: video.video_id,
+      creator_id: video.creator_user_id,
+      deleted_at: video.deleted_at&.iso8601
+    )
   end
 end

@@ -185,9 +185,10 @@ class Api::V1::StorageController < Api::BaseController
           version: "1.0.0",
           classification: :community,
           status: :active,
+          client_type: :public,
           manifest: {
             "permissions" => { "storage" => { "read" => true, "write" => true } },
-            "scopes" => [ "storage_read", "storage_write" ]
+            "scopes" => [ "storage:read", "storage:write" ]
           }
         )
       end

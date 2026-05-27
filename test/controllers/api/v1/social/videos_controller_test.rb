@@ -28,7 +28,7 @@ class Api::V1::Social::VideosControllerTest < ActionDispatch::IntegrationTest
     get api_v1_social_feed_url, headers: headers, as: :json
 
     assert_response :success
-    assert_includes response.parsed_body.fetch("videos").map { |video| video.fetch("video_id") }, video_id
+    assert_includes response.parsed_body.fetch("items").map { |video| video.fetch("video_id") }, video_id
   end
 
   test "creator can create a video from a signed upload blob" do

@@ -3,8 +3,8 @@ require "test_helper"
 class Admin::DashboardTest < ActionDispatch::IntegrationTest
   setup do
     @admin = User.create!(
-      matrix_user_id: "@admin:tween.im",
-      matrix_username: "admin:tween.im",
+      matrix_user_id: "@admin_dash_#{SecureRandom.hex(4)}:tween.im",
+      matrix_username: "admin_dash:tween.im",
       matrix_homeserver: "tween.im",
       platform_role: "super_admin"
     )

@@ -1,4 +1,11 @@
 module ApplicationHelper
+  def safe_count(relation)
+    relation.count
+  rescue ActiveRecord::StatementInvalid => e
+    Rails.logger.error "safe_count failed for #{relation}: #{e.message}"
+    0
+  end
+
   PERMISSIONS_CATEGORIES = {
     "User" => [
       { key: "user:read", description: "Read basic profile (name, avatar)", sensitivity: "low" },

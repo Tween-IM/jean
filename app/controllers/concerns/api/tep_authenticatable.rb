@@ -27,5 +27,6 @@ module Api::TepAuthenticatable
         error: "insufficient_scope",
         message: "#{missing_scopes.join(', ')} scope required"
       }, status: :forbidden
+      true
     end
 end

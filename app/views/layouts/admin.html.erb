@@ -33,7 +33,7 @@
             <%= sidebar_link admin_dashboard_path, "Dashboard", "home" %>
             <%= sidebar_link admin_users_path, "Users", "people" %>
             <%= sidebar_link admin_mini_apps_path, "Mini Apps", "clipboard" %>
-            <% pending_count = MiniApp.under_review.count + MiniApp.appeal_submitted.count %>
+            <% pending_count = safe_count(MiniApp.under_review) + safe_count(MiniApp.appeal_submitted) %>
             <%= sidebar_link admin_mini_app_reviews_path, "Review Queue", "checkmark", badge_count: pending_count > 0 ? pending_count : nil %>
             <%= sidebar_link admin_oauth_applications_path, "OAuth Apps", "settings" %>
           </nav>
