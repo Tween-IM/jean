@@ -27,6 +27,7 @@ class Api::V1::Commerce::CheckoutsControllerTest < ActionDispatch::IntegrationTe
     assert_equal "pay_checkout_test", response.parsed_body.dig("checkout", "payment_id")
     assert_equal 5_000, response.parsed_body.dig("order", "total_cents")
     assert_equal sku.sku_id, response.parsed_body.dig("order", "items", 0, "sku_id")
+    assert_equal 8, sku.reload.quantity_available
   end
 
   test "buyer can authorize checkout payment and mark order paid" do
@@ -56,6 +57,34 @@ class Api::V1::Commerce::CheckoutsControllerTest < ActionDispatch::IntegrationTe
     assert_response :success
     assert_equal "completed", response.parsed_body.dig("checkout", "status")
     assert_equal "paid", response.parsed_body.dig("order", "status")
+  end
+
+  test "buyer can cancel checkout and restore reserved inventory" do
+    owner = create_user("cancel-seller")
+    buyer = create_user("cancel-buyer")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "miniapp.shop.test", display_name: "Cancel Shop", status: "active")
+    product = merchant.commerce_products.create!(title: "Bottle", status: "active")
+    sku = product.commerce_skus.create!(title: "Green", price_cents: 1_500, currency: "NGN", quantity_available: 3)
+    cart = merchant.commerce_carts.create!(buyer_user_id: buyer.matrix_user_id, currency: "NGN")
+    cart.commerce_cart_items.create!(commerce_sku: sku, quantity: 2)
+
+    with_wallet_stub(:create_payment_request, { payment_id: "pay_cancel_test", status: "created" }) do
+      post api_v1_commerce_checkouts_url,
+        params: { cart_id: cart.cart_id },
+        headers: tep_headers(buyer, "commerce:checkout"),
+        as: :json
+    end
+    assert_equal 1, sku.reload.quantity_available
+    checkout_id = response.parsed_body.dig("checkout", "checkout_id")
+
+    post cancel_api_v1_commerce_checkout_url(checkout_id),
+      headers: tep_headers(buyer, "commerce:checkout"),
+      as: :json
+
+    assert_response :success
+    assert_equal "cancelled", response.parsed_body.dig("checkout", "status")
+    assert_equal 3, sku.reload.quantity_available
+    assert_equal true, response.parsed_body.dig("order", "metadata", "inventory_restored")
   end
 
   private

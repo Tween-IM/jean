@@ -5,21 +5,28 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     cart = find_cart
     return if ensure_cart_owner(cart)
 
-    cart.recalculate!
-    payment_data = create_payment_request(cart)
-    checkout = ::CommerceCheckout.create!(
-      commerce_cart: cart,
-      commerce_merchant: cart.commerce_merchant,
-      buyer_user_id: @current_user.matrix_user_id,
-      status: "payment_pending",
-      payment_id: payment_data.fetch(:payment_id),
-      metadata: checkout_metadata.merge("payment" => payment_data)
-    )
-    order = create_order_from_checkout(checkout, cart)
-    checkout.update!(order_id: order.order_id)
-    cart.update!(status: "checked_out")
+    checkout = nil
+    order = nil
+    ::CommerceCheckout.transaction do
+      cart.recalculate!
+      reserve_inventory!(cart)
+      payment_data = create_payment_request(cart)
+      checkout = ::CommerceCheckout.create!(
+        commerce_cart: cart,
+        commerce_merchant: cart.commerce_merchant,
+        buyer_user_id: @current_user.matrix_user_id,
+        status: "payment_pending",
+        payment_id: payment_data.fetch(:payment_id),
+        metadata: checkout_metadata.merge("payment" => payment_data, "inventory_reserved" => true)
+      )
+      order = create_order_from_checkout(checkout, cart)
+      checkout.update!(order_id: order.order_id)
+      cart.update!(status: "checked_out")
+    end
 
     render json: { checkout: checkout_json(checkout.reload), order: order_json(order), cart: cart_json(cart.reload) }, status: :created
+  rescue ActiveRecord::RecordInvalid => e
+    render_errors(e.record)
   end
 
   def show
@@ -56,7 +63,8 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
 
     order = ::CommerceOrder.find_by(order_id: checkout.order_id)
     checkout.update!(status: "cancelled")
-    order&.update!(status: "cancelled")
+    restore_inventory!(order) if order
+    order&.update!(status: "cancelled", metadata: order.metadata.merge("inventory_restored" => true))
 
     render json: { checkout: checkout_json(checkout), order: order ? order_json(order) : nil }
   end
@@ -95,6 +103,27 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
           currency: cart_item.currency
         )
       end
+    end
+  end
+
+  def reserve_inventory!(cart)
+    cart.commerce_cart_items.includes(:commerce_sku).each do |item|
+      sku = item.commerce_sku
+      next if sku.quantity_available.nil?
+      raise ActiveRecord::RecordInvalid, item unless sku.available?(item.quantity)
+
+      sku.update!(quantity_available: sku.quantity_available - item.quantity)
+    end
+  end
+
+  def restore_inventory!(order)
+    return if order.metadata["inventory_restored"]
+
+    order.commerce_order_items.each do |item|
+      sku = ::CommerceSku.find_by(sku_id: item.sku_id)
+      next unless sku&.quantity_available
+
+      sku.update!(quantity_available: sku.quantity_available + item.quantity)
     end
   end
 

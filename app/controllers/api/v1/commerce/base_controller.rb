@@ -148,6 +148,7 @@ module Api
             total_cents: order.total_cents,
             currency: order.currency,
             fulfillment_status: order.fulfillment_status,
+            metadata: order.metadata,
             items: order.commerce_order_items.map { |item| order_item_json(item) },
             created_at: order.created_at
           }
