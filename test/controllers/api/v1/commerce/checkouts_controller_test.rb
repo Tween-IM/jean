@@ -87,6 +87,28 @@ class Api::V1::Commerce::CheckoutsControllerTest < ActionDispatch::IntegrationTe
     assert_equal true, response.parsed_body.dig("order", "metadata", "inventory_restored")
   end
 
+  test "checkout creation is idempotent and does not reserve inventory twice" do
+    owner = create_user("idempotent-seller")
+    buyer = create_user("idempotent-buyer")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "miniapp.shop.test", display_name: "Idempotent Shop", status: "active")
+    product = merchant.commerce_products.create!(title: "Bag", status: "active")
+    sku = product.commerce_skus.create!(title: "Tan", price_cents: 1_200, currency: "NGN", quantity_available: 4)
+    cart = merchant.commerce_carts.create!(buyer_user_id: buyer.matrix_user_id, currency: "NGN")
+    cart.commerce_cart_items.create!(commerce_sku: sku, quantity: 2)
+    headers = tep_headers(buyer, "commerce:checkout").merge("Idempotency-Key" => "checkout-once")
+
+    with_wallet_stub(:create_payment_request, { payment_id: "pay_once_test", status: "created" }) do
+      post api_v1_commerce_checkouts_url, params: { cart_id: cart.cart_id }, headers: headers, as: :json
+      assert_response :created
+      post api_v1_commerce_checkouts_url, params: { cart_id: cart.cart_id }, headers: headers, as: :json
+    end
+
+    assert_response :success
+    assert_equal true, response.parsed_body.fetch("idempotent_replay")
+    assert_equal 2, sku.reload.quantity_available
+    assert_equal 1, CommerceCheckout.where(buyer_user_id: buyer.matrix_user_id, idempotency_key: "checkout-once").count
+  end
+
   private
 
   def create_user(username)

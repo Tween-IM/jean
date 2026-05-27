@@ -7,6 +7,7 @@ class CommerceCheckout < ApplicationRecord
 
   validates :checkout_id, :buyer_user_id, :expires_at, presence: true
   validates :checkout_id, uniqueness: true
+  validates :idempotency_key, uniqueness: { scope: :buyer_user_id }, allow_nil: true
   validates :status, inclusion: { in: %w[created inventory_reserved payment_pending payment_authorized completed expired cancelled failed] }
 
   def expire!

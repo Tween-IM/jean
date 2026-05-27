@@ -6,6 +6,10 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
 
     cart = find_cart
     return if ensure_cart_owner(cart)
+    if idempotency_key.present?
+      existing_checkout = ::CommerceCheckout.find_by(buyer_user_id: @current_user.matrix_user_id, idempotency_key: idempotency_key)
+      return render_existing_checkout(existing_checkout) if existing_checkout
+    end
 
     checkout = nil
     order = nil
@@ -19,6 +23,7 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
         buyer_user_id: @current_user.matrix_user_id,
         status: "payment_pending",
         payment_id: payment_data.fetch(:payment_id),
+        idempotency_key: idempotency_key,
         metadata: checkout_metadata.merge("payment" => payment_data, "inventory_reserved" => true)
       )
       order = create_order_from_checkout(checkout, cart)
@@ -141,7 +146,7 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
       merchant_order_id: cart.cart_id.upcase.gsub(/[^A-Z0-9\-_]/, "_"),
       callback_url: "https://tmcp.local/api/v1/commerce/checkouts/callback",
       items: cart.commerce_cart_items.includes(:commerce_sku).map { |item| payment_item(item) },
-      idempotency_key: params[:idempotency_key].presence || cart.cart_id
+      idempotency_key: idempotency_key || cart.cart_id
     ).with_indifferent_access
   rescue WalletService::WalletError => e
     {
@@ -164,6 +169,20 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     return ActionController::Parameters.new.permit! if params[:authorization].blank?
 
     params.require(:authorization).permit(:signature, :device_id, :timestamp, :mfa_token, metadata: {})
+  end
+
+  def idempotency_key
+    @idempotency_key ||= request.headers["Idempotency-Key"].presence || params[:idempotency_key].presence
+  end
+
+  def render_existing_checkout(checkout)
+    order = ::CommerceOrder.find_by(order_id: checkout.order_id)
+    render json: {
+      checkout: checkout_json(checkout),
+      order: order ? order_json(order) : nil,
+      cart: cart_json(checkout.commerce_cart),
+      idempotent_replay: true
+    }
   end
 
   def emit_order_created(order)

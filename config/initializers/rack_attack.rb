@@ -21,6 +21,22 @@ class Rack::Attack
     req.ip if req.path.match?(%r{/api/v1/.*/p(?:ayments?|2p)/})
   end
 
+  # Social write/engagement actions: tighter per-token limits to reduce abuse.
+  throttle("social_engagement/token", limit: 120, period: 1.minute) do |req|
+    if req.path.match?(%r{\A/api/v1/social/(videos/[^/]+/(like|bookmark|shares|reports|comments|views)|creators/[^/]+/follow)}) && !req.get?
+      tmcp_rate_limit_user(req)
+    end
+  end
+
+  # Comments and reports are higher-risk surfaces, so keep them stricter.
+  throttle("social_comments/token", limit: 30, period: 1.minute) do |req|
+    tmcp_rate_limit_user(req) if req.path.match?(%r{\A/api/v1/social/videos/[^/]+/comments}) && req.post?
+  end
+
+  throttle("social_reports/token", limit: 10, period: 1.hour) do |req|
+    tmcp_rate_limit_user(req) if req.path.match?(%r{\A/api/v1/social/videos/[^/]+/reports}) && req.post?
+  end
+
   # Wallet operations: 100 requests per minute
   throttle("wallet/ip", limit: 100, period: 1.minute) do |req|
     req.ip if req.path.match?(%r{/wallet/v1/})
@@ -108,6 +124,17 @@ class Rack::Attack
   # Blocklist for suspicious patterns (optional enhancement)
   blocklist("block_suspicious") do |req|
     req.ip if req.path.match?(%r{\.\./}) # Path traversal attempts
+  end
+
+  def self.tmcp_rate_limit_user(req)
+    auth_header = req.get_header("HTTP_AUTHORIZATION")
+    return req.ip unless auth_header&.start_with?("Bearer ")
+
+    token = auth_header.sub("Bearer ", "")
+    payload = TepTokenService.decode(token)
+    payload["sub"] || req.ip
+  rescue JWT::DecodeError
+    req.ip
   end
 end
 

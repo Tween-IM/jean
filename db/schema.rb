@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_27_170500) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -93,11 +93,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_170500) do
     t.bigint "commerce_merchant_id", null: false
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
+    t.string "idempotency_key"
     t.jsonb "metadata", default: {}, null: false
     t.string "order_id"
     t.string "payment_id"
     t.string "status", default: "created", null: false
     t.datetime "updated_at", null: false
+    t.index ["buyer_user_id", "idempotency_key"], name: "index_commerce_checkouts_on_buyer_user_id_and_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["buyer_user_id", "status"], name: "index_commerce_checkouts_on_buyer_user_id_and_status"
     t.index ["checkout_id"], name: "index_commerce_checkouts_on_checkout_id", unique: true
     t.index ["commerce_cart_id"], name: "index_commerce_checkouts_on_commerce_cart_id"
@@ -478,6 +480,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_170500) do
     t.string "wallet_id"
     t.index ["mas_user_id"], name: "index_users_on_mas_user_id", unique: true
     t.index ["matrix_user_id"], name: "index_users_on_matrix_user_id"
+  end
+
+  create_table "webhook_deliveries", force: :cascade do |t|
+    t.integer "attempts", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "delivered_at"
+    t.string "event_id", null: false
+    t.string "event_type", null: false
+    t.text "last_error"
+    t.datetime "next_attempt_at"
+    t.jsonb "payload", default: {}, null: false
+    t.integer "response_status"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.string "webhook_url", null: false
+    t.index ["event_id"], name: "index_webhook_deliveries_on_event_id", unique: true
+    t.index ["event_type"], name: "index_webhook_deliveries_on_event_type"
+    t.index ["status", "next_attempt_at"], name: "index_webhook_deliveries_on_status_and_next_attempt_at"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
