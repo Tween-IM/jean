@@ -1,6 +1,19 @@
 module Api::TepAuthenticatable
   extend ActiveSupport::Concern
 
+  class InsufficientScopeError < StandardError
+    attr_reader :missing_scopes
+
+    def initialize(missing_scopes)
+      @missing_scopes = missing_scopes
+      super("#{missing_scopes.join(', ')} scope required")
+    end
+  end
+
+  included do
+    rescue_from InsufficientScopeError, with: :render_insufficient_scope
+  end
+
   private
 
     def authenticate_tep_token
@@ -23,10 +36,13 @@ module Api::TepAuthenticatable
       missing_scopes = scopes.flatten - @token_scopes
       return if missing_scopes.empty?
 
+      raise InsufficientScopeError, missing_scopes
+    end
+
+    def render_insufficient_scope(error)
       render json: {
         error: "insufficient_scope",
-        message: "#{missing_scopes.join(', ')} scope required"
+        message: error.message
       }, status: :forbidden
-      true
     end
 end

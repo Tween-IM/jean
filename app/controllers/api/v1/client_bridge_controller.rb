@@ -23,6 +23,12 @@ module Api
           id: id,
           error: { code: e.code, message: e.message }
         }, status: e.status
+      rescue Api::TepAuthenticatable::InsufficientScopeError => e
+        render json: {
+          jsonrpc: "2.0",
+          id: id,
+          error: { code: -32003, message: e.message }
+        }, status: :forbidden
       rescue StandardError => e
         Rails.logger.error "[ClientBridge] Unexpected error: #{e.message}"
         render json: {
@@ -64,6 +70,8 @@ module Api
         raise ClientBridgeError.new(-32602, "video_id required") if video_id.blank?
 
         video = ::SocialVideo.find_by!(video_id: video_id)
+        raise ClientBridgeError.new(-32004, "Video not found", :not_found) unless video.visible_to?(@current_user)
+
         return { opened: true, video_id: video_id, deep_link: "tween://social/video/#{video_id}" }
       end
 
@@ -76,6 +84,8 @@ module Api
         raise ClientBridgeError.new(-32602, "room_id required") if room_id.blank?
 
         video = ::SocialVideo.find_by!(video_id: video_id)
+        raise ClientBridgeError.new(-32004, "Video not found", :not_found) unless video.visible_to?(@current_user)
+
         share = video.social_shares.create!(
           user_id: @current_user.matrix_user_id,
           target: "matrix_room",
@@ -108,6 +118,8 @@ module Api
         raise ClientBridgeError.new(-32602, "product_id required") if product_id.blank?
 
         product = ::CommerceProduct.find_by!(product_id: product_id)
+        raise ClientBridgeError.new(-32004, "Product not found", :not_found) unless product.status == "active"
+
         { opened: true, product_id: product_id, deep_link: "tween://commerce/product/#{product_id}" }
       end
 
@@ -128,13 +140,9 @@ module Api
         raise ClientBridgeError.new(-32602, "cart_id required") if cart_id.blank?
 
         cart = ::CommerceCart.find_by!(cart_id: cart_id)
-        checkout = ::CommerceCheckout.create!(
-          commerce_cart: cart,
-          commerce_merchant: cart.commerce_merchant,
-          buyer_user_id: @current_user.matrix_user_id
-        )
+        raise ClientBridgeError.new(-32003, "Cart belongs to another buyer", :forbidden) unless cart.buyer_user_id == @current_user.matrix_user_id
 
-        { checkout_id: checkout.checkout_id, deep_link: "tween://commerce/checkout/#{checkout.checkout_id}" }
+        { cart_id: cart.cart_id, deep_link: "tween://commerce/checkout/start?cart_id=#{cart.cart_id}" }
       end
 
       def open_order(params)
@@ -142,6 +150,10 @@ module Api
 
         order_id = params[:order_id]
         raise ClientBridgeError.new(-32602, "order_id required") if order_id.blank?
+
+        order = ::CommerceOrder.find_by!(order_id: order_id)
+        allowed = order.buyer_user_id == @current_user.matrix_user_id || order.commerce_merchant.owner_user_id == @current_user.matrix_user_id
+        raise ClientBridgeError.new(-32003, "Order belongs to another account", :forbidden) unless allowed
 
         { opened: true, order_id: order_id, deep_link: "tween://commerce/order/#{order_id}" }
       end

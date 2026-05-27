@@ -105,8 +105,12 @@ module Api
 
           decoded = cursor.present? ? decode_cursor(cursor) : nil
           scoped = if decoded
-            base_query.where("published_at < ?", decoded["published_at"])
-                      .where("created_at < ?", decoded["created_at"])
+            base_query.where(
+              "published_at < :published_at OR (published_at = :published_at AND created_at < :created_at) OR (published_at = :published_at AND created_at = :created_at AND id < :id)",
+              published_at: decoded["published_at"],
+              created_at: decoded["created_at"],
+              id: decoded["id"]
+            )
           else
             base_query
           end

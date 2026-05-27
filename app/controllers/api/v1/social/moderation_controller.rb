@@ -62,7 +62,7 @@ module Api
 
           status = params[:status] || "open"
           page = params[:page].to_i.clamp(1, 1000)
-          per_page = [params[:per_page].to_i, 50].max.clamp(1, 50)
+          per_page = (params[:per_page].presence || 50).to_i.clamp(1, 50)
 
           reports = ::SocialReport
             .includes(:social_video)

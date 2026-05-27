@@ -59,7 +59,7 @@ class Api::V1::ClientBridgeControllerTest < ActionDispatch::IntegrationTest
     assert_match(/tween:\/\/commerce\/product/, response.parsed_body["result"]["deep_link"])
   end
 
-  test "tween.commerce.startCheckout creates checkout" do
+  test "tween.commerce.startCheckout returns owned cart deep link" do
     user = create_user("co_user")
     owner = create_user("co_owner")
     merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "ma.test", display_name: "CO Shop", status: "active")
@@ -74,8 +74,37 @@ class Api::V1::ClientBridgeControllerTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :success
-    assert response.parsed_body["result"]["checkout_id"].present?
+    assert_equal cart.cart_id, response.parsed_body["result"]["cart_id"]
     assert_match(/tween:\/\/commerce\/checkout/, response.parsed_body["result"]["deep_link"])
+  end
+
+  test "tween.commerce.startCheckout rejects another buyer cart" do
+    user = create_user("co_intruder")
+    buyer = create_user("co_buyer")
+    owner = create_user("co_guard_owner")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "ma.test", display_name: "Guard Shop", status: "active")
+    cart = merchant.commerce_carts.create!(buyer_user_id: buyer.matrix_user_id, currency: "NGN")
+
+    post api_v1_client_bridge_url,
+      params: { jsonrpc: "2.0", method: "tween.commerce.startCheckout", params: { cart_id: cart.cart_id }, id: 7 },
+      headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{tep_token(user, "commerce:checkout")}" },
+      as: :json
+
+    assert_response :forbidden
+    assert_equal -32003, response.parsed_body["error"]["code"]
+  end
+
+  test "returns json-rpc forbidden when scope is missing" do
+    user = create_user("scope_user")
+
+    post api_v1_client_bridge_url,
+      params: { jsonrpc: "2.0", method: "tween.social.createPost", params: {}, id: 8 },
+      headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{tep_token(user, "social:read")}" },
+      as: :json
+
+    assert_response :forbidden
+    assert_equal -32003, response.parsed_body["error"]["code"]
+    assert_includes response.parsed_body["error"]["message"], "social:write"
   end
 
   test "returns error for unknown method" do
@@ -111,6 +140,6 @@ class Api::V1::ClientBridgeControllerTest < ActionDispatch::IntegrationTest
   end
 
   def tep_token(user, scope)
-    TepTokenService.encode({ user_id: user.matrix_user_id, miniapp_id: "miniapp.test" }, scopes: [scope])
+    TepTokenService.encode({ user_id: user.matrix_user_id, miniapp_id: "miniapp.test" }, scopes: scope.split)
   end
 end

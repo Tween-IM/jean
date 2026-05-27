@@ -15,18 +15,7 @@ class RecoverAbandonedCartsJob < ApplicationJob
     ::CommerceCart
       .where(status: "active")
       .where("updated_at < ?", 3.days.ago)
-      .where.not(commerce_merchant_id: notified_merchant_ids)
-  end
-
-  def notified_merchant_ids
-    cart_ids = abandoned_carts.pluck(:id)
-    return [] if cart_ids.empty?
-
-    ::CommerceCart
-      .where(id: cart_ids)
       .where.not(commerce_merchant_id: nil)
-      .pluck(:commerce_merchant_id)
-      .uniq
   end
 
   def deliver_abandoned_cart_webhook(cart)
