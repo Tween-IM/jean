@@ -1,4 +1,7 @@
 class SocialVideo < ApplicationRecord
+  has_one_attached :source_video
+  has_one_attached :generated_thumbnail
+
   has_many :social_views, dependent: :destroy
   has_many :social_likes, dependent: :destroy
   has_many :social_comments, dependent: :destroy
@@ -22,6 +25,10 @@ class SocialVideo < ApplicationRecord
 
   def liked_by?(user)
     social_likes.exists?(user_id: user.matrix_user_id)
+  end
+
+  def process_later
+    SocialVideoProcessingJob.perform_later(self) if source_video.attached?
   end
 
   def visible_to?(user)

@@ -50,6 +50,7 @@ module Api
             caption: video.caption,
             playback_url: video.playback_url,
             thumbnail_url: video.thumbnail_url,
+            source_video_attached: video.source_video.attached?,
             duration_seconds: video.duration_seconds,
             visibility: video.visibility,
             status: video.status,
