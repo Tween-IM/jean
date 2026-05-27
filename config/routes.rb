@@ -64,24 +64,35 @@ Rails.application.routes.draw do
 
         namespace :social do
           resources :uploads, only: [ :create ]
+          resources :bookmarks, only: [ :index ]
+          resource :search, only: [ :show ], controller: :search
           resource :feed, only: [ :show ], controller: :feed
           resources :videos, only: [ :create, :show, :destroy ] do
             resource :like, only: [ :create, :destroy ], controller: :likes
+            resource :bookmark, only: [ :create, :destroy ], controller: :bookmarks
+            resources :shares, only: [ :create ]
+            resources :reports, only: [ :create ]
             resources :views, only: [ :create ]
             resources :comments, only: [ :index, :create ]
           end
-          resources :creators, only: [ :show ] do
+          resources :creators, only: [ :show, :update ] do
             resource :follow, only: [ :create, :destroy ], controller: :follows
           end
         end
 
         namespace :commerce do
           resources :merchants, only: [ :create, :show ]
+          resources :storefronts, only: [ :index, :create, :show, :update ]
           resources :products, only: [ :index, :show, :create ]
           resources :carts, only: [ :create, :show ] do
             resources :items, only: [ :update, :destroy ], controller: :cart_items, param: :sku_id
           end
-          resources :checkouts, only: [ :create, :show ]
+          resources :checkouts, only: [ :create, :show ] do
+            member do
+              post :authorize
+              post :cancel
+            end
+          end
           resources :orders, only: [ :show ] do
             resource :fulfillment, only: [ :create ], controller: :fulfillments
             resources :refunds, only: [ :create ]

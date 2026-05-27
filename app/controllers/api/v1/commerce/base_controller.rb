@@ -75,6 +75,19 @@ module Api
           }
         end
 
+        def storefront_json(storefront)
+          {
+            storefront_id: storefront.storefront_id,
+            merchant_id: storefront.commerce_merchant.merchant_id,
+            slug: storefront.slug,
+            display_name: storefront.display_name,
+            description: storefront.description,
+            status: storefront.status,
+            products_count: storefront.products.count,
+            created_at: storefront.created_at
+          }
+        end
+
         def sku_json(sku)
           {
             sku_id: sku.sku_id,
@@ -117,6 +130,7 @@ module Api
             cart_id: checkout.commerce_cart.cart_id,
             status: checkout.status,
             payment_id: checkout.payment_id,
+            order_id: checkout.order_id,
             expires_at: checkout.expires_at,
             metadata: checkout.metadata,
             created_at: checkout.created_at

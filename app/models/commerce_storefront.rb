@@ -1,5 +1,6 @@
 class CommerceStorefront < ApplicationRecord
   belongs_to :commerce_merchant
+  has_many :commerce_products, dependent: :nullify
   has_many :products, class_name: "CommerceProduct", dependent: :nullify
 
   before_validation :assign_storefront_id

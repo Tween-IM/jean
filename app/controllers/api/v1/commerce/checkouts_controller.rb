@@ -6,13 +6,14 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     return if ensure_cart_owner(cart)
 
     cart.recalculate!
+    payment_data = create_payment_request(cart)
     checkout = ::CommerceCheckout.create!(
       commerce_cart: cart,
       commerce_merchant: cart.commerce_merchant,
       buyer_user_id: @current_user.matrix_user_id,
       status: "payment_pending",
-      payment_id: "pay_#{SecureRandom.urlsafe_base64(18)}",
-      metadata: checkout_metadata
+      payment_id: payment_data.fetch(:payment_id),
+      metadata: checkout_metadata.merge("payment" => payment_data)
     )
     order = create_order_from_checkout(checkout, cart)
     checkout.update!(order_id: order.order_id)
@@ -28,6 +29,36 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     return if ensure_cart_owner(checkout.commerce_cart)
 
     render json: { checkout: checkout_json(checkout) }
+  end
+
+  def authorize
+    require_scope("commerce:checkout")
+
+    checkout = find_checkout
+    return if ensure_cart_owner(checkout.commerce_cart)
+
+    result = WalletService.authorize_payment(checkout.payment_id, authorization_params.to_h, @tep_token)
+    order = ::CommerceOrder.find_by!(order_id: checkout.order_id)
+    checkout.update!(status: "completed", metadata: checkout.metadata.merge("authorization" => result))
+    order.update!(status: "paid", metadata: order.metadata.merge("authorization" => result))
+
+    render json: { checkout: checkout_json(checkout), order: order_json(order) }
+  rescue WalletService::WalletError => e
+    checkout&.update!(status: "failed", metadata: checkout.metadata.merge("payment_error" => e.message))
+    render json: { error: "payment_failed", message: e.message }, status: :payment_required
+  end
+
+  def cancel
+    require_scope("commerce:checkout")
+
+    checkout = find_checkout
+    return if ensure_cart_owner(checkout.commerce_cart)
+
+    order = ::CommerceOrder.find_by(order_id: checkout.order_id)
+    checkout.update!(status: "cancelled")
+    order&.update!(status: "cancelled")
+
+    render json: { checkout: checkout_json(checkout), order: order ? order_json(order) : nil }
   end
 
   private
@@ -65,5 +96,40 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
         )
       end
     end
+  end
+
+  def create_payment_request(cart)
+    amount = cart.total_cents.to_d / 100
+    WalletService.create_payment_request(
+      amount,
+      cart.currency,
+      "Commerce checkout #{cart.cart_id}",
+      @tep_token,
+      merchant_order_id: cart.cart_id.upcase.gsub(/[^A-Z0-9\-_]/, "_"),
+      callback_url: "https://tmcp.local/api/v1/commerce/checkouts/callback",
+      items: cart.commerce_cart_items.includes(:commerce_sku).map { |item| payment_item(item) },
+      idempotency_key: params[:idempotency_key].presence || cart.cart_id
+    ).with_indifferent_access
+  rescue WalletService::WalletError => e
+    {
+      payment_id: "pay_#{SecureRandom.urlsafe_base64(18)}",
+      status: "wallet_unavailable",
+      error: e.message
+    }.with_indifferent_access
+  end
+
+  def payment_item(item)
+    {
+      item_id: item.commerce_sku.sku_id,
+      name: item.commerce_sku.title,
+      quantity: item.quantity,
+      unit_price: item.unit_price_cents.to_d / 100
+    }
+  end
+
+  def authorization_params
+    return ActionController::Parameters.new.permit! if params[:authorization].blank?
+
+    params.require(:authorization).permit(:signature, :device_id, :timestamp, :mfa_token, metadata: {})
   end
 end

@@ -59,7 +59,9 @@ module Api
             view_count: video.view_count,
             like_count: video.like_count,
             comment_count: video.comment_count,
+            share_count: video.share_count,
             liked: video.liked_by?(@current_user),
+            bookmarked: video.bookmarked_by?(@current_user),
             published_at: video.published_at,
             created_at: video.created_at
           }
@@ -87,6 +89,35 @@ module Api
             body: comment.body,
             status: comment.status,
             created_at: comment.created_at
+          }
+        end
+
+        def bookmark_json(bookmark)
+          {
+            bookmark_id: bookmark.id,
+            video: video_json(bookmark.social_video),
+            created_at: bookmark.created_at
+          }
+        end
+
+        def share_json(share)
+          {
+            share_id: share.id,
+            video_id: share.social_video.video_id,
+            target: share.target,
+            room_id: share.room_id,
+            metadata: share.metadata,
+            created_at: share.created_at
+          }
+        end
+
+        def report_json(report)
+          {
+            report_id: report.id,
+            video_id: report.social_video.video_id,
+            reason: report.reason,
+            status: report.status,
+            created_at: report.created_at
           }
         end
 

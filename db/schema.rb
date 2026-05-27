@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_27_165603) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_27_170500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -325,6 +325,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_165603) do
     t.index ["updated_at"], name: "index_sessions_on_updated_at"
   end
 
+  create_table "social_bookmarks", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "social_video_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_id", null: false
+    t.index ["social_video_id", "user_id"], name: "index_social_bookmarks_on_social_video_id_and_user_id", unique: true
+    t.index ["social_video_id"], name: "index_social_bookmarks_on_social_video_id"
+    t.index ["user_id", "created_at"], name: "index_social_bookmarks_on_user_id_and_created_at"
+  end
+
   create_table "social_comments", force: :cascade do |t|
     t.string "author_user_id", null: false
     t.text "body", null: false
@@ -373,6 +383,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_165603) do
     t.string "user_id", null: false
     t.index ["social_video_id", "user_id"], name: "index_social_likes_on_social_video_id_and_user_id", unique: true
     t.index ["social_video_id"], name: "index_social_likes_on_social_video_id"
+  end
+
+  create_table "social_reports", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "details"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "reason", null: false
+    t.string "reporter_user_id", null: false
+    t.bigint "social_video_id", null: false
+    t.string "status", default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.index ["social_video_id", "reporter_user_id"], name: "index_social_reports_on_social_video_id_and_reporter_user_id", unique: true
+    t.index ["social_video_id"], name: "index_social_reports_on_social_video_id"
+    t.index ["status"], name: "index_social_reports_on_status"
+  end
+
+  create_table "social_shares", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "room_id"
+    t.bigint "social_video_id", null: false
+    t.string "target", default: "link", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_id", null: false
+    t.index ["social_video_id", "created_at"], name: "index_social_shares_on_social_video_id_and_created_at"
+    t.index ["social_video_id"], name: "index_social_shares_on_social_video_id"
+    t.index ["user_id", "created_at"], name: "index_social_shares_on_user_id_and_created_at"
   end
 
   create_table "social_videos", force: :cascade do |t|
@@ -461,9 +498,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_165603) do
   add_foreign_key "miniapp_installations", "users"
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
+  add_foreign_key "social_bookmarks", "social_videos"
   add_foreign_key "social_comments", "social_comments", column: "parent_comment_id"
   add_foreign_key "social_comments", "social_videos"
   add_foreign_key "social_likes", "social_videos"
+  add_foreign_key "social_reports", "social_videos"
+  add_foreign_key "social_shares", "social_videos"
   add_foreign_key "social_views", "social_videos"
   add_foreign_key "storage_entries", "users"
 end

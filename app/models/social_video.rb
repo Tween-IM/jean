@@ -5,6 +5,9 @@ class SocialVideo < ApplicationRecord
   has_many :social_views, dependent: :destroy
   has_many :social_likes, dependent: :destroy
   has_many :social_comments, dependent: :destroy
+  has_many :social_bookmarks, dependent: :destroy
+  has_many :social_shares, dependent: :destroy
+  has_many :social_reports, dependent: :destroy
   has_many :views, class_name: "SocialView", dependent: :destroy
   has_many :likes, class_name: "SocialLike", dependent: :destroy
   has_many :comments, class_name: "SocialComment", dependent: :destroy
@@ -25,6 +28,10 @@ class SocialVideo < ApplicationRecord
 
   def liked_by?(user)
     social_likes.exists?(user_id: user.matrix_user_id)
+  end
+
+  def bookmarked_by?(user)
+    social_bookmarks.exists?(user_id: user.matrix_user_id)
   end
 
   def process_later
