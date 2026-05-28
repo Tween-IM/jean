@@ -1,0 +1,21 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  checkout_id: MyString
+  commerce_cart: one
+  buyer_user_id: MyString
+  commerce_merchant: one
+  status: MyString
+  payment_id: MyString
+  order_id: MyString
+  expires_at: 2026-05-27 17:35:55
+
+two:
+  checkout_id: MyString
+  commerce_cart: two
+  buyer_user_id: MyString
+  commerce_merchant: two
+  status: MyString
+  payment_id: MyString
+  order_id: MyString
+  expires_at: 2026-05-27 17:35:55

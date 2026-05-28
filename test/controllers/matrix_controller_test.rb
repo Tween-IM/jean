@@ -5,7 +5,7 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
 
   setup do
     @headers = { "Authorization" => "Bearer test_matrix_token" }
-    ENV["MATRIX_HS_TOKEN"] = "test_matrix_token"
+    ENV["MATRIX_AS_TOKEN"] = "test_matrix_token"
 
     # Create test user for user query tests
     User.find_or_create_by(matrix_user_id: "@test_user:tween.example") do |user|
@@ -16,7 +16,7 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("MATRIX_HS_TOKEN")
+    ENV.delete("MATRIX_AS_TOKEN")
   end
 
   test "should handle transactions endpoint" do

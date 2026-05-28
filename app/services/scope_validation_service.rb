@@ -14,6 +14,17 @@ class ScopeValidationService
     webhook:send
     room:create
     room:invite
+    social:read
+    social:write
+    social:engage
+    social:analytics
+    social:moderate
+    commerce:read
+    commerce:cart
+    commerce:checkout
+    commerce:orders
+    commerce:merchant
+    commerce:admin
   ].freeze
 
   MATRIX_SCOPES = %w[
@@ -37,6 +48,13 @@ class ScopeValidationService
     room:create
     room:invite
     user:read:contacts
+    social:write
+    social:engage
+    social:analytics
+    commerce:cart
+    commerce:checkout
+    commerce:orders
+    commerce:merchant
   ].freeze
 
   class ScopeError < StandardError
@@ -167,6 +185,17 @@ class ScopeValidationService
       "webhook:send" => "Receive webhook callbacks",
       "room:create" => "Create new rooms",
       "room:invite" => "Invite users to rooms",
+      "social:read" => "Read public and authorized social content",
+      "social:write" => "Publish and manage own social content",
+      "social:engage" => "Like, comment, follow, share, and record views",
+      "social:analytics" => "Read creator analytics for own content",
+      "social:moderate" => "Moderate social content and profiles",
+      "commerce:read" => "Browse storefronts, products, and own orders",
+      "commerce:cart" => "Create and update buyer carts",
+      "commerce:checkout" => "Create checkout sessions and bind payments",
+      "commerce:orders" => "Read and manage own buyer orders",
+      "commerce:merchant" => "Manage merchant catalog, inventory, and fulfillment",
+      "commerce:admin" => "Administer commerce objects",
       "openid" => "OpenID Connect authentication",
       "urn:matrix:org.matrix.msc2967.client:api:*" => "Full Matrix C-S API access"
     }
@@ -175,7 +204,7 @@ class ScopeValidationService
   end
 
   def get_scope_sensitivity(scope)
-    return "critical" if %w[wallet:pay].include?(scope.to_s)
+    return "critical" if %w[wallet:pay social:moderate commerce:admin].include?(scope.to_s)
     return "high" if SENSITIVE_SCOPES.include?(scope.to_s)
     return "medium" if %w[user:read:extended wallet:balance wallet:history].include?(scope.to_s)
     "low"

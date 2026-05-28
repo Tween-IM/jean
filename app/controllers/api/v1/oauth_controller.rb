@@ -333,6 +333,11 @@ class Api::V1::OauthController < Api::BaseController
         error: "invalid_grant",
         error_description: e.message
       }, status: :bad_request
+    rescue Faraday::ConnectionFailed
+      render json: {
+        error: "service_unavailable",
+        error_description: "Authentication service is temporarily unavailable"
+      }, status: :service_unavailable
     rescue JSON::ParserError
       render json: {
         error: "invalid_request",

@@ -1,0 +1,15 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  social_video: one
+  parent_comment: one
+  author_user_id: MyString
+  body: MyText
+  status: MyString
+
+two:
+  social_video: two
+  parent_comment: two
+  author_user_id: MyString
+  body: MyText
+  status: MyString

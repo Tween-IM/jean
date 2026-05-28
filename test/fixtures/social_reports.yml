@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  social_video: one
+  reporter_user_id: MyString
+  reason: MyString
+  details: MyText
+  status: MyString
+  metadata: 
+
+two:
+  social_video: two
+  reporter_user_id: MyString
+  reason: MyString
+  details: MyText
+  status: MyString
+  metadata: 

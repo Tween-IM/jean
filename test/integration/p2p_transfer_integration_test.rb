@@ -193,17 +193,17 @@ class P2PTransferIntegrationTest < ActionDispatch::IntegrationTest
     # Assuming we have a pending transfer that needs acceptance
     transfer_id = "p2p_test_123"
 
-    reject_response = post "/api/v1/wallet/p2p/#{transfer_id}/reject",
+    post "/api/v1/wallet/p2p/#{transfer_id}/reject",
                            params: {
                              reason: "user_declined",
                              message: "Thanks but not needed"
                            },
                            headers: recipient_headers
 
-    puts "Reject response: #{reject_response.body}"
+    puts "Reject response: #{response.body}"
 
-    if reject_response.is_a?(Hash) && reject_response.key?("transfer_id")
-      response_body = reject_response
+    if response.is_a?(Hash) && response.key?("transfer_id")
+      response_body = response
       assert_equal transfer_id, response_body["transfer_id"]
       assert_equal "rejected", response_body["status"]
       assert response_body.key?("rejected_at")

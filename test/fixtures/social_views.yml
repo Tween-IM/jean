@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  social_video: one
+  viewer_user_id: MyString
+  session_id: MyString
+  watched_ms: 1
+  completed: false
+  viewed_at: 2026-05-27 17:34:17
+
+two:
+  social_video: two
+  viewer_user_id: MyString
+  session_id: MyString
+  watched_ms: 1
+  completed: false
+  viewed_at: 2026-05-27 17:34:17

@@ -1,0 +1,29 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  order_id: MyString
+  commerce_merchant: one
+  buyer_user_id: MyString
+  payment_id: MyString
+  status: MyString
+  fulfillment_status: MyString
+  subtotal_cents: 1
+  tax_cents: 1
+  shipping_cents: 1
+  discount_cents: 1
+  total_cents: 1
+  currency: MyString
+
+two:
+  order_id: MyString
+  commerce_merchant: two
+  buyer_user_id: MyString
+  payment_id: MyString
+  status: MyString
+  fulfillment_status: MyString
+  subtotal_cents: 1
+  tax_cents: 1
+  shipping_cents: 1
+  discount_cents: 1
+  total_cents: 1
+  currency: MyString

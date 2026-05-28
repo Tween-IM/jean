@@ -61,6 +61,49 @@ Rails.application.routes.draw do
         get "capabilities/:capability", to: "client#check_capability"
         post "client/bootstrap", to: "client#bootstrap"
         post "client/check-updates", to: "client#check_updates"
+        post "client/bridge", to: "client_bridge#handle_method"
+
+        namespace :social do
+          resources :uploads, only: [ :create ]
+          resources :bookmarks, only: [ :index ]
+          resource :search, only: [ :show ], controller: :search
+          resource :feed, only: [ :show ], controller: :feed
+          resources :videos, only: [ :create, :show, :destroy ] do
+            resource :like, only: [ :create, :destroy ], controller: :likes
+            resource :bookmark, only: [ :create, :destroy ], controller: :bookmarks
+            resources :shares, only: [ :create ]
+            resources :reports, only: [ :create ]
+            resources :views, only: [ :create ]
+            resources :comments, only: [ :index, :create ]
+            get :analytics, to: "analytics#show", as: :analytics
+          end
+          resources :creators, only: [ :show, :update ] do
+            resource :follow, only: [ :create, :destroy ], controller: :follows
+          end
+          post "moderation/video_status", to: "moderation#update_video_status"
+          post "moderation/bulk_update", to: "moderation#bulk_update"
+          get "moderation/reports", to: "moderation#report_list"
+          post "moderation/reports/:report_id/resolve", to: "moderation#resolve_report"
+        end
+
+        namespace :commerce do
+          resources :merchants, only: [ :create, :show ]
+          resources :storefronts, only: [ :index, :create, :show, :update ]
+          resources :products, only: [ :index, :show, :create ]
+          resources :carts, only: [ :create, :show ] do
+            resources :items, only: [ :update, :destroy ], controller: :cart_items, param: :sku_id
+          end
+          resources :checkouts, only: [ :create, :show ] do
+            member do
+              post :authorize
+              post :cancel
+            end
+          end
+          resources :orders, only: [ :show ] do
+            resource :fulfillment, only: [ :create ], controller: :fulfillments
+            resources :refunds, only: [ :create ]
+          end
+        end
 
         # Permission Revocation endpoints (TMCP Protocol Section 5.6)
         post "auth/revoke", to: "auth_revocation#create"

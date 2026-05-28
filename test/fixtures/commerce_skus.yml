@@ -1,0 +1,21 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  commerce_product: one
+  sku_id: MyString
+  title: MyString
+  price_cents: 1
+  currency: MyString
+  inventory_status: MyString
+  quantity_available: 1
+  properties: 
+
+two:
+  commerce_product: two
+  sku_id: MyString
+  title: MyString
+  price_cents: 1
+  currency: MyString
+  inventory_status: MyString
+  quantity_available: 1
+  properties: 

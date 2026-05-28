@@ -1,0 +1,15 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  social_video: one
+  user_id: MyString
+  target: MyString
+  room_id: MyString
+  metadata: 
+
+two:
+  social_video: two
+  user_id: MyString
+  target: MyString
+  room_id: MyString
+  metadata: 
