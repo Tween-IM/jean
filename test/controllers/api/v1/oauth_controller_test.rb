@@ -325,7 +325,7 @@ class Api::V1::OauthControllerTest < ActionDispatch::IntegrationTest
     ENV["FIRST_PARTY_MINIAPPS"] = original_env
   end
 
-  test "default FIRST_PARTY_MINIAPPS should include ma_tweenpay" do
+  test "default FIRST_PARTY_MINIAPPS should include ma_tweenpay, ma_tweencommerce, ma_tweensocial" do
     # Ensure user has mas_user_id
     @user.update!(mas_user_id: "user_def_#{@unique_suffix}") unless @user.mas_user_id
 

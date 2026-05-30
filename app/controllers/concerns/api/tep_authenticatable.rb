@@ -33,6 +33,10 @@ module Api::TepAuthenticatable
     end
 
     def require_scope(*scopes)
+      # First-party apps have wildcard permission — skip scope checks
+      first_party_apps = ENV.fetch("FIRST_PARTY_MINIAPPS", "ma_tweenpay,ma_tweencommerce,ma_tweensocial").split(",")
+      return if first_party_apps.include?(@miniapp_id)
+
       missing_scopes = scopes.flatten - @token_scopes
       return if missing_scopes.empty?
 

@@ -226,6 +226,11 @@ class Api::V1::OauthController < Api::BaseController
       return
     end
 
+    # First-party apps don't need a MiniApp record — they are platform-built-in.
+    # Only third-party mini-apps require catalog registration.
+    first_party_miniapps = ENV.fetch("FIRST_PARTY_MINIAPPS", "ma_tweenpay,ma_tweencommerce,ma_tweensocial").split(",")
+    is_first_party = first_party_miniapps.include?(client_id)
+
     miniapp = MiniApp.find_by(app_id: client_id)
     client_type = miniapp&.client_type || "public"
 
@@ -509,22 +514,6 @@ class Api::V1::OauthController < Api::BaseController
   end
 
   def authorize_scopes(user, application, requested_scopes)
-    miniapp = MiniApp.find_by(app_id: application.uid)
-    return { authorized_scopes: [], consent_required: false } unless miniapp
-
-    # Validate requested scopes are registered for this mini-app (TMCP Section 5.5)
-    begin
-      ScopeValidationService.new.check_scope_registration(miniapp.app_id, requested_scopes)
-    rescue ScopeValidationService::ScopeError => e
-      return {
-        authorized_scopes: [],
-        consent_required: false,
-        error: "invalid_scope",
-        error_description: e.message,
-        unregistered_scopes: e.details[:scopes]
-      }
-    end
-
     # Development bypass: auto-approve all scopes
     if ENV["DEV_BYPASS_MAS"] == "true"
       return {
@@ -533,15 +522,27 @@ class Api::V1::OauthController < Api::BaseController
       }
     end
 
-    # Auto-approve first-party pre-installed mini-apps (like TweenPay Wallet)
-    # These are owned by the platform and don't require explicit user consent
-    first_party_miniapps = ENV.fetch("FIRST_PARTY_MINIAPPS", "ma_tweenpay").split(",")
-    if first_party_miniapps.include?(miniapp.app_id)
+    # First-party apps (platform-built-in) don't need MiniApp catalog records.
+    # They bypass manifest scope registration and user consent.
+    first_party_miniapps = ENV.fetch("FIRST_PARTY_MINIAPPS", "ma_tweenpay,ma_tweencommerce,ma_tweensocial").split(",")
+    if first_party_miniapps.include?(application.uid)
+      # Validate scopes are valid TMCP scopes (prevent typos / invalid scopes)
+      begin
+        ScopeValidationService.new.validate_tmcp_scopes(requested_scopes)
+      rescue ScopeValidationService::ScopeError => e
+        return {
+          authorized_scopes: [],
+          consent_required: false,
+          error: "invalid_scope",
+          error_description: e.message
+        }
+      end
+
       # Create authorization approvals if they don't exist
       requested_scopes.each do |scope|
         AuthorizationApproval.find_or_create_by(
           user_id: user.mas_user_id,
-          miniapp_id: miniapp.app_id,
+          miniapp_id: application.uid,
           scope: scope
         ) do |approval|
           approval.approved_at = Time.current
@@ -551,6 +552,23 @@ class Api::V1::OauthController < Api::BaseController
       return {
         authorized_scopes: requested_scopes,
         consent_required: false
+      }
+    end
+
+    # Third-party apps: must be registered in the MiniApp catalog
+    miniapp = MiniApp.find_by(app_id: application.uid)
+    return { authorized_scopes: [], consent_required: false } unless miniapp
+
+    # Enforce manifest scope registration (TMCP Section 5.5)
+    begin
+      ScopeValidationService.new.check_scope_registration(miniapp.app_id, requested_scopes)
+    rescue ScopeValidationService::ScopeError => e
+      return {
+        authorized_scopes: [],
+        consent_required: false,
+        error: "invalid_scope",
+        error_description: e.message,
+        unregistered_scopes: e.details[:scopes]
       }
     end
 
