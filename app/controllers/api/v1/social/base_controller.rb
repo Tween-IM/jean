@@ -43,10 +43,17 @@ module Api
           render json: { error: "validation_failed", messages: record.errors.full_messages }, status: :unprocessable_entity
         end
 
+        def preload_creator_profiles(videos)
+          creator_ids = videos.map(&:creator_user_id).uniq
+          @creator_profiles = SocialCreatorProfile.where(user_id: creator_ids).index_by(&:user_id)
+        end
+
         def video_json(video)
+          creator = @creator_profiles&.[](video.creator_user_id) || SocialCreatorProfile.find_by(user_id: video.creator_user_id)
           {
             video_id: video.video_id,
             creator_user_id: video.creator_user_id,
+            creator: creator ? creator_json(creator) : nil,
             caption: video.caption,
             playback_url: video.playback_url,
             thumbnail_url: video.thumbnail_url,
@@ -76,7 +83,8 @@ module Api
             bio: profile.bio,
             follower_count: profile.follower_count,
             following_count: profile.following_count,
-            video_count: profile.video_count
+            video_count: profile.video_count,
+            verified: profile.verified
           }
         end
 

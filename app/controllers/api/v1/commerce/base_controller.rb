@@ -65,6 +65,7 @@ module Api
           {
             product_id: product.product_id,
             merchant_id: product.commerce_merchant.merchant_id,
+            merchant: merchant_json(product.commerce_merchant),
             storefront_id: product.commerce_storefront&.storefront_id,
             title: product.title,
             description: product.description,

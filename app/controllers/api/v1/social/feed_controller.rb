@@ -27,6 +27,7 @@ module Api
             for_you_feed(cursor, limit)
           end
 
+          preload_creator_profiles(videos)
           render json: {
             items: videos.map { |video| video_json(video) },
             next_cursor: next_cursor,
