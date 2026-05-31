@@ -85,7 +85,7 @@ class MasClientService
   end
 
   def introspect_token(access_token)
-    # Development bypass: use Synapse whoami instead of MAS
+    # Hard bypass: use Synapse whoami instead of MAS
     if ENV["DEV_BYPASS_MAS"] == "true"
       return introspect_via_synapse(access_token)
     end
@@ -99,9 +99,18 @@ class MasClientService
       })
     end
 
-    parse_mas_error(response) unless response.success?
+    if response.success?
+      return JSON.parse(response.body)
+    end
 
-    JSON.parse(response.body)
+    # Development fallback: if MAS introspection fails (e.g. token issued
+    # to a different client), try Synapse whoami directly.
+    if Rails.env.development?
+      Rails.logger.warn "MAS introspection failed (#{response.status}), falling back to Synapse whoami"
+      return introspect_via_synapse(access_token)
+    end
+
+    parse_mas_error(response)
   end
 
   # Development mode: validate token via Synapse whoami endpoint
