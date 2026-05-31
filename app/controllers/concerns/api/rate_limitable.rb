@@ -34,14 +34,18 @@ module Api::RateLimitable
         .gsub(":ip", request.remote_ip)
   end
 
+  def _redis
+    @_redis ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+  end
+
   def rate_limit_count(key, window)
-    Redis.current.get("rate_limit:#{key}").to_i
+    _redis.get("rate_limit:#{key}").to_i
   rescue Redis::CannotConnectError
     0
   end
 
   def increment_rate_limit(key, window)
-    Redis.current.multi do |pipeline|
+    _redis.multi do |pipeline|
       pipeline.incr("rate_limit:#{key}")
       pipeline.expire("rate_limit:#{key}", window)
     end
