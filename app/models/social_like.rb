@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class SocialLike < ApplicationRecord
   belongs_to :social_video
 

@@ -9,7 +9,7 @@ class Api::V1::Social::SearchController < Api::V1::Social::BaseController
     creators = ::SocialCreatorProfile.where("handle ILIKE :query OR display_name ILIKE :query", query: "%#{::SocialCreatorProfile.sanitize_sql_like(query)}%").limit(20)
 
     render json: {
-      videos: videos.select { |video| video.visible_to?(@current_user) }.map { |video| video_json(video) },
+      videos: videos.map { |video| video_json(video) },
       creators: creators.map { |creator| creator_json(creator) }
     }
   end

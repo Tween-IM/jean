@@ -2,7 +2,7 @@
 
 class Api::V1::Commerce::RefundsController < Api::V1::Commerce::BaseController
   def create
-    return if require_scope("commerce:merchant")
+    require_scope("commerce:merchant")
 
     order = find_order
     return if ensure_merchant_owner(order.commerce_merchant)

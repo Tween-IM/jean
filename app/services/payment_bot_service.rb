@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class PaymentBotService
   PAYMENT_BOT_USER_ID = "@_tmcp_payments:tween.example".freeze
   PAYMENT_BOT_DISPLAY_NAME = "Tween Payments".freeze

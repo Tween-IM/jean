@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class SocialReport < ApplicationRecord
   belongs_to :social_video
 

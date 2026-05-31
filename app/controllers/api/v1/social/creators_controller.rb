@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Social::CreatorsController < Api::V1::Social::BaseController
   def show
     require_scope("social:read")

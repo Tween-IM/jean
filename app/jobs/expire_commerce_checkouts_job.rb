@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class ExpireCommerceCheckoutsJob < ApplicationJob
   queue_as :default
 

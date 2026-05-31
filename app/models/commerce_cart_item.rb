@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CommerceCartItem < ApplicationRecord
   belongs_to :commerce_cart
   belongs_to :commerce_sku

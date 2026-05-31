@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
   def index
     require_scope("commerce:read")

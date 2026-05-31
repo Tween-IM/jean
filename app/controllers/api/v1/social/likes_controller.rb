@@ -8,7 +8,7 @@ class Api::V1::Social::LikesController < Api::V1::Social::BaseController
     return if ensure_video_visible(video)
 
     like = video.social_likes.find_or_create_by!(user_id: @current_user.matrix_user_id)
-    emit_like_created(video) if like.persisted?
+    emit_like_created(video) if like.previously_new_record?
     render json: { like_id: like.id, video: video_json(video.reload) }, status: :created
   end
 

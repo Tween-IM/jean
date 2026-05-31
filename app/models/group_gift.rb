@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class GroupGift < ApplicationRecord
   self.table_name = :group_gifts
   self.primary_key = :gift_id

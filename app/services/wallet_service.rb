@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class WalletService
   # TMCP Protocol Section 6: Real Wallet Service Integration
   # Integrated with Tween Pay API at https://wallettween.im

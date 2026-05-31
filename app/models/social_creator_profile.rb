@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class SocialCreatorProfile < ApplicationRecord
   has_many :social_videos, primary_key: :user_id, foreign_key: :creator_user_id
   has_many :videos, class_name: "SocialVideo", primary_key: :user_id, foreign_key: :creator_user_id

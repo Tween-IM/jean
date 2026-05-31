@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CommerceMerchant < ApplicationRecord
   has_many :commerce_storefronts, dependent: :destroy
   has_many :commerce_products, dependent: :destroy

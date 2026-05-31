@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AuthRevocationService
   mattr_accessor :revoked_tokens_cache
   self.revoked_tokens_cache = Rails.cache
@@ -111,11 +113,11 @@ class AuthRevocationService
       room_id: nil
     }
 
-    MatrixEventService.publish_authorization_revoked(
-      user_id: user_id,
-      miniapp_id: miniapp_id,
-      revoked_scopes: scopes,
-      reason: reason
+    MatrixEventService.publish_authorization_event(
+      miniapp_id,
+      user_id,
+      false,
+      { revoked_scopes: scopes, reason: reason }
     )
 
     { event_id: "rev_#{revoked_at}_#{miniapp_id}", content: event_content }
@@ -135,36 +137,28 @@ class AuthRevocationService
       timestamp: Time.current.iso8601
     }
 
-    signature = WebhookService.sign_payload(payload, miniapp.webhook_secret)
-
-    WebhookService.dispatch(
-      url: miniapp.webhook_url,
+    WebhookService.new(secret: miniapp.webhook_secret).deliver(
+      event_type: "authorization.revoked",
       payload: payload,
-      signature: signature
+      webhook_url: miniapp.webhook_url
     )
   rescue => e
     Rails.logger.error "Failed to send revocation webhook: #{e.message}"
     { webhook_failed: true, error: e.message }
   end
 
-  def self.notify_mas(user_id, miniapp_id, scopes)
+  def self.notify_mas(user_id, miniapp_id, _scopes)
     mas_client = MasClientService.new
-    mas_client.revoke_user_permissions(
-      user_id: user_id,
-      client_id: miniapp_id,
-      scopes: scopes
-    )
+    mas_client.revoke_token(user_id)
   rescue => e
     Rails.logger.error "Failed to notify MAS: #{e.message}"
   end
 
   def self.get_all_granted_scopes(user_id, miniapp_id)
-    approval_scope = ApprovalScope.where(
+    AuthorizationApproval.where(
       user_id: user_id,
       miniapp_id: miniapp_id
-    )
-
-    approval_scope.pluck(:scope)
+    ).pluck(:scope)
   end
 
   def self.handle_token_revoked_webhook(data)
@@ -180,7 +174,7 @@ class AuthRevocationService
     user_id = data["user_id"]
     miniapp_id = data["miniapp_id"]
 
-    ApprovalScope.where(
+    AuthorizationApproval.where(
       user_id: user_id,
       miniapp_id: miniapp_id
     ).destroy_all

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class WebhookSecurityService
   MAX_TIMESTAMP_AGE = 300
   IDEMPOTENCY_TTL = 86400

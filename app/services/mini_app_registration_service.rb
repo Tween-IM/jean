@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class MiniAppRegistrationService
   CATEGORIES = %w[shopping finance social productivity entertainment utilities].freeze
   CLASSIFICATIONS = %w[community official partner].freeze

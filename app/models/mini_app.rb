@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class MiniApp < ApplicationRecord
   # TMCP Protocol Section 16: Mini-app classifications
   enum :classification, { official: 0, verified: 1, community: 2, beta: 3 }

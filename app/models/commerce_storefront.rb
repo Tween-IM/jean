@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CommerceStorefront < ApplicationRecord
   belongs_to :commerce_merchant
   has_many :commerce_products, dependent: :nullify

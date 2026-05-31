@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class WebviewSecurityService
   class CSPValidationError < StandardError
     attr_reader :code, :details

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class WebhookDelivery < ApplicationRecord
   MAX_ATTEMPTS = 5
   STATUSES = %w[pending delivered failed dead].freeze

@@ -138,22 +138,20 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
 
   def create_payment_request(cart)
     amount = cart.total_cents.to_d / 100
+    callback_url = ENV.fetch("COMMERCE_CHECKOUT_CALLBACK_URL", "#{ENV.fetch('TMCP_BASE_URL', 'https://tmcp.local')}/api/v1/commerce/checkouts/callback")
+
     WalletService.create_payment_request(
       amount,
       cart.currency,
       "Commerce checkout #{cart.cart_id}",
       @tep_token,
       merchant_order_id: cart.cart_id.upcase.gsub(/[^A-Z0-9\-_]/, "_"),
-      callback_url: "https://tmcp.local/api/v1/commerce/checkouts/callback",
+      callback_url: callback_url,
       items: cart.commerce_cart_items.includes(:commerce_sku).map { |item| payment_item(item) },
       idempotency_key: idempotency_key || cart.cart_id
     ).with_indifferent_access
   rescue WalletService::WalletError => e
-    {
-      payment_id: "pay_#{SecureRandom.urlsafe_base64(18)}",
-      status: "wallet_unavailable",
-      error: e.message
-    }.with_indifferent_access
+    raise ActiveRecord::RecordInvalid.new(nil), "Payment service unavailable: #{e.message}"
   end
 
   def payment_item(item)

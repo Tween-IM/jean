@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Commerce::MerchantsController < Api::V1::Commerce::BaseController
   def create
     require_scope("commerce:merchant")

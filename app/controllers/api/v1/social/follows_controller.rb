@@ -10,7 +10,7 @@ class Api::V1::Social::FollowsController < Api::V1::Social::BaseController
       creator_user_id: creator.user_id
     )
 
-    emit_follow_created(follow, creator)
+    emit_follow_created(follow, creator) if follow.previously_new_record?
     render json: { follow_id: follow.id, creator: creator_json(creator.reload) }, status: :created
   end
 

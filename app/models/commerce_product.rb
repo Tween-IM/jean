@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CommerceProduct < ApplicationRecord
   belongs_to :commerce_merchant
   belongs_to :commerce_storefront, optional: true

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class SocialVideo < ApplicationRecord
   has_one_attached :source_video
   has_one_attached :generated_thumbnail

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Social::BookmarksController < Api::V1::Social::BaseController
   def index
     require_scope("social:read")

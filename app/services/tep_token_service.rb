@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class TepTokenService
   # TMCP Protocol Section 4.3: TEP Token Structure
   # Updated for v1.5.0 with complete claim set

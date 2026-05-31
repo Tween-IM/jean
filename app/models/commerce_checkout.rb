@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CommerceCheckout < ApplicationRecord
   belongs_to :commerce_cart
   belongs_to :commerce_merchant

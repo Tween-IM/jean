@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class StorageService
   # TMCP Protocol Section 10.3: Mini-App Storage System
 

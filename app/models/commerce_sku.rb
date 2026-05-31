@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CommerceSku < ApplicationRecord
   belongs_to :commerce_product
   has_many :commerce_cart_items, dependent: :restrict_with_error

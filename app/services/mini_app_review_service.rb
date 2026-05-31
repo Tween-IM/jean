@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class MiniAppReviewService
   def self.get_review_status(miniapp)
     {

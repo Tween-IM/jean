@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class MasClientService
   ALLOWED_ALGORITHMS = %w[RS256 RS384 RS512].freeze
 

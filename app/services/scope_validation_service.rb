@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class ScopeValidationService
   TMCP_SCOPES = %w[
     user:read

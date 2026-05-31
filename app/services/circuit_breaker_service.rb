@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CircuitBreakerService
   # TMCP Protocol Section 7.7: Circuit Breaker Pattern
 

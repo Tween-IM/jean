@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class MatrixEventService
   # TMCP Protocol Section 8: Event System
   # Updated for v1.5.0 with Payment Bot integration
@@ -522,11 +523,37 @@ class MatrixEventService
     end
 
     def get_user_room(user_id)
-      "!general:matrix.example"
+      return nil unless user_id
+
+      matrix_domain = ENV.fetch("MATRIX_DOMAIN", "tween.im")
+      room_id = find_or_create_user_room(user_id, matrix_domain)
+      room_id || get_default_room
     end
 
     def get_default_room
-      "!tmcp:matrix.example"
+      ENV.fetch("MATRIX_DEFAULT_ROOM", nil)
+    end
+
+    def find_or_create_user_room(user_id, domain)
+      as_token = ENV["MATRIX_AS_TOKEN"]
+      return nil unless as_token
+
+      # Look up rooms where the user is a member via the AS API
+      uri = URI("#{MATRIX_API_URL}/_matrix/client/v3/joined_rooms")
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == "https")
+
+      request = Net::HTTP::Get.new(uri)
+      request["Authorization"] = "Bearer #{as_token}"
+
+      response = http.request(request)
+      return nil unless response.code.to_i == 200
+
+      rooms = JSON.parse(response.body)["joined_rooms"]
+      rooms&.first
+    rescue StandardError => e
+      Rails.logger.error "Failed to resolve user room: #{e.message}"
+      nil
     end
   end
 end

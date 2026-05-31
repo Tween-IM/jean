@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class MfaMethod < ApplicationRecord
   # TMCP Protocol Section 7.4: Multi-Factor Authentication
 

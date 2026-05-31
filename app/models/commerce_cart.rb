@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CommerceCart < ApplicationRecord
   belongs_to :commerce_merchant
   has_many :commerce_cart_items, dependent: :destroy

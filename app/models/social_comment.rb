@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class SocialComment < ApplicationRecord
   belongs_to :social_video
   belongs_to :parent_comment, class_name: "SocialComment", optional: true

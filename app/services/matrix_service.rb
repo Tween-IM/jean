@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class MatrixService
   # Service for interacting with Matrix homeserver as Application Service
 

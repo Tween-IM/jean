@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class SocialFollow < ApplicationRecord
   after_create :increment_counts
   after_destroy :decrement_counts

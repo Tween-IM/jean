@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class CommerceOrderItem < ApplicationRecord
   belongs_to :commerce_order
 

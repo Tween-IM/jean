@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class User < ApplicationRecord
   # TMCP Protocol Section 4.1: Matrix identity mapping
   enum :status, { active: 0, suspended: 1, deactivated: 2 }, default: :active

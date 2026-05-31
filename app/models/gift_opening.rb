@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class GiftOpening < ApplicationRecord
   self.table_name = :gift_openings
   self.primary_key = :id

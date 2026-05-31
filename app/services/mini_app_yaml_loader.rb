@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 class MiniAppYamlLoader
   MINI_APPS_CONFIG_PATH = Rails.root.join("config", "mini_apps.yml")
 

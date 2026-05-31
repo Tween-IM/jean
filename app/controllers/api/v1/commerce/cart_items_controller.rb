@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Commerce::CartItemsController < Api::V1::Commerce::BaseController
   def update
     require_scope("commerce:cart")

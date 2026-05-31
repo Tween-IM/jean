@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Api::V1::Social::ViewsController < Api::V1::Social::BaseController
   def create
     require_scope("social:engage")
