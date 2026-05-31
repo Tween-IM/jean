@@ -8,7 +8,7 @@ module Api::RateLimitable
 
   class_methods do
     def rate_limit(action:, limit: DEFAULT_LIMIT, window: DEFAULT_WINDOW, key: nil)
-      before_action only: action do
+      before_action if: -> { action_name == action.to_s } do
         limit_key = rate_limit_key(key, action)
         current = rate_limit_count(limit_key, window)
 
