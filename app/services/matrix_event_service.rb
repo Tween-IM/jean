@@ -283,71 +283,80 @@ class MatrixEventService
       publish_event(event)
     end
 
-    def publish_video_published(video_data)
+    def publish_post_published(post_data)
       event = {
-        type: "m.tween.social.video.published",
-        sender_id: video_data["creator_id"] || video_data[:creator_id] || SOCIAL_BOT_USER,
+        type: "m.tween.social.post.published",
+        sender_id: post_data["creator_id"] || post_data[:creator_id] || SOCIAL_BOT_USER,
         content: {
-          msgtype: "m.tween.social.video",
-          body: "New video: #{video_data['caption'] || 'Video'}",
-          video_id: video_data["video_id"],
-          creator_id: video_data["creator_id"],
-          thumbnail_url: video_data["thumbnail_url"],
-          published_at: video_data["published_at"] || Time.current.iso8601
+          msgtype: "m.tween.social.post",
+          body: "New post: #{post_data['caption'] || post_data[:caption] || 'Post'}",
+          post_id: post_data["post_id"] || post_data[:post_id] || post_data["video_id"] || post_data[:video_id],
+          content_type: post_data["content_type"] || post_data[:content_type],
+          creator_id: post_data["creator_id"] || post_data[:creator_id],
+          thumbnail_url: post_data["thumbnail_url"] || post_data[:thumbnail_url],
+          published_at: post_data["published_at"] || post_data[:published_at] || Time.current.iso8601
         },
-        room_id: video_data["room_id"] || get_default_room
+        room_id: post_data["room_id"] || post_data[:room_id] || get_default_room
       }
 
       publish_event(event)
     end
 
-    def publish_video_deleted(video_data)
+    alias_method :publish_video_published, :publish_post_published
+
+    def publish_post_deleted(post_data)
       event = {
-        type: "m.tween.social.video.deleted",
+        type: "m.tween.social.post.deleted",
         sender_id: SOCIAL_BOT_USER,
         content: {
-          video_id: video_data["video_id"],
-          creator_id: video_data["creator_id"],
-          deleted_at: video_data["deleted_at"] || Time.current.iso8601
+          post_id: post_data["post_id"] || post_data[:post_id] || post_data["video_id"] || post_data[:video_id],
+          creator_id: post_data["creator_id"] || post_data[:creator_id],
+          deleted_at: post_data["deleted_at"] || post_data[:deleted_at] || Time.current.iso8601
         },
-        room_id: video_data["room_id"] || get_default_room
+        room_id: post_data["room_id"] || post_data[:room_id] || get_default_room
       }
 
       publish_event(event)
     end
 
-    def publish_like_created(like_data)
+    alias_method :publish_video_deleted, :publish_post_deleted
+
+    def publish_post_liked(like_data)
       event = {
-        type: "m.tween.social.like.created",
+        type: "m.tween.social.post.liked",
         sender_id: like_data["user_id"] || like_data[:user_id] || DEFAULT_SENDER,
         content: {
-          video_id: like_data["video_id"],
-          user_id: like_data["user_id"],
-          created_at: like_data["created_at"] || Time.current.iso8601
+          post_id: like_data["post_id"] || like_data[:post_id] || like_data["video_id"] || like_data[:video_id],
+          user_id: like_data["user_id"] || like_data[:user_id],
+          created_at: like_data["created_at"] || like_data[:created_at] || Time.current.iso8601
         },
-        room_id: like_data["room_id"] || get_user_room(like_data["creator_id"] || like_data[:creator_id])
+        room_id: like_data["room_id"] || like_data[:room_id] || get_user_room(like_data["creator_id"] || like_data[:creator_id])
       }
 
       publish_event(event)
     end
 
-    def publish_comment_created(comment_data)
+    alias_method :publish_like_created, :publish_post_liked
+
+    def publish_post_commented(comment_data)
       event = {
-        type: "m.tween.social.comment.created",
+        type: "m.tween.social.post.commented",
         sender_id: comment_data["author_id"] || comment_data[:author_id] || DEFAULT_SENDER,
         content: {
           msgtype: "m.tween.social.comment",
-          body: comment_data["body"],
-          video_id: comment_data["video_id"],
-          comment_id: comment_data["comment_id"],
-          author_id: comment_data["author_id"],
-          created_at: comment_data["created_at"] || Time.current.iso8601
+          body: comment_data["body"] || comment_data[:body],
+          post_id: comment_data["post_id"] || comment_data[:post_id] || comment_data["video_id"] || comment_data[:video_id],
+          comment_id: comment_data["comment_id"] || comment_data[:comment_id],
+          author_id: comment_data["author_id"] || comment_data[:author_id],
+          created_at: comment_data["created_at"] || comment_data[:created_at] || Time.current.iso8601
         },
-        room_id: comment_data["room_id"] || get_user_room(comment_data["creator_id"] || comment_data[:creator_id])
+        room_id: comment_data["room_id"] || comment_data[:room_id] || get_user_room(comment_data["creator_id"] || comment_data[:creator_id])
       }
 
       publish_event(event)
     end
+
+    alias_method :publish_comment_created, :publish_post_commented
 
     def publish_follow_created(follow_data)
       event = {
@@ -364,22 +373,24 @@ class MatrixEventService
       publish_event(event)
     end
 
-    def publish_moderation_updated(moderation_data)
+    def publish_post_moderated(moderation_data)
       event = {
-        type: "m.tween.social.moderation.updated",
+        type: "m.tween.social.post.moderated",
         sender_id: SOCIAL_BOT_USER,
         content: {
-          video_id: moderation_data["video_id"],
-          moderation_status: moderation_data["moderation_status"],
-          creator_id: moderation_data["creator_id"],
-          message: moderation_data["message"],
-          updated_at: moderation_data["updated_at"] || Time.current.iso8601
+          post_id: moderation_data["post_id"] || moderation_data[:post_id] || moderation_data["video_id"] || moderation_data[:video_id],
+          moderation_status: moderation_data["moderation_status"] || moderation_data[:moderation_status],
+          creator_id: moderation_data["creator_id"] || moderation_data[:creator_id],
+          message: moderation_data["message"] || moderation_data[:message],
+          updated_at: moderation_data["updated_at"] || moderation_data[:updated_at] || Time.current.iso8601
         },
-        room_id: moderation_data["room_id"] || get_user_room(moderation_data["creator_id"] || moderation_data[:creator_id])
+        room_id: moderation_data["room_id"] || moderation_data[:room_id] || get_user_room(moderation_data["creator_id"] || moderation_data[:creator_id])
       }
 
       publish_event(event)
     end
+
+    alias_method :publish_moderation_updated, :publish_post_moderated
 
     def publish_order_created(order_data)
       event = {
@@ -477,48 +488,63 @@ class MatrixEventService
     # AS uses as_token as access_token and user_id query param to masquerade
     # Events appear to come from the actual sender (Alice/Bob), not the bot
     def publish_event(event_data)
+      # Enqueue to background job for reliability and to avoid blocking requests
+      if Rails.env.test?
+        _publish_event_sync(event_data)
+      else
+        PublishMatrixEventJob.perform_later(event_data.deep_stringify_keys)
+      end
+    end
+
+    def _publish_event_sync(event_data)
       # Use AS token for authentication (not user access token)
       as_token = ENV["MATRIX_AS_TOKEN"]
       return unless as_token
 
-      room_id = event_data[:room_id]
+      room_id = event_data[:room_id] || event_data["room_id"]
       return unless room_id
 
       # Determine sender - use explicit sender_id from event_data, or extract from content
       # This makes events appear to come from the actual sender (Alice/Bob), not the bot
       sender_id = event_data[:sender_id] ||
+                  event_data["sender_id"] ||
                   event_data.dig(:content, :sender, :user_id) ||
                   event_data.dig("content", "sender", "user_id")
 
       # Fall back to default sender if none found
       sender_id = DEFAULT_SENDER if sender_id.nil?
 
+      event_type = event_data[:type] || event_data["type"]
+      content = event_data[:content] || event_data["content"]
+
       begin
         # Build URI with user_id query param for identity assertion
         # The AS sends the event on behalf of the actual user (Alice/Bob)
-        uri = URI("#{MATRIX_API_URL}/_matrix/client/v3/rooms/#{room_id}/send/#{event_data[:type]}")
+        uri = URI("#{MATRIX_API_URL}/_matrix/client/v3/rooms/#{room_id}/send/#{event_type}")
         uri.query = URI.encode_www_form({ "user_id" => sender_id })
 
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = (uri.scheme == "https")
+        http.open_timeout = 10
+        http.read_timeout = 15
 
         request = Net::HTTP::Post.new(uri)
         request["Authorization"] = "Bearer #{as_token}"
         request["Content-Type"] = "application/json"
-        request.body = event_data[:content].to_json
+        request.body = content.to_json
 
         response = http.request(request)
 
         if response.code.to_i == 200
-          Rails.logger.info "Matrix event published: #{event_data[:type]} to room #{room_id}"
+          Rails.logger.info "Matrix event published: #{event_type} to room #{room_id}"
           JSON.parse(response.body)["event_id"]
         else
           Rails.logger.error "Failed to publish Matrix event: #{response.code} - #{response.body}"
-          nil
+          raise "Matrix event publish failed: #{response.code}"
         end
       rescue => e
         Rails.logger.error "Matrix event publishing error: #{e.message}"
-        nil
+        raise
       end
     end
 

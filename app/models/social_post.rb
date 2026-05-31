@@ -1,6 +1,7 @@
 # frozen_string_literal: true
-class SocialVideo < ApplicationRecord
-  has_one_attached :source_video
+
+class SocialPost < ApplicationRecord
+  has_one_attached :source_media
   has_one_attached :generated_thumbnail
 
   has_many :social_views, dependent: :destroy
@@ -13,19 +14,22 @@ class SocialVideo < ApplicationRecord
   has_many :likes, class_name: "SocialLike", dependent: :destroy
   has_many :comments, class_name: "SocialComment", dependent: :destroy
 
-  before_validation :assign_video_id
-  before_validation :assign_upload_id
+  before_validation :assign_post_id
+  before_validation :assign_media_upload_id
   before_validation :publish_if_ready
-  after_create :increment_creator_video_count
+  after_create :increment_creator_post_count
 
-  validates :video_id, :creator_user_id, :upload_id, presence: true
-  validates :video_id, uniqueness: true
+  validates :post_id, :creator_user_id, :media_upload_id, presence: true
+  validates :post_id, uniqueness: true
   validates :visibility, inclusion: { in: %w[public followers unlisted private] }
   validates :status, inclusion: { in: %w[draft processing published deleted unavailable] }
   validates :moderation_status, inclusion: { in: %w[pending approved rejected limited] }
+  validates :content_type, inclusion: { in: %w[photo video] }
 
   scope :feedable, -> { where(status: "published", moderation_status: %w[approved limited]).where(visibility: %w[public unlisted]) }
   scope :latest, -> { order(published_at: :desc, created_at: :desc) }
+  scope :photos, -> { where(content_type: "photo") }
+  scope :videos, -> { where(content_type: "video") }
 
   def liked_by?(user)
     social_likes.exists?(user_id: user.matrix_user_id)
@@ -36,7 +40,9 @@ class SocialVideo < ApplicationRecord
   end
 
   def process_later
-    SocialVideoProcessingJob.perform_later(self) if source_video.attached?
+    return unless content_type == "video" && source_media.attached?
+
+    SocialPostProcessingJob.perform_later(self)
   end
 
   def visible_to?(user)
@@ -53,25 +59,26 @@ class SocialVideo < ApplicationRecord
   end
 
   private
-    def assign_video_id
-      self.video_id ||= "vid_#{SecureRandom.alphanumeric(12).downcase}"
+
+    def assign_post_id
+      self.post_id ||= "post_#{SecureRandom.alphanumeric(12).downcase}"
     end
 
-    def assign_upload_id
-      self.upload_id ||= "upl_#{SecureRandom.alphanumeric(12).downcase}"
+    def assign_media_upload_id
+      self.media_upload_id ||= "upl_#{SecureRandom.alphanumeric(12).downcase}"
     end
 
     def publish_if_ready
       return unless status.blank? || status == "processing"
 
-      if playback_url.present?
+      if playback_url.present? || (content_type == "photo" && source_media.attached?)
         self.status = "published"
         self.moderation_status = "approved" if moderation_status.blank? || moderation_status == "pending"
         self.published_at ||= Time.current
       end
     end
 
-    def increment_creator_video_count
-      SocialCreatorProfile.find_by(user_id: creator_user_id)&.increment!(:video_count)
+    def increment_creator_post_count
+      SocialCreatorProfile.find_by(user_id: creator_user_id)&.increment!(:post_count)
     end
 end

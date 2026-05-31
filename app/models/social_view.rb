@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 class SocialView < ApplicationRecord
-  belongs_to :social_video
+  belongs_to :social_post
 
   before_validation :assign_viewed_at
   after_create :increment_video_view_count

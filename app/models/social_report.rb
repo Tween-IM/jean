@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 class SocialReport < ApplicationRecord
-  belongs_to :social_video
+  belongs_to :social_post
 
   validates :reporter_user_id, :reason, presence: true
   validates :reporter_user_id, uniqueness: { scope: :social_video_id }

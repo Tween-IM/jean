@@ -11,6 +11,18 @@ class CommerceCheckout < ApplicationRecord
   validates :idempotency_key, uniqueness: { scope: :buyer_user_id }, allow_nil: true
   validates :status, inclusion: { in: %w[created inventory_reserved payment_pending payment_authorized completed expired cancelled failed] }
 
+  def shipping_address
+    {
+      line1: shipping_address_line1,
+      line2: shipping_address_line2,
+      city: shipping_city,
+      state: shipping_state,
+      postal_code: shipping_postal_code,
+      country: shipping_country,
+      phone: shipping_phone
+    }.compact
+  end
+
   def expire!
     update!(status: "expired") if Time.current >= expires_at && !status.in?(%w[completed cancelled failed])
   end

@@ -1,6 +1,20 @@
 # frozen_string_literal: true
 
 class Api::V1::Commerce::OrdersController < Api::V1::Commerce::BaseController
+  def index
+    require_scope("commerce:orders")
+
+    orders = ::CommerceOrder
+      .where(buyer_user_id: @current_user.matrix_user_id)
+      .or(::CommerceOrder.where(commerce_merchant: ::CommerceMerchant.where(owner_user_id: @current_user.matrix_user_id)))
+      .order(created_at: :desc)
+      .limit(limit_param(default: 20, max: 100))
+
+    render json: {
+      orders: orders.map { |order| order_json(order) }
+    }
+  end
+
   def show
     require_scope("commerce:orders")
 
@@ -10,5 +24,11 @@ class Api::V1::Commerce::OrdersController < Api::V1::Commerce::BaseController
     end
 
     render json: { error: "forbidden", message: "Order belongs to another account" }, status: :forbidden
+  end
+
+  private
+
+  def limit_param(default:, max:)
+    [ (params[:limit] || default).to_i, max ].min
   end
 end

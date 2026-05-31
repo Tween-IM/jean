@@ -3,7 +3,7 @@
 class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
   before_action :require_moderator
 
-  def update_video_status
+  def update_post_status
     video_ids = moderation_params[:video_ids]
     new_status = moderation_params[:moderation_status]
 
@@ -12,21 +12,21 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
     end
 
     if video_ids.present? && video_ids.size > 0
-      video = ::SocialVideo.find_by!(video_id: video_ids.first)
+      post = ::SocialPost.find_by!(post_id: video_ids.first)
     elsif params[:video_id].present?
-      video = ::SocialVideo.find_by!(video_id: params[:video_id])
+      post = ::SocialPost.find_by!(post_id: params[:video_id])
     elsif params[:id].present?
-      video = find_video
+      post = find_post
     else
-      return render json: { error: "video_not_found", message: "No video specified" }, status: :not_found
+      return render json: { error: "post_not_found", message: "No post specified" }, status: :not_found
     end
 
-    video.update!(moderation_status: new_status)
+    post.update!(moderation_status: new_status)
 
-    emit_moderation_updated(video)
+    emit_moderation_updated(post)
 
     render json: {
-      video: video_json(video),
+      post: post_json(post),
       moderation_status: new_status,
       moderated_by: @current_user.matrix_user_id,
       moderated_at: Time.current.iso8601
@@ -44,11 +44,11 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
     updated = 0
     ActiveRecord::Base.transaction do
       video_ids.each do |vid|
-        video = ::SocialVideo.find_by(video_id: vid)
-        next unless video
+        post = ::SocialPost.find_by(post_id: vid)
+        next unless post
 
-        video.update!(moderation_status: new_status)
-        emit_moderation_updated(video)
+        post.update!(moderation_status: new_status)
+        emit_moderation_updated(post)
         updated += 1
       end
     end
@@ -64,14 +64,14 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
     per_page = (params[:per_page].presence || 50).to_i.clamp(1, 50)
 
     reports = ::SocialReport
-      .includes(:social_video)
+      .includes(:social_post)
       .where(status: status)
       .order(created_at: :desc)
       .limit(per_page)
       .offset((page - 1) * per_page)
 
     render json: {
-      reports: reports.map { |r| report_with_video_json(r) },
+      reports: reports.map { |r| report_with_post_json(r) },
       page: page,
       per_page: per_page,
       status: status
@@ -80,20 +80,20 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
 
   def resolve_report
     report = ::SocialReport.find(params[:report_id])
-    video = report.social_video
+    post = report.social_post
 
     ActiveRecord::Base.transaction do
       report.update!(status: "resolved")
       case moderation_params[:moderation_status]
       when "rejected"
-        video.update!(moderation_status: "rejected")
+        post.update!(moderation_status: "rejected")
       when "limited"
-        video.update!(moderation_status: "limited")
+        post.update!(moderation_status: "limited")
       end
-      emit_moderation_updated(video) if moderation_params[:moderation_status]
+      emit_moderation_updated(post) if moderation_params[:moderation_status]
     end
 
-    render json: { report: report_json(report), video: video_json(video) }
+    render json: { report: report_json(report), post: post_json(post) }
   end
 
   private
@@ -106,11 +106,11 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
     params.require(:moderation).permit(:moderation_status, :reason, video_ids: [])
   end
 
-  def emit_moderation_updated(video)
+  def emit_moderation_updated(post)
     MatrixEventService.publish_moderation_updated(
-      video_id: video.video_id,
-      creator_id: video.creator_user_id,
-      moderation_status: video.moderation_status,
+      post_id: post.post_id,
+      creator_id: post.creator_user_id,
+      moderation_status: post.moderation_status,
       message: moderation_reason
     )
   end
@@ -119,20 +119,20 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
     moderation_params[:reason].presence || "Reviewed by moderator"
   end
 
-  def report_with_video_json(report)
+  def report_with_post_json(report)
     {
       report_id: report.id,
-      video_id: report.social_video.video_id,
+      post_id: report.social_post.post_id,
       reason: report.reason,
       details: report.details,
       status: report.status,
       reporter_user_id: report.reporter_user_id,
       created_at: report.created_at,
-      video: {
-        video_id: report.social_video.video_id,
-        caption: report.social_video.caption,
-        creator_user_id: report.social_video.creator_user_id,
-        moderation_status: report.social_video.moderation_status
+      post: {
+        post_id: report.social_post.post_id,
+        caption: report.social_post.caption,
+        creator_user_id: report.social_post.creator_user_id,
+        moderation_status: report.social_post.moderation_status
       }
     }
   end

@@ -1,6 +1,16 @@
 # frozen_string_literal: true
 
 class Api::V1::Social::UploadsController < Api::V1::Social::BaseController
+  ACCEPTED_MIME_TYPES = %w[
+    video/mp4
+    video/quicktime
+    video/webm
+    image/jpeg
+    image/png
+    image/heic
+    image/webp
+  ].freeze
+
   def create
     require_scope("social:write")
 
@@ -10,7 +20,7 @@ class Api::V1::Social::UploadsController < Api::V1::Social::BaseController
       checksum: upload_params.fetch(:checksum),
       content_type: upload_params.fetch(:content_type),
       metadata: {
-        purpose: "social_video_source",
+        purpose: "social_post_source",
         creator_user_id: @current_user.matrix_user_id,
         miniapp_id: @miniapp_id
       }
@@ -24,8 +34,7 @@ class Api::V1::Social::UploadsController < Api::V1::Social::BaseController
         url: blob.service_url_for_direct_upload,
         headers: blob.service_headers_for_direct_upload
       },
-      max_duration_ms: 180_000,
-      accepted_mime_types: [ "video/mp4", "video/quicktime", "video/webm" ],
+      accepted_mime_types: ACCEPTED_MIME_TYPES,
       status: "pending_upload"
     }, status: :created
   end
@@ -34,8 +43,8 @@ class Api::V1::Social::UploadsController < Api::V1::Social::BaseController
 
   def upload_params
     permitted = params.require(:upload).permit(:filename, :byte_size, :checksum, :content_type)
-    unless permitted[:content_type].to_s.in?([ "video/mp4", "video/quicktime", "video/webm" ])
-      raise ActionController::BadRequest, "Unsupported video content type"
+    unless permitted[:content_type].to_s.in?(ACCEPTED_MIME_TYPES)
+      raise ActionController::BadRequest, "Unsupported content type"
     end
 
     permitted

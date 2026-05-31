@@ -68,7 +68,8 @@ Rails.application.routes.draw do
           resources :bookmarks, only: [ :index ]
           resource :search, only: [ :show ], controller: :search
           resource :feed, only: [ :show ], controller: :feed
-          resources :videos, only: [ :create, :show, :destroy ] do
+
+          resources :posts, only: [ :create, :show, :update, :destroy ] do
             resource :like, only: [ :create, :destroy ], controller: :likes
             resource :bookmark, only: [ :create, :destroy ], controller: :bookmarks
             resources :shares, only: [ :create ]
@@ -77,10 +78,17 @@ Rails.application.routes.draw do
             resources :comments, only: [ :index, :create ]
             get :analytics, to: "analytics#show", as: :analytics
           end
+
+          # DEPRECATED: /social/videos/* — redirect to posts
+          get "videos/*path", to: redirect("/api/v1/social/posts/%{path}", status: 308)
+          post "videos/*path", to: redirect("/api/v1/social/posts/%{path}", status: 308)
+          patch "videos/*path", to: redirect("/api/v1/social/posts/%{path}", status: 308)
+          delete "videos/*path", to: redirect("/api/v1/social/posts/%{path}", status: 308)
+
           resources :creators, only: [ :show, :update ] do
             resource :follow, only: [ :create, :destroy ], controller: :follows
           end
-          post "moderation/video_status", to: "moderation#update_video_status"
+          post "moderation/post_status", to: "moderation#update_post_status"
           post "moderation/bulk_update", to: "moderation#bulk_update"
           get "moderation/reports", to: "moderation#report_list"
           post "moderation/reports/:report_id/resolve", to: "moderation#resolve_report"
@@ -99,7 +107,7 @@ Rails.application.routes.draw do
               post :cancel
             end
           end
-          resources :orders, only: [ :show ] do
+          resources :orders, only: [ :index, :show ] do
             resource :fulfillment, only: [ :create ], controller: :fulfillments
             resources :refunds, only: [ :create ]
           end

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 class SocialComment < ApplicationRecord
-  belongs_to :social_video
+  belongs_to :social_post
   belongs_to :parent_comment, class_name: "SocialComment", optional: true
   has_many :replies, class_name: "SocialComment", foreign_key: :parent_comment_id, dependent: :destroy
 

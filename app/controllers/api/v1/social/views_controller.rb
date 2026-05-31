@@ -4,10 +4,10 @@ class Api::V1::Social::ViewsController < Api::V1::Social::BaseController
   def create
     require_scope("social:engage")
 
-    video = find_video
-    return if ensure_video_visible(video)
+    post = find_post
+    return if ensure_post_visible(post)
 
-    view = video.social_views.find_or_initialize_by(
+    view = post.social_views.find_or_initialize_by(
       viewer_user_id: @current_user.matrix_user_id,
       session_id: params[:session_id].presence || SecureRandom.uuid
     )
@@ -15,7 +15,7 @@ class Api::V1::Social::ViewsController < Api::V1::Social::BaseController
     view.viewer_user_id = @current_user.matrix_user_id
 
     if view.save
-      render json: { view_id: view.id, video: video_json(video.reload) }, status: :created
+      render json: { view_id: view.id, post: post_json(post.reload) }, status: :created
     else
       render_errors(view)
     end

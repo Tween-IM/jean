@@ -24,7 +24,14 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
         status: "payment_pending",
         payment_id: payment_data.fetch(:payment_id),
         idempotency_key: idempotency_key,
-        metadata: checkout_metadata.merge("payment" => payment_data, "inventory_reserved" => true)
+        metadata: checkout_metadata.merge("payment" => payment_data, "inventory_reserved" => true),
+        shipping_address_line1: checkout_metadata["shipping_address_line1"],
+        shipping_address_line2: checkout_metadata["shipping_address_line2"],
+        shipping_city: checkout_metadata["shipping_city"],
+        shipping_state: checkout_metadata["shipping_state"],
+        shipping_postal_code: checkout_metadata["shipping_postal_code"],
+        shipping_country: checkout_metadata["shipping_country"] || "NG",
+        shipping_phone: checkout_metadata["shipping_phone"]
       )
       order = create_order_from_checkout(checkout, cart)
       checkout.update!(order_id: order.order_id)
@@ -83,7 +90,22 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
   def checkout_metadata
     return {} if params[:checkout].blank?
 
-    params.require(:checkout).permit(shipping_address: {}, billing_address: {}, metadata: {}).to_h
+    params.require(:checkout).permit(
+      :shipping_address_line1,
+      :shipping_address_line2,
+      :shipping_city,
+      :shipping_state,
+      :shipping_postal_code,
+      :shipping_country,
+      :shipping_phone,
+      :billing_address_line1,
+      :billing_address_line2,
+      :billing_city,
+      :billing_state,
+      :billing_postal_code,
+      :billing_country,
+      metadata: {}
+    ).to_h
   end
 
   def create_order_from_checkout(checkout, cart)
@@ -92,6 +114,13 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
       buyer_user_id: cart.buyer_user_id,
       payment_id: checkout.payment_id,
       status: "pending_payment",
+      shipping_address_line1: checkout.shipping_address_line1,
+      shipping_address_line2: checkout.shipping_address_line2,
+      shipping_city: checkout.shipping_city,
+      shipping_state: checkout.shipping_state,
+      shipping_postal_code: checkout.shipping_postal_code,
+      shipping_country: checkout.shipping_country,
+      shipping_phone: checkout.shipping_phone,
       subtotal_cents: cart.subtotal_cents,
       tax_cents: cart.tax_cents,
       shipping_cents: cart.shipping_cents,
@@ -116,9 +145,13 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
   end
 
   def reserve_inventory!(cart)
+    # Lock SKUs in consistent ID order to prevent deadlocks
+    sku_ids = cart.commerce_cart_items.pluck(:commerce_sku_id).sort
+    locked_skus = ::CommerceSku.where(id: sku_ids).lock.to_a.index_by(&:id)
+
     cart.commerce_cart_items.includes(:commerce_sku).each do |item|
-      sku = item.commerce_sku
-      next if sku.quantity_available.nil?
+      sku = locked_skus[item.commerce_sku_id]
+      next if sku.nil? || sku.quantity_available.nil?
       raise ActiveRecord::RecordInvalid, item unless sku.available?(item.quantity)
 
       sku.update!(quantity_available: sku.quantity_available - item.quantity)

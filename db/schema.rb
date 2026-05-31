@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_31_155102) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -97,6 +97,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
     t.jsonb "metadata", default: {}, null: false
     t.string "order_id"
     t.string "payment_id"
+    t.string "shipping_address_line1"
+    t.string "shipping_address_line2"
+    t.string "shipping_city"
+    t.string "shipping_country", default: "NG"
+    t.string "shipping_phone"
+    t.string "shipping_postal_code"
+    t.string "shipping_state"
     t.string "status", default: "created", null: false
     t.datetime "updated_at", null: false
     t.index ["buyer_user_id", "idempotency_key"], name: "index_commerce_checkouts_on_buyer_user_id_and_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
@@ -146,7 +153,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
     t.jsonb "metadata", default: {}, null: false
     t.string "order_id", null: false
     t.string "payment_id", null: false
+    t.string "shipping_address_line1"
+    t.string "shipping_address_line2"
     t.integer "shipping_cents", default: 0, null: false
+    t.string "shipping_city"
+    t.string "shipping_country", default: "NG"
+    t.string "shipping_phone"
+    t.string "shipping_postal_code"
+    t.string "shipping_state"
     t.string "status", default: "pending_payment", null: false
     t.integer "subtotal_cents", default: 0, null: false
     t.integer "tax_cents", default: 0, null: false
@@ -329,11 +343,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
 
   create_table "social_bookmarks", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.bigint "social_video_id", null: false
+    t.bigint "social_post_id", null: false
     t.datetime "updated_at", null: false
     t.string "user_id", null: false
-    t.index ["social_video_id", "user_id"], name: "index_social_bookmarks_on_social_video_id_and_user_id", unique: true
-    t.index ["social_video_id"], name: "index_social_bookmarks_on_social_video_id"
+    t.index ["social_post_id", "user_id"], name: "index_social_bookmarks_on_social_post_id_and_user_id", unique: true
+    t.index ["social_post_id"], name: "index_social_bookmarks_on_social_post_id"
     t.index ["user_id", "created_at"], name: "index_social_bookmarks_on_user_id_and_created_at"
   end
 
@@ -342,13 +356,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
     t.text "body", null: false
     t.datetime "created_at", null: false
     t.bigint "parent_comment_id"
-    t.bigint "social_video_id", null: false
+    t.bigint "social_post_id", null: false
     t.string "status", default: "active", null: false
     t.datetime "updated_at", null: false
     t.index ["author_user_id"], name: "index_social_comments_on_author_user_id"
     t.index ["parent_comment_id"], name: "index_social_comments_on_parent_comment_id"
-    t.index ["social_video_id", "created_at"], name: "index_social_comments_on_social_video_id_and_created_at"
-    t.index ["social_video_id"], name: "index_social_comments_on_social_video_id"
+    t.index ["social_post_id", "created_at"], name: "index_social_comments_on_social_post_id_and_created_at"
+    t.index ["social_post_id"], name: "index_social_comments_on_social_post_id"
   end
 
   create_table "social_creator_profiles", force: :cascade do |t|
@@ -380,11 +394,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
 
   create_table "social_likes", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.bigint "social_video_id", null: false
+    t.bigint "social_post_id", null: false
     t.datetime "updated_at", null: false
     t.string "user_id", null: false
-    t.index ["social_video_id", "user_id"], name: "index_social_likes_on_social_video_id_and_user_id", unique: true
-    t.index ["social_video_id"], name: "index_social_likes_on_social_video_id"
+    t.index ["social_post_id", "user_id"], name: "index_social_likes_on_social_post_id_and_user_id", unique: true
+    t.index ["social_post_id"], name: "index_social_likes_on_social_post_id"
+  end
+
+  create_table "social_posts", force: :cascade do |t|
+    t.text "caption"
+    t.integer "comment_count", default: 0, null: false
+    t.json "commerce_refs", default: [], null: false
+    t.string "content_type", default: "video", null: false
+    t.datetime "created_at", null: false
+    t.string "creator_user_id", null: false
+    t.datetime "deleted_at"
+    t.integer "duration_seconds"
+    t.integer "height"
+    t.integer "like_count", default: 0, null: false
+    t.string "media_upload_id", null: false
+    t.string "moderation_status", default: "pending", null: false
+    t.string "playback_url"
+    t.string "post_id", null: false
+    t.datetime "published_at"
+    t.integer "share_count", default: 0, null: false
+    t.string "status", default: "processing", null: false
+    t.string "thumbnail_url"
+    t.datetime "updated_at", null: false
+    t.json "variants", default: [], null: false
+    t.integer "view_count", default: 0, null: false
+    t.string "visibility", default: "public", null: false
+    t.integer "width"
+    t.index ["content_type"], name: "index_social_posts_on_content_type"
+    t.index ["creator_user_id", "created_at"], name: "index_social_posts_on_creator_user_id_and_created_at"
+    t.index ["post_id"], name: "index_social_posts_on_post_id", unique: true
+    t.index ["status", "moderation_status", "visibility"], name: "index_social_videos_feed_eligibility"
   end
 
   create_table "social_reports", force: :cascade do |t|
@@ -393,11 +437,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
     t.jsonb "metadata", default: {}, null: false
     t.string "reason", null: false
     t.string "reporter_user_id", null: false
-    t.bigint "social_video_id", null: false
+    t.bigint "social_post_id", null: false
     t.string "status", default: "open", null: false
     t.datetime "updated_at", null: false
-    t.index ["social_video_id", "reporter_user_id"], name: "index_social_reports_on_social_video_id_and_reporter_user_id", unique: true
-    t.index ["social_video_id"], name: "index_social_reports_on_social_video_id"
+    t.index ["social_post_id", "reporter_user_id"], name: "index_social_reports_on_social_post_id_and_reporter_user_id", unique: true
+    t.index ["social_post_id"], name: "index_social_reports_on_social_post_id"
     t.index ["status"], name: "index_social_reports_on_status"
   end
 
@@ -405,54 +449,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
     t.datetime "created_at", null: false
     t.jsonb "metadata", default: {}, null: false
     t.string "room_id"
-    t.bigint "social_video_id", null: false
+    t.bigint "social_post_id", null: false
     t.string "target", default: "link", null: false
     t.datetime "updated_at", null: false
     t.string "user_id", null: false
-    t.index ["social_video_id", "created_at"], name: "index_social_shares_on_social_video_id_and_created_at"
-    t.index ["social_video_id"], name: "index_social_shares_on_social_video_id"
+    t.index ["social_post_id", "created_at"], name: "index_social_shares_on_social_post_id_and_created_at"
+    t.index ["social_post_id"], name: "index_social_shares_on_social_post_id"
     t.index ["user_id", "created_at"], name: "index_social_shares_on_user_id_and_created_at"
-  end
-
-  create_table "social_videos", force: :cascade do |t|
-    t.text "caption"
-    t.integer "comment_count", default: 0, null: false
-    t.json "commerce_refs", default: [], null: false
-    t.datetime "created_at", null: false
-    t.string "creator_user_id", null: false
-    t.datetime "deleted_at"
-    t.integer "duration_seconds"
-    t.integer "height"
-    t.integer "like_count", default: 0, null: false
-    t.string "moderation_status", default: "pending", null: false
-    t.string "playback_url"
-    t.datetime "published_at"
-    t.integer "share_count", default: 0, null: false
-    t.string "status", default: "processing", null: false
-    t.string "thumbnail_url"
-    t.datetime "updated_at", null: false
-    t.string "upload_id", null: false
-    t.json "variants", default: [], null: false
-    t.string "video_id", null: false
-    t.integer "view_count", default: 0, null: false
-    t.string "visibility", default: "public", null: false
-    t.integer "width"
-    t.index ["creator_user_id", "created_at"], name: "index_social_videos_on_creator_user_id_and_created_at"
-    t.index ["status", "moderation_status", "visibility"], name: "index_social_videos_feed_eligibility"
-    t.index ["video_id"], name: "index_social_videos_on_video_id", unique: true
   end
 
   create_table "social_views", force: :cascade do |t|
     t.boolean "completed", default: false, null: false
     t.datetime "created_at", null: false
     t.string "session_id", null: false
-    t.bigint "social_video_id", null: false
+    t.bigint "social_post_id", null: false
     t.datetime "updated_at", null: false
     t.datetime "viewed_at", null: false
     t.string "viewer_user_id", null: false
     t.integer "watched_ms", default: 0, null: false
-    t.index ["social_video_id", "viewer_user_id", "session_id"], name: "index_social_views_once_per_session", unique: true
-    t.index ["social_video_id"], name: "index_social_views_on_social_video_id"
+    t.index ["social_post_id", "viewer_user_id", "session_id"], name: "index_social_views_once_per_session", unique: true
+    t.index ["social_post_id"], name: "index_social_views_on_social_post_id"
   end
 
   create_table "storage_entries", force: :cascade do |t|
@@ -518,12 +534,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_210957) do
   add_foreign_key "miniapp_installations", "users"
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
-  add_foreign_key "social_bookmarks", "social_videos"
+  add_foreign_key "social_bookmarks", "social_posts"
   add_foreign_key "social_comments", "social_comments", column: "parent_comment_id"
-  add_foreign_key "social_comments", "social_videos"
-  add_foreign_key "social_likes", "social_videos"
-  add_foreign_key "social_reports", "social_videos"
-  add_foreign_key "social_shares", "social_videos"
-  add_foreign_key "social_views", "social_videos"
+  add_foreign_key "social_comments", "social_posts"
+  add_foreign_key "social_likes", "social_posts"
+  add_foreign_key "social_reports", "social_posts"
+  add_foreign_key "social_shares", "social_posts"
+  add_foreign_key "social_views", "social_posts"
   add_foreign_key "storage_entries", "users"
 end

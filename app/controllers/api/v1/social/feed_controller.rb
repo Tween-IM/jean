@@ -3,7 +3,7 @@
 require "base64"
 
 class Api::V1::Social::FeedController < Api::V1::Social::BaseController
-  FEED_TYPES = %w[for_you following creator saved].freeze
+  FEED_TYPES = %w[for_you following creator saved reels].freeze
   RANKED_FEED_SIZE = 500
 
   def show
@@ -13,20 +13,23 @@ class Api::V1::Social::FeedController < Api::V1::Social::BaseController
     cursor = params[:cursor]
     limit = limit_param
 
-    videos, next_cursor = case feed_type
+    posts, next_cursor = case feed_type
     when "following"
       following_feed(cursor, limit)
     when "creator"
       creator_feed(params[:creator_id], cursor, limit)
     when "saved"
       saved_feed(cursor, limit)
+    when "reels"
+      reels_feed(cursor, limit)
     else
       for_you_feed(cursor, limit)
     end
 
-    preload_creator_profiles(videos)
+    preload_creator_profiles(posts)
+    preload_user_engagement(posts)
     render json: {
-      items: videos.map { |video| video_json(video) },
+      items: posts.map { |post| post_json(post) },
       next_cursor: next_cursor,
       has_more: next_cursor.present?,
       feed_type: feed_type
@@ -43,46 +46,49 @@ class Api::V1::Social::FeedController < Api::V1::Social::BaseController
     following_ids = SocialFollow.active.where(follower_user_id: @current_user.matrix_user_id).pluck(:creator_user_id)
     return [ [], nil ] if following_ids.empty?
 
-    query = ::SocialVideo.feedable.where(creator_user_id: following_ids)
+    query = ::SocialPost.feedable.where(creator_user_id: following_ids)
     apply_cursor(query, cursor, limit)
   end
 
   def creator_feed(creator_id, cursor, limit)
     return [ [], nil ] if creator_id.blank?
 
-    query = ::SocialVideo.feedable.where(creator_user_id: creator_id)
+    query = ::SocialPost.feedable.where(creator_user_id: creator_id)
     apply_cursor(query, cursor, limit)
   end
 
   def saved_feed(cursor, limit)
-    saved_video_ids = SocialBookmark.where(user_id: @current_user.matrix_user_id).pluck(:social_video_id)
-    return [ [], nil ] if saved_video_ids.empty?
+    saved_post_ids = SocialBookmark.where(user_id: @current_user.matrix_user_id).pluck(:social_post_id)
+    return [ [], nil ] if saved_post_ids.empty?
 
-    query = ::SocialVideo.feedable.where(id: saved_video_ids)
+    query = ::SocialPost.feedable.where(id: saved_post_ids)
+    apply_cursor(query, cursor, limit)
+  end
+
+  def reels_feed(cursor, limit)
+    query = ::SocialPost.feedable.where(content_type: "video")
     apply_cursor(query, cursor, limit)
   end
 
   def ranked_feed(cursor, limit)
-    # Use SQL-computed ranking score to avoid loading all videos into memory
-    # Score = engagement / recency_hours, with recency as a SQL expression
     engagement_score = "((like_count * 3) + (comment_count * 5) + (share_count * 10) + (view_count * 0.5))"
     recency_hours = "GREATEST(EXTRACT(EPOCH FROM (NOW() - COALESCE(published_at, created_at))) / 3600, 0.01)"
-    ranked_ids = ::SocialVideo.feedable
+    ranked_ids = ::SocialPost.feedable
       .order(Arel.sql("(#{engagement_score}) / #{recency_hours} DESC"))
       .limit(RANKED_FEED_SIZE)
       .pluck(:id)
 
     return [ [], nil ] if ranked_ids.empty?
 
-    query = ::SocialVideo.feedable.where(id: ranked_ids)
+    query = ::SocialPost.feedable.where(id: ranked_ids)
     apply_cursor(query, cursor, limit)
   end
 
-  def encode_cursor(video)
+  def encode_cursor(post)
     Base64.urlsafe_encode64({
-      published_at: video.published_at&.iso8601,
-      created_at: video.created_at.iso8601,
-      id: video.id
+      published_at: post.published_at&.iso8601,
+      created_at: post.created_at.iso8601,
+      id: post.id
     }.to_json)
   end
 

@@ -44,6 +44,10 @@ class Api::V1::ClientBridgeController < Api::BaseController
       open_social_video(params)
     when "tween.social.shareVideo"
       share_social_video(params)
+    when "tween.social.openPost"
+      open_social_post(params)
+    when "tween.social.sharePost"
+      share_social_post(params)
     when "tween.social.openCreator"
       open_creator(params)
     when "tween.social.createPost"
@@ -61,36 +65,44 @@ class Api::V1::ClientBridgeController < Api::BaseController
     end
   end
 
-  def open_social_video(params)
+  def open_social_post(params)
     require_scope("social:read")
 
-    video_id = params[:video_id]
-    raise ClientBridgeError.new(-32602, "video_id required") if video_id.blank?
+    post_id = params[:post_id] || params[:video_id]
+    raise ClientBridgeError.new(-32602, "post_id required") if post_id.blank?
 
-    video = ::SocialVideo.find_by!(video_id: video_id)
-    raise ClientBridgeError.new(-32004, "Video not found", :not_found) unless video.visible_to?(@current_user)
+    post = ::SocialPost.find_by!(post_id: post_id)
+    raise ClientBridgeError.new(-32004, "Post not found", :not_found) unless post.visible_to?(@current_user)
 
-    { opened: true, video_id: video_id, deep_link: "tween://social/video/#{video_id}" }
+    { opened: true, post_id: post_id, deep_link: "tween://social/post/#{post_id}" }
   end
 
-  def share_social_video(params)
+  def open_social_video(params)
+    open_social_post(params)
+  end
+
+  def share_social_post(params)
     require_scope("social:engage")
 
-    video_id = params[:video_id]
+    post_id = params[:post_id] || params[:video_id]
     room_id = params[:room_id]
-    raise ClientBridgeError.new(-32602, "video_id required") if video_id.blank?
+    raise ClientBridgeError.new(-32602, "post_id required") if post_id.blank?
     raise ClientBridgeError.new(-32602, "room_id required") if room_id.blank?
 
-    video = ::SocialVideo.find_by!(video_id: video_id)
-    raise ClientBridgeError.new(-32004, "Video not found", :not_found) unless video.visible_to?(@current_user)
+    post = ::SocialPost.find_by!(post_id: post_id)
+    raise ClientBridgeError.new(-32004, "Post not found", :not_found) unless post.visible_to?(@current_user)
 
-    share = video.social_shares.create!(
+    share = post.social_shares.create!(
       user_id: @current_user.matrix_user_id,
       target: "matrix_room",
       room_id: room_id
     )
 
     { shared: true, share_id: share.id, room_id: room_id }
+  end
+
+  def share_social_video(params)
+    share_social_post(params)
   end
 
   def open_creator(params)

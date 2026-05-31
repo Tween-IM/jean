@@ -2,8 +2,13 @@
 
 class Api::V1::Commerce::BaseController < Api::BaseController
   include Api::TepAuthenticatable
+  include Api::RateLimitable
 
   before_action :authenticate_tep_token
+
+  rate_limit action: :create, limit: 10, window: 60, key: "commerce:write::user_id"
+  rate_limit action: :checkout, limit: 5, window: 60, key: "commerce:checkout::user_id"
+  rate_limit action: :authorize, limit: 5, window: 60, key: "commerce:pay::user_id"
 
   private
 
