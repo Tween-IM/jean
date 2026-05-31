@@ -18,17 +18,30 @@ module Api::TepAuthenticatable
 
     def authenticate_tep_token
       auth_header = request.headers["Authorization"]
-      return render json: { error: "missing_token", message: "TEP token required" }, status: :unauthorized unless auth_header&.start_with?("Bearer ")
+      Rails.logger.info "[TEP_AUTH] Authorization header present: #{auth_header.present?} | path: #{request.path}"
 
-      @tep_token = auth_header.delete_prefix("Bearer ")
+      if auth_header.blank? || !auth_header.start_with?("Bearer ")
+        Rails.logger.warn "[TEP_AUTH] Missing or malformed Authorization header"
+        return render json: { error: "missing_token", message: "TEP token required" }, status: :unauthorized
+      end
+
+      @tep_token = auth_header.delete_prefix("Bearer ").strip
+      Rails.logger.info "[TEP_AUTH] Token prefix: #{@tep_token[0..20]}... | length: #{@tep_token.length}"
+
       payload = TepTokenService.decode(@tep_token)
+      Rails.logger.info "[TEP_AUTH] Token decoded — sub: #{payload["sub"]}, aud: #{payload["aud"]}, exp: #{Time.at(payload["exp"])}"
 
       @current_user = User.find_by(matrix_user_id: payload["sub"])
-      return render json: { error: "invalid_token", message: "User not found" }, status: :unauthorized unless @current_user
+      unless @current_user
+        Rails.logger.warn "[TEP_AUTH] User not found for sub: #{payload["sub"]}"
+        return render json: { error: "invalid_token", message: "User not found" }, status: :unauthorized
+      end
 
+      Rails.logger.info "[TEP_AUTH] Authenticated user: #{@current_user.matrix_user_id}"
       @miniapp_id = payload["aud"]
       @token_scopes = payload["scope"].to_s.split
     rescue JWT::DecodeError => e
+      Rails.logger.error "[TEP_AUTH] JWT decode failed: #{e.class} — #{e.message}"
       render json: { error: "invalid_token", message: e.message }, status: :unauthorized
     end
 
