@@ -14,6 +14,7 @@ class SocialStory < ApplicationRecord
   validates :story_id, uniqueness: true
   validates :media_type, inclusion: { in: %w[image video text] }
   validates :status, inclusion: { in: %w[active deleted] }
+  validates :duration_seconds, numericality: { less_than_or_equal_to: 60 }, allow_nil: true
 
   scope :active, -> { where(status: "active").where("expires_at > ?", Time.current) }
   scope :expired, -> { where("expires_at <= ?", Time.current) }

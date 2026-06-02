@@ -49,6 +49,10 @@ class Api::V1::Social::BaseController < Api::BaseController
   def preload_creator_profiles(posts)
     creator_ids = posts.map(&:creator_user_id).uniq
     @creator_profiles = SocialCreatorProfile.where(user_id: creator_ids).index_by(&:user_id)
+    # Pre-resolve which creators currently have an active story so the
+    # `creator_json` serializer can include `has_active_story` without
+    # N+1 queries on list endpoints (feed, comments, bookmarks, etc.).
+    @creators_with_active_story = SocialCreatorProfile.user_ids_with_active_story
   end
 
   def preload_user_engagement(posts)
@@ -85,6 +89,15 @@ class Api::V1::Social::BaseController < Api::BaseController
   end
 
   def creator_json(profile)
+    # When bulk-preloaded, use the cached set; otherwise fall back to a
+    # direct query. Avoids N+1 on the feed without breaking ad-hoc lookups
+    # (e.g. /creators/:id).
+    has_story = if defined?(@creators_with_active_story) && @creators_with_active_story
+      @creators_with_active_story.include?(profile.user_id)
+    else
+      profile.has_active_story?
+    end
+
     {
       user_id: profile.user_id,
       handle: profile.handle,
@@ -94,7 +107,8 @@ class Api::V1::Social::BaseController < Api::BaseController
       follower_count: profile.follower_count,
       following_count: profile.following_count,
       post_count: profile.post_count,
-      verified: profile.verified
+      verified: profile.verified,
+      has_active_story: has_story
     }
   end
 

@@ -12,9 +12,19 @@ class SocialCreatorProfile < ApplicationRecord
   validates :user_id, :handle, presence: true
   validates :user_id, :handle, uniqueness: true
 
+  # Set of user_ids with at least one *unexpired, undeleted* story.
+  # Used by the social JSON serializer to flag creators for the story ring.
+  def self.user_ids_with_active_story
+    SocialStory.active.distinct.pluck(:creator_user_id).to_set
+  end
+
+  def has_active_story?
+    @has_active_story ||= SocialStory.active.exists?(creator_user_id: user_id)
+  end
+
   private
 
-    def normalize_handle
-      self.handle = handle.to_s.downcase.delete_prefix("@") if handle.present?
-    end
+  def normalize_handle
+    self.handle = handle.to_s.downcase.delete_prefix("@") if handle.present?
+  end
 end

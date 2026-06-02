@@ -52,6 +52,10 @@ class Api::V1::Social::StoriesController < Api::V1::Social::BaseController
       if story.source_media.attached?
         ActiveStorage::Current.url_options = { host: request.base_url }
         story.media_url = story.source_media.url
+        # Fall back to ffprobe for duration if client didn't send one
+        if story.duration_seconds.blank? && story.media_type == "video"
+          story.duration_seconds = probe_video_duration(story.source_media)
+        end
       end
     end
 
@@ -93,7 +97,27 @@ class Api::V1::Social::StoriesController < Api::V1::Social::BaseController
   private
 
   def story_params
-    params.require(:story).permit(:media_url, :media_type, :caption, :signed_blob_id, :background_color)
+    params.require(:story).permit(:media_url, :media_type, :caption, :signed_blob_id, :background_color, :duration_seconds)
+  end
+
+  def probe_video_duration(attachment)
+    return nil unless defined?(Open3) && system("which ffprobe > /dev/null 2>&1")
+
+    temp = File.join(Dir.tmpdir, "story_probe_#{SecureRandom.hex(4)}.bin")
+    File.open(temp, "wb") { |f| attachment.blob.download { |c| f.write(c) } }
+    out, _err, status = Open3.capture3(
+      "ffprobe", "-v", "error",
+      "-show_entries", "format=duration",
+      "-of", "default=noprint_wrappers=1:nokey=1",
+      temp
+    )
+    File.delete(temp) if File.exist?(temp)
+    return nil unless status.success?
+
+    seconds = out.to_f
+    seconds.positive? ? seconds.round : nil
+  rescue StandardError
+    nil
   end
 
   def story_json(story, viewed_set)
@@ -107,6 +131,7 @@ class Api::V1::Social::StoriesController < Api::V1::Social::BaseController
       media_type: story.media_type,
       caption: story.caption,
       background_color: story.background_color,
+      duration: story.duration_seconds,
       viewed: viewed_set.include?(story.id),
       created_at: story.created_at,
       expires_at: story.expires_at
