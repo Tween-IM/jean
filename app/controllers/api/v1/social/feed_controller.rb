@@ -71,7 +71,7 @@ class Api::V1::Social::FeedController < Api::V1::Social::BaseController
   end
 
   def ranked_feed(cursor, limit)
-    engagement_score = "((like_count * 3) + (comment_count * 5) + (share_count * 10) + (view_count * 0.5))"
+    engagement_score = "(1 + (like_count * 3) + (comment_count * 5) + (share_count * 10) + (view_count * 0.5))"
     recency_hours = "GREATEST(EXTRACT(EPOCH FROM (NOW() - COALESCE(published_at, created_at))) / 3600, 0.01)"
     ranked_ids = ::SocialPost.feedable
       .order(Arel.sql("(#{engagement_score}) / #{recency_hours} DESC"))

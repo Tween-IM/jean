@@ -19,12 +19,12 @@ class SocialPost < ApplicationRecord
   before_validation :publish_if_ready
   after_create :increment_creator_post_count
 
-  validates :post_id, :creator_user_id, :media_upload_id, presence: true
+  validates :post_id, :creator_user_id, presence: true
   validates :post_id, uniqueness: true
   validates :visibility, inclusion: { in: %w[public followers unlisted private] }
   validates :status, inclusion: { in: %w[draft processing published deleted unavailable] }
   validates :moderation_status, inclusion: { in: %w[pending approved rejected limited] }
-  validates :content_type, inclusion: { in: %w[photo video] }
+  validates :content_type, inclusion: { in: %w[photo video text] }
 
   scope :feedable, -> { where(status: "published", moderation_status: %w[approved limited]).where(visibility: %w[public unlisted]) }
   scope :latest, -> { order(published_at: :desc, created_at: :desc) }
@@ -71,7 +71,7 @@ class SocialPost < ApplicationRecord
     def publish_if_ready
       return unless status.blank? || status == "processing"
 
-      if playback_url.present? || (content_type == "photo" && source_media.attached?)
+      if playback_url.present? || (content_type == "photo" && source_media.attached?) || content_type == "text"
         self.status = "published"
         self.moderation_status = "approved" if moderation_status.blank? || moderation_status == "pending"
         self.published_at ||= Time.current
