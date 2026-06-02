@@ -6,17 +6,16 @@ local:
   service: Disk
   root: <%= Rails.root.join("storage") %>
 
-# Amazon S3 — production ActiveStorage service for user uploads
-# (avatars, post media, story media). Configuration is fully env-driven
-# so credentials never need to live in the repo. Set in production
-# via Kamal secrets or your orchestrator's secret manager.
+# Amazon S3 — production storage for user uploads (avatars, post media,
+# story media) AND HLS output (under the hls/ prefix). Configuration is
+# fully env-driven so credentials never need to live in the repo. Set
+# in production via Kamal secrets or your orchestrator's secret manager.
 #
 # Required env vars in production:
 #   AWS_ACCESS_KEY_ID
 #   AWS_SECRET_ACCESS_KEY
 #   AWS_REGION                (e.g. "us-east-1")
-#   AWS_S3_BUCKET             (bucket for user uploads, separate from
-#                              the HLS bucket for clean IAM separation)
+#   AWS_S3_BUCKET             (single bucket for uploads + HLS)
 #
 # Optional:
 #   AWS_S3_ENDPOINT           (S3-compatible endpoint, e.g. MinIO or

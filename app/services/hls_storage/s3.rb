@@ -5,18 +5,21 @@ require "fileutils"
 require "pathname"
 
 module HlsStorage
-  # Uploads the transcode work dir to an S3 bucket under the
+  # Uploads the transcode work dir to the system S3 bucket under the
   # `hls/<post_id>/` prefix and serves the master playlist from a
   # CDN base URL.
   #
-  # Required env vars:
-  #   HLS_S3_BUCKET
-  #   HLS_AWS_REGION
-  #   HLS_AWS_ACCESS_KEY_ID
-  #   HLS_AWS_SECRET_ACCESS_KEY
+  # Uses the same AWS_* credentials and bucket as ActiveStorage (uploads).
+  # HLS files are namespaced under the hls/ prefix to keep them separate.
+  #
+  # Required env vars (shared with ActiveStorage):
+  #   AWS_S3_BUCKET
+  #   AWS_REGION
+  #   AWS_ACCESS_KEY_ID
+  #   AWS_SECRET_ACCESS_KEY
   # Optional:
-  #   HLS_S3_ENDPOINT    — S3-compatible endpoint (MinIO, DO Spaces)
-  #   HLS_CDN_BASE_URL   — CDN the client uses to fetch playlists
+  #   AWS_S3_ENDPOINT      — S3-compatible endpoint (MinIO, DO Spaces)
+  #   HLS_CDN_BASE_URL     — CDN the client uses to fetch playlists
   class S3
     PREFIX = "hls"
 
@@ -31,11 +34,11 @@ module HlsStorage
       cdn_base_url: nil,
       client: nil
     )
-      @bucket            = bucket            || ENV.fetch("HLS_S3_BUCKET")
-      @region            = region            || ENV.fetch("HLS_AWS_REGION", "us-east-1")
-      @access_key_id     = access_key_id     || ENV.fetch("HLS_AWS_ACCESS_KEY_ID")
-      @secret_access_key = secret_access_key || ENV.fetch("HLS_AWS_SECRET_ACCESS_KEY")
-      @endpoint          = endpoint          || ENV["HLS_S3_ENDPOINT"].presence
+      @bucket            = bucket            || ENV.fetch("AWS_S3_BUCKET", "tween-uploads-#{Rails.env}")
+      @region            = region            || ENV.fetch("AWS_REGION", "us-east-1")
+      @access_key_id     = access_key_id     || ENV.fetch("AWS_ACCESS_KEY_ID")
+      @secret_access_key = secret_access_key || ENV.fetch("AWS_SECRET_ACCESS_KEY")
+      @endpoint          = endpoint          || ENV["AWS_S3_ENDPOINT"].presence
       @cdn_base_url      = (cdn_base_url     || ENV["HLS_CDN_BASE_URL"]).to_s.chomp("/")
       @client            = client
     end
