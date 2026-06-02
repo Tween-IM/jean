@@ -6,15 +6,22 @@ require "shellwords"
 
 # Transcodes a source MP4 to 2-rendition HLS (360p + 720p) using ffmpeg.
 #
-# Output layout:
-#   {base_dir}/{post_id}/master.m3u8
-#   {base_dir}/{post_id}/360p/index.m3u8  + 360p_*.ts
-#   {base_dir}/{post_id}/720p/index.m3u8  + 720p_*.ts
+# The service is **storage-agnostic**: it writes its working output
+# (master playlist, variant playlists, .ts segments) into a local
+# directory supplied by the caller and returns metadata describing the
+# layout. Persistence (local disk, S3, etc.) is the caller's job — see
+# HlsStorage.
 #
-# Returns a struct describing the master path, the public base URL for serving
-# the playlist, and the variant metadata suitable for the post's `variants` field.
+# Output layout inside `output_dir`:
+#   output_dir/master.m3u8
+#   output_dir/360p/index.m3u8  + 360p_*.ts
+#   output_dir/720p/index.m3u8  + 720p_*.ts
+#
+# Returns a struct describing the master filename, the variant
+# metadata suitable for the post's `variants` field, and the source
+# duration probed via ffprobe.
 class HlsTranscodeService
-  Result = Struct.new(:master_path, :public_base_url, :variants, :duration_seconds, keyword_init: true)
+  Result = Struct.new(:master_filename, :variants, :duration_seconds, keyword_init: true)
 
   RENDITIONS = [
     { name: "360p", height: 360, bitrate: "800k",  width: 640,  audio_bitrate: "96k" },
@@ -25,27 +32,21 @@ class HlsTranscodeService
 
   class TranscodeError < StandardError; end
 
-  def initialize(source_file:, post_id:, base_dir:, public_base_url:)
+  def initialize(source_file:, output_dir:)
     @source_file = source_file
-    @post_id = post_id
-    @base_dir = base_dir
-    @public_base_url = public_base_url.to_s.chomp("/")
+    @output_dir = output_dir
   end
 
   def call
     raise TranscodeError, "source file missing: #{@source_file}" unless File.exist?(@source_file)
 
-    output_root = File.join(@base_dir, @post_id)
-    FileUtils.rm_rf(output_root)
-    FileUtils.mkdir_p(output_root)
+    FileUtils.mkdir_p(@output_dir)
 
-    variants = RENDITIONS.map { |r| transcode_rendition(r, output_root) }
-
-    master = build_master_playlist(variants, output_root)
+    variants = RENDITIONS.map { |r| transcode_rendition(r) }
+    build_master_playlist(variants)
 
     Result.new(
-      master_path: master,
-      public_base_url: "#{@public_base_url}/#{@post_id}",
+      master_filename: "master.m3u8",
       variants: variants.map { |v| variant_metadata(v) },
       duration_seconds: probe_duration_seconds
     )
@@ -53,8 +54,8 @@ class HlsTranscodeService
 
   private
 
-  def transcode_rendition(rendition, output_root)
-    out_dir = File.join(output_root, rendition[:name])
+  def transcode_rendition(rendition)
+    out_dir = File.join(@output_dir, rendition[:name])
     FileUtils.mkdir_p(out_dir)
 
     playlist = File.join(out_dir, "index.m3u8")
@@ -95,13 +96,12 @@ class HlsTranscodeService
       name: rendition[:name],
       width: rendition[:width],
       height: rendition[:height],
-      bitrate: rendition[:bitrate],
-      playlist_path: playlist
+      bitrate: rendition[:bitrate]
     }
   end
 
-  def build_master_playlist(variants, output_root)
-    master_path = File.join(output_root, "master.m3u8")
+  def build_master_playlist(variants)
+    master_path = File.join(@output_dir, "master.m3u8")
 
     File.open(master_path, "w") do |f|
       f.puts "#EXTM3U"
@@ -112,8 +112,6 @@ class HlsTranscodeService
         f.puts "#{v[:name]}/index.m3u8"
       end
     end
-
-    master_path
   end
 
   def variant_metadata(v)

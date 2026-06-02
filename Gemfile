@@ -75,6 +75,11 @@ gem "thruster", require: false
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 gem "image_processing", "~> 1.2"
 
+# AWS S3 client — used by ActiveStorage in production and by
+# HlsStorage::S3 for HLS output. Credentials come from
+# config/storage.yml + ENV, never hard-coded.
+gem "aws-sdk-s3", "~> 1.0", require: false
+
 # Money and pricing primitives for commerce
 gem "money-rails", "~> 1.15"
 

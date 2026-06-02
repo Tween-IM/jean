@@ -35,6 +35,14 @@ registry:
 env:
   secret:
     - RAILS_MASTER_KEY
+    # AWS S3 — user uploads bucket (ActiveStorage)
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+    # AWS S3 — HLS output bucket (HlsStorage::S3). Use a separate key
+    # so IAM permissions can be scoped: uploads key only writes the
+    # uploads prefix, HLS key only writes the hls/ prefix.
+    - HLS_AWS_ACCESS_KEY_ID
+    - HLS_AWS_SECRET_ACCESS_KEY
   clear:
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.
@@ -52,6 +60,32 @@ env:
 
     # Log everything from Rails
     # RAILS_LOG_LEVEL: debug
+
+    # --- ActiveStorage (user uploads) ---
+    # Defaults to :amazon. Override to :local for a local-disk deploy.
+    # ACTIVE_STORAGE_SERVICE: amazon
+    AWS_REGION: us-east-1
+    AWS_S3_BUCKET: tween-uploads-production
+
+    # Optional S3-compatible endpoint (MinIO, DigitalOcean Spaces, etc.).
+    # Leave blank for real AWS S3. When set, force_path_style is enabled
+    # automatically (see config/storage.yml).
+    # AWS_S3_ENDPOINT: https://nyc3.digitaloceanspaces.com
+
+    # --- HLS output ---
+    # HLS bucket is intentionally separate from the uploads bucket so
+    # IAM policies and lifecycle rules can be tuned independently
+    # (e.g. expire HLS segments after 90d, never expire uploads).
+    HLS_AWS_REGION: us-east-1
+    HLS_S3_BUCKET: tween-hls-production
+    HLS_S3_ENDPOINT:
+    # CDN base URL the client uses to fetch playlists/segments. Should
+    # be a CloudFront / Cloudflare distribution in front of HLS_S3_BUCKET.
+    # HLS_CDN_BASE_URL: https://hls.tween.im
+    # Where ffmpeg writes working files. Leave unset to use the default
+    # in the job (/var/lib/tween/hls). Should be a fast local disk
+    # (the HlsLocalStorage backend copies the work dir to public/hls).
+    # HLS_OUTPUT_DIR: /var/lib/tween/hls
 
 # Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
 # "bin/kamal logs -r job" will tail logs from the first server in the job section.

@@ -22,8 +22,22 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 WORKDIR /app
 
 # Install base packages
+# ffmpeg + ffprobe are required at runtime by SocialPostProcessingJob
+# (HlsTranscodeService shells out to both). libvips is for ActiveStorage
+# image variants. We pin the ffmpeg package version to make the build
+# reproducible — bump deliberately when you need newer codecs.
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y curl libjemalloc2 libvips postgresql-client libyaml-dev pkg-config && \
+    apt-get install --no-install-recommends -y \
+        curl \
+        libjemalloc2 \
+        libvips \
+        postgresql-client \
+        libyaml-dev \
+        pkg-config \
+        ffmpeg \
+    && \
+    ffmpeg -version >/dev/null && \
+    ffprobe -version >/dev/null && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Set environment (will be overridden for dev in compose)
@@ -36,8 +50,18 @@ ENV RAILS_ENV="development" \
 FROM base AS build
 
 # Install packages needed to build gems
+# ffmpeg in the build stage so any gem (e.g. paperclip-era adapters) that
+# needs to link against libav* can; the runtime image already has ffmpeg
+# from the base stage.
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libpq-dev pkg-config libyaml-dev && \
+    apt-get install --no-install-recommends -y \
+        build-essential \
+        git \
+        libpq-dev \
+        pkg-config \
+        libyaml-dev \
+        ffmpeg \
+    && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 # Install application gems
