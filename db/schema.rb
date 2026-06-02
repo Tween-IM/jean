@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_31_155102) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_01_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -374,10 +374,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_31_155102) do
     t.integer "follower_count", default: 0, null: false
     t.integer "following_count", default: 0, null: false
     t.string "handle", null: false
+    t.integer "post_count", default: 0, null: false
     t.datetime "updated_at", null: false
     t.string "user_id", null: false
     t.boolean "verified", default: false, null: false
-    t.integer "video_count", default: 0, null: false
     t.index ["handle"], name: "index_social_creator_profiles_on_handle", unique: true
     t.index ["user_id"], name: "index_social_creator_profiles_on_user_id", unique: true
   end
@@ -456,6 +456,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_31_155102) do
     t.index ["social_post_id", "created_at"], name: "index_social_shares_on_social_post_id_and_created_at"
     t.index ["social_post_id"], name: "index_social_shares_on_social_post_id"
     t.index ["user_id", "created_at"], name: "index_social_shares_on_user_id_and_created_at"
+  end
+
+  create_table "social_stories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "background_color"
+    t.text "caption"
+    t.datetime "created_at", null: false
+    t.string "creator_user_id", null: false
+    t.datetime "expires_at", null: false
+    t.string "media_type", default: "image", null: false
+    t.string "media_url"
+    t.string "status", default: "active", null: false
+    t.string "story_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["creator_user_id", "status", "expires_at"], name: "idx_social_stories_creator_active"
+    t.index ["creator_user_id"], name: "index_social_stories_on_creator_user_id"
+    t.index ["status", "expires_at"], name: "index_social_stories_on_status_and_expires_at"
+    t.index ["story_id"], name: "index_social_stories_on_story_id", unique: true
+  end
+
+  create_table "social_story_views", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "social_story_id", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "viewed_at", null: false
+    t.string "viewer_user_id", null: false
+    t.index ["social_story_id", "viewer_user_id"], name: "idx_social_story_views_unique", unique: true
+    t.index ["social_story_id"], name: "index_social_story_views_on_social_story_id"
+    t.index ["viewer_user_id"], name: "index_social_story_views_on_viewer_user_id"
   end
 
   create_table "social_views", force: :cascade do |t|
@@ -540,6 +568,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_31_155102) do
   add_foreign_key "social_likes", "social_posts"
   add_foreign_key "social_reports", "social_posts"
   add_foreign_key "social_shares", "social_posts"
+  add_foreign_key "social_story_views", "social_stories"
   add_foreign_key "social_views", "social_posts"
   add_foreign_key "storage_entries", "users"
 end

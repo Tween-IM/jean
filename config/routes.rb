@@ -85,8 +85,11 @@ Rails.application.routes.draw do
           patch "videos/*path", to: redirect("/api/v1/social/posts/%{path}", status: 308)
           delete "videos/*path", to: redirect("/api/v1/social/posts/%{path}", status: 308)
 
-          resources :creators, only: [ :show, :update ] do
+          resources :creators, only: [ :show, :update ], constraints: { id: /@[^\/]+/ } do
             resource :follow, only: [ :create, :destroy ], controller: :follows
+          end
+          resources :stories, only: [ :index, :create, :destroy ], controller: :stories do
+            post :view, on: :member
           end
           post "moderation/post_status", to: "moderation#update_post_status"
           post "moderation/bulk_update", to: "moderation#bulk_update"

@@ -3,6 +3,7 @@
 class SocialCreatorProfile < ApplicationRecord
   has_many :social_posts, primary_key: :user_id, foreign_key: :creator_user_id
   has_many :posts, class_name: "SocialPost", primary_key: :user_id, foreign_key: :creator_user_id
+  has_many :social_stories, primary_key: :user_id, foreign_key: :creator_user_id
   has_many :followers, class_name: "SocialFollow", primary_key: :user_id, foreign_key: :creator_user_id
   has_many :following, class_name: "SocialFollow", primary_key: :user_id, foreign_key: :follower_user_id
 

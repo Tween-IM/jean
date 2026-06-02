@@ -79,8 +79,8 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
   def publish_photo_post(post)
     return unless post.source_media.attached?
 
-    url_helpers = Rails.application.routes.url_helpers
-    thumbnail_url = url_helpers.rails_blob_url(post.source_media, only_path: true)
+    ActiveStorage::Current.url_options = { host: request.base_url }
+    thumbnail_url = post.source_media.url
 
     post.update!(
       thumbnail_url: thumbnail_url,

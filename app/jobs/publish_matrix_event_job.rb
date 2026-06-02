@@ -6,6 +6,6 @@ class PublishMatrixEventJob < ApplicationJob
   retry_on StandardError, wait: :polynomially_longer, attempts: 5
 
   def perform(event_data)
-    MatrixEventService.send(:publish_event, event_data)
+    MatrixEventService.send(:_publish_event_sync, event_data)
   end
 end
