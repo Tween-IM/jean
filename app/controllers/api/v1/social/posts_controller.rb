@@ -71,7 +71,13 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
     if post.content_type == "photo"
       publish_photo_post(post)
     else
-      post.update!(status: "processing")
+      # Publish the video immediately with the source blob as a temporary
+      # playback_url. The feedable scope requires status="published", so a
+      # post stranded in "processing" is invisible. Publishing now guarantees
+      # the post shows up in the feed even if the HLS processing job
+      # (process_later) never runs. When the job does run it overwrites
+      # playback_url with the HLS manifest + thumbnail.
+      publish_video_post(post)
       post.process_later
     end
   end
@@ -83,6 +89,25 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
     thumbnail_url = post.source_media.url
 
     post.update!(
+      thumbnail_url: thumbnail_url,
+      status: "published",
+      moderation_status: post.moderation_status.presence || "approved",
+      published_at: post.published_at || Time.current
+    )
+    emit_post_published(post)
+  end
+
+  def publish_video_post(post)
+    return unless post.source_media.attached?
+
+    url_helpers = Rails.application.routes.url_helpers
+    ActiveStorage::Current.url_options = { host: request.base_url }
+
+    playback_url = url_helpers.rails_blob_url(post.source_media, only_path: true)
+    thumbnail_url = post.thumbnail_url.presence || "#{playback_url}#thumbnail"
+
+    post.update!(
+      playback_url: playback_url,
       thumbnail_url: thumbnail_url,
       status: "published",
       moderation_status: post.moderation_status.presence || "approved",
