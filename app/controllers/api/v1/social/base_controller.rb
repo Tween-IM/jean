@@ -113,7 +113,7 @@ class Api::V1::Social::BaseController < Api::BaseController
   end
 
   def comment_json(comment)
-    {
+    base = {
       comment_id: comment.id,
       post_id: comment.social_post.post_id,
       parent_comment_id: comment.parent_comment_id,
@@ -122,6 +122,13 @@ class Api::V1::Social::BaseController < Api::BaseController
       status: comment.status,
       created_at: comment.created_at
     }
+
+    if @current_user
+      base[:like_count] = comment.social_comment_likes.count
+      base[:liked] = comment.social_comment_likes.exists?(user_id: @current_user.matrix_user_id)
+    end
+
+    base
   end
 
   def bookmark_json(bookmark)

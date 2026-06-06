@@ -75,7 +75,9 @@ Rails.application.routes.draw do
             resources :shares, only: [ :create ]
             resources :reports, only: [ :create ]
             resources :views, only: [ :create ]
-            resources :comments, only: [ :index, :create ]
+            resources :comments, only: [ :index, :create ] do
+              resource :like, only: [ :create, :destroy ], controller: :comment_likes
+            end
             get :analytics, to: "analytics#show", as: :analytics
           end
 
