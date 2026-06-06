@@ -63,19 +63,33 @@ class SocialPost < ApplicationRecord
     def assign_post_id
       return if post_id.present?
 
-      loop do
-        self.post_id = "post_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(post_id: post_id)
+      self.class.uncached do
+        10.times do
+          candidate = "post_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(post_id: candidate)
+            self.post_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique post_id after 10 attempts"
     end
 
     def assign_media_upload_id
       return if media_upload_id.present?
 
-      loop do
-        self.media_upload_id = "upl_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(media_upload_id: media_upload_id)
+      self.class.uncached do
+        10.times do
+          candidate = "upl_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(media_upload_id: candidate)
+            self.media_upload_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique media_upload_id after 10 attempts"
     end
 
     def publish_if_ready

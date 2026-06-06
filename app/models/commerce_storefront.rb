@@ -16,10 +16,17 @@ class CommerceStorefront < ApplicationRecord
     def assign_storefront_id
       return if storefront_id.present?
 
-      loop do
-        self.storefront_id = "stf_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(storefront_id: storefront_id)
+      self.class.uncached do
+        10.times do
+          candidate = "stf_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(storefront_id: candidate)
+            self.storefront_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique storefront_id after 10 attempts"
     end
 
     def assign_slug

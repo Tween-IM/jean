@@ -27,6 +27,7 @@ amazon:
   secret_access_key: <%= ENV["AWS_SECRET_ACCESS_KEY"] %>
   region:            <%= ENV.fetch("AWS_REGION", "us-east-1") %>
   bucket:            <%= ENV.fetch("AWS_S3_BUCKET", "tween-uploads-#{Rails.env}") %>
+  public:            true
   <% if ENV["AWS_S3_ENDPOINT"].present? %>
   endpoint:          <%= ENV["AWS_S3_ENDPOINT"] %>
   force_path_style:  true

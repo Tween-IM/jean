@@ -22,18 +22,32 @@ class CommerceMerchant < ApplicationRecord
     def assign_merchant_id
       return if merchant_id.present?
 
-      loop do
-        self.merchant_id = "mch_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(merchant_id: merchant_id)
+      self.class.uncached do
+        10.times do
+          candidate = "mch_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(merchant_id: candidate)
+            self.merchant_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique merchant_id after 10 attempts"
     end
 
     def assign_wallet_id
       return if wallet_id.present?
 
-      loop do
-        self.wallet_id = "tw_merchant_#{SecureRandom.alphanumeric(8).downcase}"
-        break unless self.class.exists?(wallet_id: wallet_id)
+      self.class.uncached do
+        10.times do
+          candidate = "tw_merchant_#{SecureRandom.alphanumeric(8).downcase}"
+          unless self.class.exists?(wallet_id: candidate)
+            self.wallet_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique wallet_id after 10 attempts"
     end
 end

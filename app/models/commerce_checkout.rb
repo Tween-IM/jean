@@ -31,10 +31,17 @@ class CommerceCheckout < ApplicationRecord
     def assign_checkout_id
       return if checkout_id.present?
 
-      loop do
-        self.checkout_id = "chk_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(checkout_id: checkout_id)
+      self.class.uncached do
+        10.times do
+          candidate = "chk_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(checkout_id: candidate)
+            self.checkout_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique checkout_id after 10 attempts"
     end
 
     def assign_expiry

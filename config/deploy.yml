@@ -58,7 +58,7 @@ env:
 
     # --- S3 (uploads + HLS) ---
     # Defaults to :amazon. Override to :local for a local-disk deploy.
-    # ACTIVE_STORAGE_SERVICE: amazon
+    ACTIVE_STORAGE_SERVICE: amazon
     AWS_REGION: us-east-1
     AWS_S3_BUCKET: tween-uploads-production
 

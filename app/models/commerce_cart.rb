@@ -22,9 +22,16 @@ class CommerceCart < ApplicationRecord
     def assign_cart_id
       return if cart_id.present?
 
-      loop do
-        self.cart_id = "cart_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(cart_id: cart_id)
+      self.class.uncached do
+        10.times do
+          candidate = "cart_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(cart_id: candidate)
+            self.cart_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique cart_id after 10 attempts"
     end
 end

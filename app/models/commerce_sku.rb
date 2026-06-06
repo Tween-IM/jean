@@ -23,9 +23,16 @@ class CommerceSku < ApplicationRecord
     def assign_sku_id
       return if sku_id.present?
 
-      loop do
-        self.sku_id = "sku_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(sku_id: sku_id)
+      self.class.uncached do
+        10.times do
+          candidate = "sku_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(sku_id: candidate)
+            self.sku_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique sku_id after 10 attempts"
     end
 end

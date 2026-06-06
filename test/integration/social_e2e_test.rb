@@ -35,7 +35,7 @@ class SocialE2ETest < ActionDispatch::IntegrationTest
     )
 
     @token = TepTokenService.encode(
-      { user_id: @user.matrix_user_id, aud: "ma_tweensocial" },
+      { user_id: @user.matrix_user_id, miniapp_id: "ma_tweensocial" },
       scopes: %w[social:read social:write social:engage]
     )
 
@@ -268,13 +268,24 @@ class SocialE2ETest < ActionDispatch::IntegrationTest
   end
 
   def create_test_blob!(content_type:, filename:)
-    ActiveStorage::Blob.create_before_direct_upload!(
+    blob = ActiveStorage::Blob.create_before_direct_upload!(
       filename: filename,
       byte_size: 1_048_576,
       checksum: Base64.strict_encode64(Digest::MD5.digest("test")),
       content_type: content_type,
       metadata: { purpose: "social_post_source", creator_user_id: @user.matrix_user_id }
     )
+    # Write dummy file content so attach/read operations work in tests
+    FileUtils.mkdir_p(File.dirname(blob.service.path_for(blob.key)))
+    File.write(blob.service.path_for(blob.key), "x" * 1_048_576, mode: "wb")
+    blob
+  end
+
+  def with_active_storage_url_options(host: "http://www.example.com")
+    ActiveStorage::Current.url_options = { host: host }
+    yield
+  ensure
+    ActiveStorage::Current.url_options = nil
   end
 
   def create_post!(content_type:, caption:)
@@ -293,13 +304,15 @@ class SocialE2ETest < ActionDispatch::IntegrationTest
     )
     post.source_media.attach(blob)
 
-    if content_type == "photo"
-      post.update!(thumbnail_url: post.source_media.url)
-    else
-      post.update!(
-        playback_url: Rails.application.routes.url_helpers.rails_blob_url(post.source_media, only_path: true),
-        thumbnail_url: post.source_media.url
-      )
+    with_active_storage_url_options do
+      if content_type == "photo"
+        post.update!(thumbnail_url: post.source_media.url)
+      else
+        post.update!(
+          playback_url: Rails.application.routes.url_helpers.rails_blob_url(post.source_media, only_path: true),
+          thumbnail_url: post.source_media.url
+        )
+      end
     end
 
     post
@@ -319,14 +332,17 @@ class SocialE2ETest < ActionDispatch::IntegrationTest
   def seed_story!
     @seeded_story ||= begin
       blob = create_test_blob!(content_type: "video/mp4", filename: "story.mp4")
-      story = @creator.social_stories.create!(
+      story = @creator.social_stories.new(
         media_type: "video",
         caption: "Integration test story",
         creator_user_id: @user.matrix_user_id,
         duration_seconds: 10
       )
       story.source_media.attach(blob)
-      story.update!(media_url: story.source_media.url)
+      with_active_storage_url_options do
+        story.media_url = story.source_media.url
+      end
+      story.save!
       story
     end
   end
@@ -338,6 +354,7 @@ class SocialE2ETest < ActionDispatch::IntegrationTest
   end
 
   def use_s3_if_configured!
+    return if Rails.env.test?
     return unless s3_configured?
 
     ActiveStorage::Blob.service = ActiveStorage::Service.configure(

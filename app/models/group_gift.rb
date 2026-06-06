@@ -139,7 +139,19 @@ class GroupGift < ApplicationRecord
   private
 
   def generate_gift_id
-    self.gift_id ||= "gift_#{SecureRandom.alphanumeric(12)}"
+    return if gift_id.present?
+
+    self.class.uncached do
+      10.times do
+        candidate = "gift_#{SecureRandom.alphanumeric(12).downcase}"
+        unless self.class.exists?(gift_id: candidate)
+          self.gift_id = candidate
+          return
+        end
+      end
+    end
+
+    raise "Failed to generate unique gift_id after 10 attempts"
   end
 
   def calculate_amount_for_opening

@@ -18,7 +18,7 @@ module Api::RateLimitable
             message: "Too many requests. Please try again in #{window} seconds.",
             retry_after: window
           }, status: :too_many_requests
-          return false
+          throw :abort
         end
 
         increment_rate_limit(limit_key, window)

@@ -27,9 +27,16 @@ class CommerceOrder < ApplicationRecord
     def assign_order_id
       return if order_id.present?
 
-      loop do
-        self.order_id = "ord_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(order_id: order_id)
+      self.class.uncached do
+        10.times do
+          candidate = "ord_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(order_id: candidate)
+            self.order_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique order_id after 10 attempts"
     end
 end

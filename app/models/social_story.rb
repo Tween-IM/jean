@@ -37,10 +37,21 @@ class SocialStory < ApplicationRecord
     def assign_story_id
       return if story_id.present?
 
-      loop do
-        self.story_id = "story_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(story_id: story_id)
+      # Disable query cache so exists? checks are always fresh.
+      # Rails caches SELECT results within a request; without this,
+      # a collision on the first attempt returns a stale cached
+      # result for the second attempt even with a different ID.
+      self.class.uncached do
+        10.times do
+          candidate = "story_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(story_id: candidate)
+            self.story_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique story_id after 10 attempts"
     end
 
     def set_expires_at

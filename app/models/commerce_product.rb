@@ -24,9 +24,16 @@ class CommerceProduct < ApplicationRecord
     def assign_product_id
       return if product_id.present?
 
-      loop do
-        self.product_id = "prod_#{SecureRandom.alphanumeric(12).downcase}"
-        break unless self.class.exists?(product_id: product_id)
+      self.class.uncached do
+        10.times do
+          candidate = "prod_#{SecureRandom.alphanumeric(12).downcase}"
+          unless self.class.exists?(product_id: candidate)
+            self.product_id = candidate
+            return
+          end
+        end
       end
+
+      raise "Failed to generate unique product_id after 10 attempts"
     end
 end
