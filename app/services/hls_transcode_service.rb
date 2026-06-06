@@ -71,6 +71,7 @@ class HlsTranscodeService
       "-c:v", "libx264",
       "-preset", "veryfast",
       "-profile:v", "main",
+      "-pix_fmt", "yuv420p",
       "-crf", "23",
       "-b:v", rendition[:bitrate],
       "-maxrate", rendition[:bitrate],
