@@ -91,7 +91,7 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
     post.update!(
       thumbnail_url: thumbnail_url,
       status: "published",
-      moderation_status: post.moderation_status.presence || "approved",
+      moderation_status: "approved",
       published_at: post.published_at || Time.current
     )
     emit_post_published(post)
@@ -109,7 +109,7 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
       playback_url: playback_url,
       thumbnail_url: thumbnail_url,
       status: "published",
-      moderation_status: post.moderation_status.presence || "approved",
+      moderation_status: "approved",
       published_at: post.published_at || Time.current
     )
     emit_post_published(post)
