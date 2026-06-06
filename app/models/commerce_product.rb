@@ -22,6 +22,11 @@ class CommerceProduct < ApplicationRecord
 
   private
     def assign_product_id
-      self.product_id ||= "prod_#{SecureRandom.alphanumeric(12).downcase}"
+      return if product_id.present?
+
+      loop do
+        self.product_id = "prod_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(product_id: product_id)
+      end
     end
 end

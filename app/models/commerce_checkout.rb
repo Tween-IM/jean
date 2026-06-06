@@ -29,7 +29,12 @@ class CommerceCheckout < ApplicationRecord
 
   private
     def assign_checkout_id
-      self.checkout_id ||= "chk_#{SecureRandom.alphanumeric(12).downcase}"
+      return if checkout_id.present?
+
+      loop do
+        self.checkout_id = "chk_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(checkout_id: checkout_id)
+      end
     end
 
     def assign_expiry

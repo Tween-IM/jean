@@ -35,7 +35,12 @@ class SocialStory < ApplicationRecord
   private
 
     def assign_story_id
-      self.story_id ||= "story_#{SecureRandom.alphanumeric(12).downcase}"
+      return if story_id.present?
+
+      loop do
+        self.story_id = "story_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(story_id: story_id)
+      end
     end
 
     def set_expires_at

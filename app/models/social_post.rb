@@ -61,11 +61,21 @@ class SocialPost < ApplicationRecord
   private
 
     def assign_post_id
-      self.post_id ||= "post_#{SecureRandom.alphanumeric(12).downcase}"
+      return if post_id.present?
+
+      loop do
+        self.post_id = "post_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(post_id: post_id)
+      end
     end
 
     def assign_media_upload_id
-      self.media_upload_id ||= "upl_#{SecureRandom.alphanumeric(12).downcase}"
+      return if media_upload_id.present?
+
+      loop do
+        self.media_upload_id = "upl_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(media_upload_id: media_upload_id)
+      end
     end
 
     def publish_if_ready

@@ -20,10 +20,20 @@ class CommerceMerchant < ApplicationRecord
 
   private
     def assign_merchant_id
-      self.merchant_id ||= "mch_#{SecureRandom.alphanumeric(12).downcase}"
+      return if merchant_id.present?
+
+      loop do
+        self.merchant_id = "mch_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(merchant_id: merchant_id)
+      end
     end
 
     def assign_wallet_id
-      self.wallet_id ||= "tw_merchant_#{SecureRandom.alphanumeric(8).downcase}"
+      return if wallet_id.present?
+
+      loop do
+        self.wallet_id = "tw_merchant_#{SecureRandom.alphanumeric(8).downcase}"
+        break unless self.class.exists?(wallet_id: wallet_id)
+      end
     end
 end

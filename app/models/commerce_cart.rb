@@ -20,6 +20,11 @@ class CommerceCart < ApplicationRecord
 
   private
     def assign_cart_id
-      self.cart_id ||= "cart_#{SecureRandom.alphanumeric(12).downcase}"
+      return if cart_id.present?
+
+      loop do
+        self.cart_id = "cart_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(cart_id: cart_id)
+      end
     end
 end

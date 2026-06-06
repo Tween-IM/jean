@@ -25,6 +25,11 @@ class CommerceOrder < ApplicationRecord
 
   private
     def assign_order_id
-      self.order_id ||= "ord_#{SecureRandom.alphanumeric(12).downcase}"
+      return if order_id.present?
+
+      loop do
+        self.order_id = "ord_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(order_id: order_id)
+      end
     end
 end

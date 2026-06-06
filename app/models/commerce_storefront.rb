@@ -14,7 +14,12 @@ class CommerceStorefront < ApplicationRecord
 
   private
     def assign_storefront_id
-      self.storefront_id ||= "stf_#{SecureRandom.alphanumeric(12).downcase}"
+      return if storefront_id.present?
+
+      loop do
+        self.storefront_id = "stf_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(storefront_id: storefront_id)
+      end
     end
 
     def assign_slug

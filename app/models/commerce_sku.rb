@@ -21,6 +21,11 @@ class CommerceSku < ApplicationRecord
 
   private
     def assign_sku_id
-      self.sku_id ||= "sku_#{SecureRandom.alphanumeric(12).downcase}"
+      return if sku_id.present?
+
+      loop do
+        self.sku_id = "sku_#{SecureRandom.alphanumeric(12).downcase}"
+        break unless self.class.exists?(sku_id: sku_id)
+      end
     end
 end
