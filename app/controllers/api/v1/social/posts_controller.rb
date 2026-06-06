@@ -100,10 +100,9 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
   def publish_video_post(post)
     return unless post.source_media.attached?
 
-    url_helpers = Rails.application.routes.url_helpers
     ActiveStorage::Current.url_options = { host: request.base_url }
 
-    playback_url = url_helpers.rails_blob_url(post.source_media, only_path: true)
+    playback_url = post.source_media.url
     thumbnail_url = post.thumbnail_url.presence || "#{playback_url}#thumbnail"
 
     post.update!(
