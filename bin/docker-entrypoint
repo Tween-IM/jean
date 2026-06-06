@@ -19,7 +19,7 @@ bundle install --local || bundle install
 # (primary, cache, queue, cable) — Rails 8 multi-db setup.
 if [[ "$*" =~ rails && ( "$*" =~ server || "$*" =~ console || "$*" =~ runner || "$*" =~ jobs ) ]]; then
   echo "Preparing all databases..."
-  ./bin/rails db:prepare:all
+  ./bin/rails db:prepare
 fi
 
 exec "${@}"
