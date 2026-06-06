@@ -52,10 +52,7 @@ class Api::V1::Social::StoriesController < Api::V1::Social::BaseController
       if story.source_media.attached?
         ActiveStorage::Current.url_options = { host: request.base_url }
         story.media_url = story.source_media.url
-        # Fall back to ffprobe for duration if client didn't send one
-        if story.duration_seconds.blank? && story.media_type == "video"
-          story.duration_seconds = probe_video_duration(story.source_media)
-        end
+        # Duration is sent by client (trimmed on device); no server-side probe needed
       end
     end
 

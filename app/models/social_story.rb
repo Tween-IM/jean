@@ -7,6 +7,7 @@ class SocialStory < ApplicationRecord
 
   before_validation :assign_story_id, on: :create
   before_validation :set_expires_at, on: :create
+  before_validation :set_default_status, on: :create
 
   validates :story_id, :creator_user_id, :media_type, presence: true
   validates :media_url, presence: true, unless: -> { source_media.attached? || media_type == "text" }
@@ -56,5 +57,9 @@ class SocialStory < ApplicationRecord
 
     def set_expires_at
       self.expires_at ||= 24.hours.from_now
+    end
+
+    def set_default_status
+      self.status ||= "active"
     end
 end

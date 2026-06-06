@@ -3,8 +3,6 @@
 namespace :social do
   desc "Regenerate thumbnail/playback URLs for all posts (run after switching to S3)"
   task fix_media_urls: :environment do
-    require "active_storage/current"
-
     # Set a dummy host for URL generation (won't be used with public S3,
     # but ActiveStorage requires it to be set)
     ActiveStorage::Current.url_options = { host: "https://app.tween.im" }

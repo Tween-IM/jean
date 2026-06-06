@@ -351,6 +351,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_175453) do
     t.index ["user_id", "created_at"], name: "index_social_bookmarks_on_user_id_and_created_at"
   end
 
+  create_table "social_comment_likes", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "social_comment_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_id", null: false
+    t.index ["social_comment_id", "user_id"], name: "index_social_comment_likes_on_social_comment_id_and_user_id", unique: true
+    t.index ["social_comment_id"], name: "index_social_comment_likes_on_social_comment_id"
+    t.index ["user_id"], name: "index_social_comment_likes_on_user_id"
+  end
+
   create_table "social_comments", force: :cascade do |t|
     t.string "author_user_id", null: false
     t.text "body", null: false
