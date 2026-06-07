@@ -30,5 +30,11 @@ class Api::V1::Social::LikesController < Api::V1::Social::BaseController
       creator_id: post.creator_user_id,
       user_id: @current_user.matrix_user_id
     )
+
+    NotificationService.create_like_notification(
+      post: post,
+      actor_user_id: @current_user.matrix_user_id,
+      actor_display_name: current_creator_profile.display_name
+    )
   end
 end

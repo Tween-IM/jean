@@ -5,36 +5,36 @@ require "test_helper"
 class Api::V1::ClientBridgeControllerTest < ActionDispatch::IntegrationTest
   test "tween.social.openVideo returns deep link" do
     user = create_user("bridge_user")
-    video = SocialVideo.create!(
-      video_id: "vid_bridge_test",
+    video = SocialPost.create!(
+      post_id: "vid_bridge_test",
       creator_user_id: user.matrix_user_id,
-      upload_id: "upl_bridge",
+      media_upload_id: "upl_bridge",
       status: "published"
     )
 
     post api_v1_client_bridge_url,
-      params: { jsonrpc: "2.0", method: "tween.social.openVideo", params: { video_id: video.video_id }, id: 1 },
+      params: { jsonrpc: "2.0", method: "tween.social.openVideo", params: { video_id: video.post_id }, id: 1 },
       headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{tep_token(user, "social:read")}" },
       as: :json
 
     assert_response :success
     assert_equal "2.0", response.parsed_body["jsonrpc"]
-    assert_equal video.video_id, response.parsed_body["result"]["video_id"]
+    assert_equal video.post_id, response.parsed_body["result"]["video_id"]
     assert_match(/tween:\/\/social\/video/, response.parsed_body["result"]["deep_link"])
   end
 
   test "tween.social.shareVideo shares to room" do
     user = create_user("share_user")
     creator = create_user("share_creator")
-    video = SocialVideo.create!(
-      video_id: "vid_share_test",
+    video = SocialPost.create!(
+      post_id: "vid_share_test",
       creator_user_id: creator.matrix_user_id,
-      upload_id: "upl_share",
+      media_upload_id: "upl_share",
       status: "published"
     )
 
     post api_v1_client_bridge_url,
-      params: { jsonrpc: "2.0", method: "tween.social.shareVideo", params: { video_id: video.video_id, room_id: "!room:tween.example" }, id: 2 },
+      params: { jsonrpc: "2.0", method: "tween.social.shareVideo", params: { video_id: video.post_id, room_id: "!room:tween.example" }, id: 2 },
       headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{tep_token(user, "social:engage")}" },
       as: :json
 

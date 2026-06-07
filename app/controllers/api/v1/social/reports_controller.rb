@@ -4,8 +4,8 @@ class Api::V1::Social::ReportsController < Api::V1::Social::BaseController
   def create
     require_scope("social:engage")
 
-    video = find_video
-    report = video.social_reports.new(report_params)
+    post = find_post
+    report = post.social_reports.new(report_params)
     report.reporter_user_id = @current_user.matrix_user_id
 
     if report.save

@@ -14,6 +14,7 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     checkout = nil
     order = nil
     ::CommerceCheckout.transaction do
+      apply_shipping!(cart)
       cart.recalculate!
       reserve_inventory!(cart)
       payment_data = create_payment_request(cart)
@@ -25,13 +26,13 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
         payment_id: payment_data.fetch(:payment_id),
         idempotency_key: idempotency_key,
         metadata: checkout_metadata.merge("payment" => payment_data, "inventory_reserved" => true),
-        shipping_address_line1: checkout_metadata["shipping_address_line1"],
-        shipping_address_line2: checkout_metadata["shipping_address_line2"],
-        shipping_city: checkout_metadata["shipping_city"],
-        shipping_state: checkout_metadata["shipping_state"],
-        shipping_postal_code: checkout_metadata["shipping_postal_code"],
-        shipping_country: checkout_metadata["shipping_country"] || "NG",
-        shipping_phone: checkout_metadata["shipping_phone"]
+        shipping_address_line1: shipping_address["address_line1"],
+        shipping_address_line2: shipping_address["address_line2"],
+        shipping_city: shipping_address["city"],
+        shipping_state: shipping_address["state"],
+        shipping_postal_code: shipping_address["postal_code"],
+        shipping_country: shipping_address["country"] || "NG",
+        shipping_phone: shipping_address["phone"]
       )
       order = create_order_from_checkout(checkout, cart)
       checkout.update!(order_id: order.order_id)
@@ -106,6 +107,37 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
       :billing_country,
       metadata: {}
     ).to_h
+  end
+
+  def shipping_address
+    @shipping_address ||= begin
+      address = params[:shipping_address] || ActionController::Parameters.new
+      address = ActionController::Parameters.new(address) unless address.respond_to?(:permit)
+      address.permit(
+        :full_name, :phone, :address_line1, :address_line2, :city, :state,
+        :postal_code, :country
+      ).to_h
+    end
+  end
+
+  def apply_shipping!(cart)
+    profile_id = params[:shipping_profile_id].presence
+    return if profile_id.blank?
+
+    profile = cart.commerce_merchant.commerce_shipping_profiles.active.find_by!(
+      shipping_profile_id: profile_id
+    )
+    quote = profile.calculate_shipping(
+      destination_country: shipping_address["country"].presence || "NG",
+      destination_state: shipping_address["state"].presence,
+      weight_grams: cart.commerce_cart_items
+        .joins(commerce_sku: :commerce_product)
+        .sum("COALESCE(commerce_products.weight_grams, 0)"),
+      subtotal_cents: cart.subtotal_cents
+    )
+    raise ActiveRecord::RecordInvalid, cart if quote[:rate_cents].nil?
+
+    cart.update!(shipping_cents: quote[:rate_cents])
   end
 
   def create_order_from_checkout(checkout, cart)

@@ -78,7 +78,15 @@ class Api::V1::ClientBridgeController < Api::BaseController
   end
 
   def open_social_video(params)
-    open_social_post(params)
+    require_scope("social:read")
+
+    video_id = params[:video_id]
+    raise ClientBridgeError.new(-32602, "video_id required") if video_id.blank?
+
+    post = ::SocialPost.find_by!(post_id: video_id)
+    raise ClientBridgeError.new(-32004, "Post not found", :not_found) unless post.visible_to?(@current_user)
+
+    { opened: true, video_id: video_id, deep_link: "tween://social/video/#{video_id}" }
   end
 
   def share_social_post(params)

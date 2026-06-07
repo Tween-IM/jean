@@ -7,10 +7,10 @@ class Api::V1::Social::VideosControllerTest < ActionDispatch::IntegrationTest
     user = create_user("alice")
     headers = tep_headers(user, "social:read social:write")
 
-    post api_v1_social_videos_url,
+    post api_v1_social_posts_url,
       params: {
-        video: {
-          upload_id: "upl_test_video",
+        post: {
+          media_upload_id: "upl_test_video",
           playback_url: "https://cdn.example.test/videos/one.mp4",
           thumbnail_url: "https://cdn.example.test/videos/one.jpg",
           duration_seconds: 14,
@@ -22,13 +22,13 @@ class Api::V1::Social::VideosControllerTest < ActionDispatch::IntegrationTest
       as: :json
 
     assert_response :created
-    video_id = response.parsed_body.dig("video", "video_id")
-    assert_equal "published", response.parsed_body.dig("video", "status")
+    post_id = response.parsed_body.dig("post", "post_id")
+    assert_equal "published", response.parsed_body.dig("post", "status")
 
     get api_v1_social_feed_url, headers: headers, as: :json
 
     assert_response :success
-    assert_includes response.parsed_body.fetch("items").map { |video| video.fetch("video_id") }, video_id
+    assert_includes response.parsed_body.fetch("items").map { |post| post.fetch("post_id") }, post_id
   end
 
   test "creator can create a video from a signed upload blob" do
@@ -42,12 +42,13 @@ class Api::V1::Social::VideosControllerTest < ActionDispatch::IntegrationTest
     )
     blob.service.upload(blob.key, StringIO.new("clip"), checksum: blob.checksum)
 
-    perform_enqueued_jobs only: SocialVideoProcessingJob do
-      post api_v1_social_videos_url,
+    assert_enqueued_with(job: SocialPostProcessingJob) do
+      post api_v1_social_posts_url,
         params: {
-          video: {
+          post: {
             signed_blob_id: blob.signed_id,
-            caption: "Uploaded through TMCP"
+            caption: "Uploaded through TMCP",
+            content_type: "video"
           }
         },
         headers: headers,
@@ -55,10 +56,10 @@ class Api::V1::Social::VideosControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :created
-    video = SocialVideo.find_by!(video_id: response.parsed_body.dig("video", "video_id"))
-    assert video.source_video.attached?
+    video = SocialPost.find_by!(post_id: response.parsed_body.dig("post", "post_id"))
+    assert video.source_media.attached?
     assert_equal "published", video.status
-    assert_match %r{/rails/active_storage/blobs/}, video.playback_url
+    assert_match %r{/rails/active_storage/}, video.playback_url
   end
 
   private

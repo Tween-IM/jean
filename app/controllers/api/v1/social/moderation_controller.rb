@@ -4,17 +4,15 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
   before_action :require_moderator
 
   def update_post_status
-    video_ids = moderation_params[:video_ids]
+    post_ids = moderation_params[:post_ids]
     new_status = moderation_params[:moderation_status]
 
     unless %w[approved rejected limited].include?(new_status)
       return render json: { error: "invalid_status", message: "Must be approved, rejected, or limited" }, status: :unprocessable_entity
     end
 
-    if video_ids.present? && video_ids.size > 0
-      post = ::SocialPost.find_by!(post_id: video_ids.first)
-    elsif params[:video_id].present?
-      post = ::SocialPost.find_by!(post_id: params[:video_id])
+    if post_ids.present? && post_ids.size > 0
+      post = ::SocialPost.find_by!(post_id: post_ids.first)
     elsif params[:id].present?
       post = find_post
     else
@@ -34,7 +32,7 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
   end
 
   def bulk_update
-    video_ids = Array(moderation_params[:video_ids])
+    post_ids = Array(moderation_params[:post_ids])
     new_status = moderation_params[:moderation_status]
 
     unless %w[approved rejected limited].include?(new_status)
@@ -43,8 +41,8 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
 
     updated = 0
     ActiveRecord::Base.transaction do
-      video_ids.each do |vid|
-        post = ::SocialPost.find_by(post_id: vid)
+      post_ids.each do |post_id|
+        post = ::SocialPost.find_by(post_id: post_id)
         next unless post
 
         post.update!(moderation_status: new_status)
@@ -103,7 +101,7 @@ class Api::V1::Social::ModerationController < Api::V1::Social::BaseController
   end
 
   def moderation_params
-    params.require(:moderation).permit(:moderation_status, :reason, video_ids: [])
+    params.require(:moderation).permit(:moderation_status, :reason, post_ids: [])
   end
 
   def emit_moderation_updated(post)

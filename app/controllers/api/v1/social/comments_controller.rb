@@ -71,5 +71,11 @@ class Api::V1::Social::CommentsController < Api::V1::Social::BaseController
       author_id: comment.author_user_id,
       creator_id: comment.social_post.creator_user_id
     )
+
+    NotificationService.create_comment_notification(
+      comment: comment,
+      actor_user_id: @current_user.matrix_user_id,
+      actor_display_name: current_creator_profile.display_name
+    )
   end
 end

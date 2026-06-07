@@ -109,6 +109,68 @@ class Api::V1::Commerce::CheckoutsControllerTest < ActionDispatch::IntegrationTe
     assert_equal 1, CommerceCheckout.where(buyer_user_id: buyer.matrix_user_id, idempotency_key: "checkout-once").count
   end
 
+  test "selected shipping quote is included in the charged and ordered total" do
+    owner = create_user("shipping-seller")
+    buyer = create_user("shipping-buyer")
+    merchant = CommerceMerchant.create!(
+      owner_user_id: owner.matrix_user_id,
+      miniapp_id: "miniapp.shop.test",
+      display_name: "Shipping Shop",
+      status: "active"
+    )
+    product = merchant.commerce_products.create!(
+      title: "Travel Bag",
+      status: "active",
+      weight_grams: 500
+    )
+    sku = product.commerce_skus.create!(
+      title: "Black",
+      price_cents: 10_000,
+      currency: "NGN",
+      quantity_available: 5
+    )
+    profile = merchant.commerce_shipping_profiles.create!(
+      name: "Standard",
+      zones: [
+        {
+          name: "Nigeria",
+          countries: [ "NG" ],
+          rate_cents: 2_500,
+          transit_days: 3,
+          currency: "NGN"
+        }
+      ]
+    )
+    product.commerce_product_shipping.create!(commerce_shipping_profile: profile)
+    cart = merchant.commerce_carts.create!(
+      buyer_user_id: buyer.matrix_user_id,
+      currency: "NGN"
+    )
+    cart.commerce_cart_items.create!(commerce_sku: sku, quantity: 1)
+
+    with_wallet_stub(:create_payment_request, { payment_id: "pay_shipping_test", status: "created" }) do
+      post api_v1_commerce_checkouts_url,
+        params: {
+          cart_id: cart.cart_id,
+          shipping_profile_id: profile.shipping_profile_id,
+          shipping_address: {
+            address_line1: "1 Market Street",
+            city: "Lagos",
+            state: "Lagos",
+            country: "NG",
+            phone: "+2348000000000"
+          }
+        },
+        headers: tep_headers(buyer, "commerce:checkout"),
+        as: :json
+    end
+
+    assert_response :created
+    assert_equal 2_500, response.parsed_body.dig("cart", "shipping_cents")
+    assert_equal 12_500, response.parsed_body.dig("order", "total_cents")
+    assert_equal "1 Market Street", response.parsed_body.dig("order", "shipping_address", "line1")
+  end
+
   private
 
   def create_user(username)

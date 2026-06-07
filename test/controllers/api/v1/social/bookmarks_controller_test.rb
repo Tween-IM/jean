@@ -5,15 +5,15 @@ class Api::V1::Social::BookmarksControllerTest < ActionDispatch::IntegrationTest
     user = create_user("bookmark-buyer")
     video = create_video(user)
 
-    post api_v1_social_video_bookmark_url(video.video_id), headers: tep_headers(user, "social:read social:engage"), as: :json
+    post api_v1_social_post_bookmark_url(video.post_id), headers: tep_headers(user, "social:read social:engage"), as: :json
 
     assert_response :created
-    assert_equal video.video_id, response.parsed_body.dig("bookmark", "video", "video_id")
+    assert_equal video.post_id, response.parsed_body.dig("bookmark", "post", "post_id")
 
     get api_v1_social_bookmarks_url, headers: tep_headers(user, "social:read"), as: :json
 
     assert_response :success
-    assert_equal [ video.video_id ], response.parsed_body.fetch("bookmarks").map { |bookmark| bookmark.dig("video", "video_id") }
+    assert_equal [ video.post_id ], response.parsed_body.fetch("bookmarks").map { |bookmark| bookmark.dig("post", "post_id") }
   end
 
   private
@@ -28,7 +28,7 @@ class Api::V1::Social::BookmarksControllerTest < ActionDispatch::IntegrationTest
 
   def create_video(user)
     SocialCreatorProfile.create!(user_id: user.matrix_user_id, handle: user.matrix_username.split(":").first)
-    SocialVideo.create!(creator_user_id: user.matrix_user_id, upload_id: "upl_#{SecureRandom.hex(4)}", playback_url: "https://cdn.example.test/video.mp4", caption: "searchable drop")
+    SocialPost.create!(creator_user_id: user.matrix_user_id, media_upload_id: "upl_#{SecureRandom.hex(4)}", playback_url: "https://cdn.example.test/video.mp4", caption: "searchable drop")
   end
 
   def tep_headers(user, scopes)

@@ -5,26 +5,26 @@ require "test_helper"
 class Api::V1::Social::AnalyticsControllerTest < ActionDispatch::IntegrationTest
   test "creator can view their own video analytics" do
     creator = create_user("analytics_creator")
-    video = SocialVideo.create!(
-      video_id: "vid_analytics_test",
+    video = SocialPost.create!(
+      post_id: "vid_analytics_test",
       creator_user_id: creator.matrix_user_id,
-      upload_id: "upl_analytics",
+      media_upload_id: "upl_analytics",
       status: "published",
       view_count: 10,
       like_count: 5,
       comment_count: 3,
       share_count: 2
     )
-    SocialLike.create!(social_video: video, user_id: creator.matrix_user_id)
-    SocialComment.create!(social_video: video, author_user_id: creator.matrix_user_id, body: "Great!")
+    SocialLike.create!(social_post: video, user_id: creator.matrix_user_id)
+    SocialComment.create!(social_post: video, author_user_id: creator.matrix_user_id, body: "Great!")
 
-    get "http://www.example.com/api/v1/social/videos/#{video.video_id}/analytics",
+    get api_v1_social_post_analytics_url(video.post_id),
       headers: tep_headers(creator, "social:analytics social:read"),
       as: :json
 
     assert_response :success
     analytics = response.parsed_body["analytics"]
-    assert_equal video.video_id, analytics["video_id"]
+    assert_equal video.post_id, analytics["post_id"]
     assert_equal 10, analytics["view_count"]
     assert_equal 6, analytics["like_count"]
     assert_equal 4, analytics["comment_count"]
@@ -34,15 +34,15 @@ class Api::V1::Social::AnalyticsControllerTest < ActionDispatch::IntegrationTest
   test "non-creator cannot view video analytics" do
     creator = create_user("analytics_owner")
     other = create_user("analytics_other")
-    video = SocialVideo.create!(
-      video_id: "vid_noanalytics",
+    video = SocialPost.create!(
+      post_id: "vid_noanalytics",
       creator_user_id: creator.matrix_user_id,
-      upload_id: "upl_noana",
+      media_upload_id: "upl_noana",
       status: "published",
       view_count: 10
     )
 
-    get "http://www.example.com/api/v1/social/videos/#{video.video_id}/analytics",
+    get api_v1_social_post_analytics_url(video.post_id),
       headers: tep_headers(other, "social:analytics social:read"),
       as: :json
 
@@ -55,18 +55,18 @@ class Api::V1::Social::AnalyticsControllerTest < ActionDispatch::IntegrationTest
     viewer2 = create_user("viewer2")
     commenter1 = create_user("commenter1")
     commenter2 = create_user("commenter2")
-    video = SocialVideo.create!(
-      video_id: "vid_breakdown",
+    video = SocialPost.create!(
+      post_id: "vid_breakdown",
       creator_user_id: creator.matrix_user_id,
-      upload_id: "upl_break",
+      media_upload_id: "upl_break",
       status: "published"
     )
-    SocialView.create!(social_video: video, viewer_user_id: viewer1.matrix_user_id, session_id: "sess_f", watched_ms: 10000, completed: true)
-    SocialView.create!(social_video: video, viewer_user_id: viewer2.matrix_user_id, session_id: "sess_p", watched_ms: 3000, completed: false)
-    SocialComment.create!(social_video: video, author_user_id: commenter1.matrix_user_id, body: "Nice!", status: "active")
-    SocialComment.create!(social_video: video, author_user_id: commenter2.matrix_user_id, body: "Cool!", status: "active")
+    SocialView.create!(social_post: video, viewer_user_id: viewer1.matrix_user_id, session_id: "sess_f", watched_ms: 10000, completed: true)
+    SocialView.create!(social_post: video, viewer_user_id: viewer2.matrix_user_id, session_id: "sess_p", watched_ms: 3000, completed: false)
+    SocialComment.create!(social_post: video, author_user_id: commenter1.matrix_user_id, body: "Nice!", status: "active")
+    SocialComment.create!(social_post: video, author_user_id: commenter2.matrix_user_id, body: "Cool!", status: "active")
 
-    get "http://www.example.com/api/v1/social/videos/#{video.video_id}/analytics",
+    get api_v1_social_post_analytics_url(video.post_id),
       headers: tep_headers(creator, "social:analytics"),
       as: :json
 

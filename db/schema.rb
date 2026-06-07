@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_02_175453) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_190730) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -86,6 +86,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_175453) do
     t.index ["commerce_merchant_id"], name: "index_commerce_carts_on_commerce_merchant_id"
   end
 
+  create_table "commerce_categories", force: :cascade do |t|
+    t.string "category_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "icon"
+    t.string "name", null: false
+    t.bigint "parent_id"
+    t.integer "product_count", default: 0
+    t.string "slug", null: false
+    t.integer "sort_order", default: 0
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["category_id"], name: "index_commerce_categories_on_category_id", unique: true
+    t.index ["parent_id"], name: "index_commerce_categories_on_parent_id"
+    t.index ["slug"], name: "index_commerce_categories_on_slug", unique: true
+    t.index ["status"], name: "index_commerce_categories_on_status"
+  end
+
   create_table "commerce_checkouts", force: :cascade do |t|
     t.string "buyer_user_id", null: false
     t.string "checkout_id", null: false
@@ -115,18 +133,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_175453) do
   end
 
   create_table "commerce_merchants", force: :cascade do |t|
+    t.text "about"
+    t.string "address_line1"
+    t.string "address_line2"
+    t.string "banner_url"
+    t.string "business_type", default: "individual"
+    t.string "city"
+    t.integer "commission_rate", default: 500
+    t.string "country", default: "NG"
     t.datetime "created_at", null: false
     t.string "display_name", null: false
+    t.string "email"
+    t.string "logo_url"
     t.string "merchant_id", null: false
     t.string "miniapp_id", null: false
     t.string "owner_user_id"
+    t.jsonb "payout_settings", default: {}
+    t.string "phone"
+    t.jsonb "policies", default: {}
+    t.string "registration_number"
+    t.jsonb "social_links", default: {}
+    t.string "state"
     t.string "status", default: "pending_review", null: false
     t.datetime "updated_at", null: false
+    t.datetime "verified_at"
     t.string "wallet_id", null: false
     t.string "webhook_url"
+    t.string "website"
+    t.index ["business_type"], name: "index_commerce_merchants_on_business_type"
     t.index ["merchant_id"], name: "index_commerce_merchants_on_merchant_id", unique: true
     t.index ["miniapp_id"], name: "index_commerce_merchants_on_miniapp_id"
     t.index ["status"], name: "index_commerce_merchants_on_status"
+    t.index ["verified_at"], name: "index_commerce_merchants_on_verified_at"
   end
 
   create_table "commerce_order_items", force: :cascade do |t|
@@ -172,20 +210,102 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_175453) do
     t.index ["payment_id"], name: "index_commerce_orders_on_payment_id"
   end
 
+  create_table "commerce_product_shippings", force: :cascade do |t|
+    t.bigint "commerce_product_id", null: false
+    t.bigint "commerce_shipping_profile_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commerce_product_id", "commerce_shipping_profile_id"], name: "index_product_shippings_on_product_and_profile", unique: true
+    t.index ["commerce_product_id"], name: "index_commerce_product_shippings_on_commerce_product_id"
+    t.index ["commerce_shipping_profile_id"], name: "idx_on_commerce_shipping_profile_id_edbda96abb"
+  end
+
   create_table "commerce_products", force: :cascade do |t|
+    t.bigint "category_id"
     t.bigint "commerce_merchant_id", null: false
     t.bigint "commerce_storefront_id"
+    t.string "condition", default: "new"
     t.datetime "created_at", null: false
     t.text "description"
-    t.json "media_urls", default: [], null: false
+    t.jsonb "dimensions", default: {}
+    t.boolean "featured", default: false
+    t.jsonb "media_urls", default: [], null: false
     t.string "product_id", null: false
+    t.decimal "rating_average", precision: 3, scale: 2
+    t.integer "rating_count", default: 0
+    t.integer "sales_count", default: 0
+    t.text "seo_description"
+    t.string "seo_title"
     t.string "status", default: "draft", null: false
+    t.bigint "subcategory_id"
+    t.string "tags", default: [], array: true
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.integer "view_count", default: 0
+    t.integer "weight_grams"
+    t.index ["category_id"], name: "index_commerce_products_on_category_id"
     t.index ["commerce_merchant_id", "status"], name: "index_commerce_products_on_commerce_merchant_id_and_status"
     t.index ["commerce_merchant_id"], name: "index_commerce_products_on_commerce_merchant_id"
     t.index ["commerce_storefront_id"], name: "index_commerce_products_on_commerce_storefront_id"
+    t.index ["featured"], name: "index_commerce_products_on_featured"
     t.index ["product_id"], name: "index_commerce_products_on_product_id", unique: true
+    t.index ["tags"], name: "index_commerce_products_on_tags", using: :gin
+  end
+
+  create_table "commerce_promotions", force: :cascade do |t|
+    t.integer "budget_cents"
+    t.bigint "commerce_merchant_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "end_at"
+    t.string "name"
+    t.string "promotion_id", null: false
+    t.integer "spent_cents", default: 0
+    t.datetime "start_at"
+    t.string "status", default: "draft", null: false
+    t.jsonb "targeting", default: {}
+    t.string "type"
+    t.datetime "updated_at", null: false
+    t.index ["commerce_merchant_id", "status"], name: "index_commerce_promotions_on_commerce_merchant_id_and_status"
+    t.index ["commerce_merchant_id"], name: "index_commerce_promotions_on_commerce_merchant_id"
+    t.index ["promotion_id"], name: "index_commerce_promotions_on_promotion_id", unique: true
+  end
+
+  create_table "commerce_reviews", force: :cascade do |t|
+    t.text "body"
+    t.string "buyer_user_id", null: false
+    t.bigint "commerce_merchant_id", null: false
+    t.bigint "commerce_order_id"
+    t.bigint "commerce_product_id"
+    t.datetime "created_at", null: false
+    t.integer "helpful_count", default: 0
+    t.integer "rating", null: false
+    t.string "review_id", null: false
+    t.string "status", default: "pending", null: false
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.index ["buyer_user_id", "commerce_product_id"], name: "idx_on_buyer_user_id_commerce_product_id_3ccbfd2e61", unique: true, where: "(commerce_product_id IS NOT NULL)"
+    t.index ["commerce_merchant_id", "status"], name: "index_commerce_reviews_on_commerce_merchant_id_and_status"
+    t.index ["commerce_merchant_id"], name: "index_commerce_reviews_on_commerce_merchant_id"
+    t.index ["commerce_order_id"], name: "index_commerce_reviews_on_commerce_order_id"
+    t.index ["commerce_product_id", "status"], name: "index_commerce_reviews_on_commerce_product_id_and_status"
+    t.index ["commerce_product_id"], name: "index_commerce_reviews_on_commerce_product_id"
+    t.index ["review_id"], name: "index_commerce_reviews_on_review_id", unique: true
+  end
+
+  create_table "commerce_shipping_profiles", force: :cascade do |t|
+    t.bigint "commerce_merchant_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "free_shipping_threshold_cents"
+    t.string "name", null: false
+    t.string "origin_warehouse_id"
+    t.integer "processing_time_days", default: 1
+    t.string "shipping_profile_id", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "zones", default: [], null: false
+    t.index ["commerce_merchant_id", "status"], name: "idx_on_commerce_merchant_id_status_16f0e62a97"
+    t.index ["commerce_merchant_id"], name: "index_commerce_shipping_profiles_on_commerce_merchant_id"
+    t.index ["shipping_profile_id"], name: "index_commerce_shipping_profiles_on_shipping_profile_id", unique: true
   end
 
   create_table "commerce_skus", force: :cascade do |t|
@@ -205,17 +325,54 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_175453) do
   end
 
   create_table "commerce_storefronts", force: :cascade do |t|
+    t.text "about"
+    t.string "accent_color", default: "#7C3AED"
+    t.string "banner_url"
     t.bigint "commerce_merchant_id", null: false
     t.datetime "created_at", null: false
     t.text "description"
     t.string "display_name", null: false
+    t.boolean "featured", default: false
+    t.boolean "is_default", default: false
+    t.string "logo_url"
+    t.integer "order_count", default: 0
+    t.jsonb "policies", default: {}
+    t.integer "product_count", default: 0
+    t.decimal "rating_average", precision: 3, scale: 2
+    t.integer "rating_count", default: 0
     t.string "slug", null: false
+    t.boolean "social_share_enabled", default: true
     t.string "status", default: "draft", null: false
+    t.string "store_url_slug"
     t.string "storefront_id", null: false
     t.datetime "updated_at", null: false
+    t.integer "view_count", default: 0
     t.index ["commerce_merchant_id", "slug"], name: "index_commerce_storefronts_on_commerce_merchant_id_and_slug", unique: true
     t.index ["commerce_merchant_id"], name: "index_commerce_storefronts_on_commerce_merchant_id"
+    t.index ["featured"], name: "index_commerce_storefronts_on_featured"
+    t.index ["status"], name: "index_commerce_storefronts_on_status"
+    t.index ["store_url_slug"], name: "index_commerce_storefronts_on_store_url_slug", unique: true
     t.index ["storefront_id"], name: "index_commerce_storefronts_on_storefront_id", unique: true
+  end
+
+  create_table "commerce_warehouses", force: :cascade do |t|
+    t.string "address_line1"
+    t.string "address_line2"
+    t.string "city"
+    t.bigint "commerce_merchant_id", null: false
+    t.string "country", default: "NG"
+    t.datetime "created_at", null: false
+    t.boolean "is_default", default: false
+    t.string "name", null: false
+    t.string "phone"
+    t.string "postal_code"
+    t.string "state"
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.string "warehouse_id", null: false
+    t.index ["commerce_merchant_id", "status"], name: "index_commerce_warehouses_on_commerce_merchant_id_and_status"
+    t.index ["commerce_merchant_id"], name: "index_commerce_warehouses_on_commerce_merchant_id"
+    t.index ["warehouse_id"], name: "index_commerce_warehouses_on_warehouse_id", unique: true
   end
 
   create_table "mfa_methods", force: :cascade do |t|
@@ -288,6 +445,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_175453) do
     t.string "version"
     t.index ["mini_app_id"], name: "index_miniapp_installations_on_mini_app_id"
     t.index ["user_id"], name: "index_miniapp_installations_on_user_id"
+  end
+
+  create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "actor_id", comment: "Actor matrix_user_id (null for system)"
+    t.text "body"
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.string "notification_type", null: false, comment: "like, comment, follow, mention, payment, system"
+    t.datetime "read_at"
+    t.string "source", default: "social", null: false, comment: "social, matrix, tweenpay, system"
+    t.string "target_id"
+    t.string "target_type", comment: "post, comment, creator, room, payment"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.string "user_id", null: false, comment: "Recipient matrix_user_id"
+    t.index ["notification_type", "user_id"], name: "index_notifications_on_type_and_user_id"
+    t.index ["source", "user_id"], name: "index_notifications_on_source_and_user_id"
+    t.index ["user_id", "created_at"], name: "index_notifications_on_user_id_and_created_at"
+    t.index ["user_id", "read_at"], name: "index_notifications_on_user_id_and_read_at"
   end
 
   create_table "oauth_access_grants", force: :cascade do |t|
@@ -563,14 +739,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_02_175453) do
   add_foreign_key "commerce_cart_items", "commerce_carts"
   add_foreign_key "commerce_cart_items", "commerce_skus"
   add_foreign_key "commerce_carts", "commerce_merchants"
+  add_foreign_key "commerce_categories", "commerce_categories", column: "parent_id"
   add_foreign_key "commerce_checkouts", "commerce_carts"
   add_foreign_key "commerce_checkouts", "commerce_merchants"
   add_foreign_key "commerce_order_items", "commerce_orders"
   add_foreign_key "commerce_orders", "commerce_merchants"
+  add_foreign_key "commerce_product_shippings", "commerce_products"
+  add_foreign_key "commerce_product_shippings", "commerce_shipping_profiles"
   add_foreign_key "commerce_products", "commerce_merchants"
   add_foreign_key "commerce_products", "commerce_storefronts"
+  add_foreign_key "commerce_promotions", "commerce_merchants"
+  add_foreign_key "commerce_reviews", "commerce_merchants"
+  add_foreign_key "commerce_reviews", "commerce_orders"
+  add_foreign_key "commerce_reviews", "commerce_products"
+  add_foreign_key "commerce_shipping_profiles", "commerce_merchants"
   add_foreign_key "commerce_skus", "commerce_products"
   add_foreign_key "commerce_storefronts", "commerce_merchants"
+  add_foreign_key "commerce_warehouses", "commerce_merchants"
   add_foreign_key "mfa_methods", "users"
   add_foreign_key "miniapp_installations", "mini_apps"
   add_foreign_key "miniapp_installations", "users"

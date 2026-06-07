@@ -99,11 +99,39 @@ Rails.application.routes.draw do
           post "moderation/reports/:report_id/resolve", to: "moderation#resolve_report"
         end
 
+        # Notification endpoints
+        resources :notifications, only: [ :index ] do
+          post :read, on: :member
+          post :unread, on: :member
+          collection do
+            post :mark_all_read
+            get :unread_count
+          end
+        end
+
         namespace :commerce do
-          resources :merchants, only: [ :create, :show ]
-          resources :storefronts, only: [ :index, :create, :show, :update ]
-          resources :products, only: [ :index, :show, :create ]
+          resources :merchants, only: [ :index, :create, :show, :update ] do
+            collection do
+              get :me
+            end
+          end
+          resources :storefronts, only: [ :index, :create, :show, :update, :destroy ] do
+            member do
+              get :stats
+            end
+            collection do
+              get "by-slug/:slug", to: "storefronts#by_slug"
+            end
+          end
+          resources :products, only: [ :index, :show, :create, :update, :destroy ] do
+            collection do
+              get :featured
+              get :trending
+              get :search
+            end
+          end
           resources :carts, only: [ :create, :show ] do
+            post :shipping_quotes, on: :member
             resources :items, only: [ :update, :destroy ], controller: :cart_items, param: :sku_id
           end
           resources :checkouts, only: [ :create, :show ] do
@@ -113,9 +141,25 @@ Rails.application.routes.draw do
             end
           end
           resources :orders, only: [ :index, :show ] do
+            member do
+              post :cancel
+            end
             resource :fulfillment, only: [ :create ], controller: :fulfillments
             resources :refunds, only: [ :create ]
           end
+          resources :categories, only: [ :index, :show ]
+          resources :reviews, only: [ :index ] do
+            member do
+              post :helpful
+            end
+          end
+          resources :warehouses, only: [ :index, :create, :update, :destroy ]
+          resources :shipping_profiles, only: [ :index, :create, :update, :destroy ] do
+            member do
+              post :calculate
+            end
+          end
+          get "discover", to: "discover#home"
         end
 
         # Permission Revocation endpoints (TMCP Protocol Section 5.6)

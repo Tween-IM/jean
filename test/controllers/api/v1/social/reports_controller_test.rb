@@ -6,7 +6,7 @@ class Api::V1::Social::ReportsControllerTest < ActionDispatch::IntegrationTest
     reporter = create_user("reporter")
     video = create_video(creator)
 
-    post api_v1_social_video_reports_url(video.video_id),
+    post api_v1_social_post_reports_url(video.post_id),
       params: { report: { reason: "spam", details: "Misleading listing" } },
       headers: tep_headers(reporter, "social:engage"),
       as: :json
@@ -23,7 +23,7 @@ class Api::V1::Social::ReportsControllerTest < ActionDispatch::IntegrationTest
 
   def create_video(user)
     SocialCreatorProfile.create!(user_id: user.matrix_user_id, handle: user.matrix_username.split(":").first)
-    SocialVideo.create!(creator_user_id: user.matrix_user_id, upload_id: "upl_#{SecureRandom.hex(4)}", playback_url: "https://cdn.example.test/video.mp4")
+    SocialPost.create!(creator_user_id: user.matrix_user_id, media_upload_id: "upl_#{SecureRandom.hex(4)}", playback_url: "https://cdn.example.test/video.mp4")
   end
 
   def tep_headers(user, scopes)

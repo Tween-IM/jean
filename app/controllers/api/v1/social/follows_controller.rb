@@ -31,5 +31,11 @@ class Api::V1::Social::FollowsController < Api::V1::Social::BaseController
       follower_id: follow.follower_user_id,
       creator_id: creator.user_id
     )
+
+    NotificationService.create_follow_notification(
+      creator: creator,
+      follower_user_id: @current_user.matrix_user_id,
+      follower_display_name: current_creator_profile.display_name
+    )
   end
 end
