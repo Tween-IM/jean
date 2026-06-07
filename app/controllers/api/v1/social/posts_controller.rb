@@ -103,11 +103,10 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
     ActiveStorage::Current.url_options = { host: request.base_url }
 
     playback_url = post.source_media.url
-    thumbnail_url = post.thumbnail_url.presence || "#{playback_url}#thumbnail"
 
     post.update!(
       playback_url: playback_url,
-      thumbnail_url: thumbnail_url,
+      thumbnail_url: post.thumbnail_url.presence,
       status: "published",
       moderation_status: "approved",
       published_at: post.published_at || Time.current

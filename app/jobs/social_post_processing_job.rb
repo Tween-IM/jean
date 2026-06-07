@@ -40,6 +40,11 @@ class SocialPostProcessingJob < ApplicationJob
           transcode_error: nil
         }
         update_attrs[:duration_seconds] = result.duration_seconds if result.duration_seconds
+
+        if result.thumbnail_filename.present?
+          update_attrs[:thumbnail_url] = storage.public_url(post.post_id, result.thumbnail_filename)
+        end
+
         post.update!(update_attrs)
 
         Rails.logger.info "[SocialPostProcessingJob] Transcoded post=#{post.post_id} -> #{master_url}"

@@ -21,7 +21,7 @@ require "shellwords"
 # metadata suitable for the post's `variants` field, and the source
 # duration probed via ffprobe.
 class HlsTranscodeService
-  Result = Struct.new(:master_filename, :variants, :duration_seconds, keyword_init: true)
+  Result = Struct.new(:master_filename, :variants, :duration_seconds, :thumbnail_filename, keyword_init: true)
 
   RENDITIONS = [
     { name: "360p", height: 360, bitrate: "800k",  width: 640,  audio_bitrate: "96k" },
@@ -44,11 +44,13 @@ class HlsTranscodeService
 
     variants = RENDITIONS.map { |r| transcode_rendition(r) }
     build_master_playlist(variants)
+    thumbnail_filename = generate_thumbnail
 
     Result.new(
       master_filename: "master.m3u8",
       variants: variants.map { |v| variant_metadata(v) },
-      duration_seconds: probe_duration_seconds
+      duration_seconds: probe_duration_seconds,
+      thumbnail_filename: thumbnail_filename
     )
   end
 
@@ -107,6 +109,7 @@ class HlsTranscodeService
     File.open(master_path, "w") do |f|
       f.puts "#EXTM3U"
       f.puts "#EXT-X-VERSION:3"
+      f.puts "#EXT-X-START:TIME-OFFSET=0"
       variants.each do |v|
         bandwidth = v[:bitrate].to_s.gsub(/[^\d]/, "").to_i * 1000
         f.puts "#EXT-X-STREAM-INF:BANDWIDTH=#{bandwidth},RESOLUTION=#{v[:width]}x#{v[:height]}"
@@ -139,5 +142,31 @@ class HlsTranscodeService
     seconds.positive? ? seconds.round : nil
   rescue StandardError
     nil
+  end
+
+  # Extract a single poster frame at ~1 s (or 25 % for very short clips).
+  # Writes thumbnail.jpg into output_dir so HlsStorage persists it
+  # alongside the playlists and segments.
+  def generate_thumbnail
+    seek_seconds = [1, (probe_duration_seconds || 1) * 0.25].min
+    thumb_path = File.join(@output_dir, "thumbnail.jpg")
+
+    cmd = [
+      "ffmpeg", "-y",
+      "-ss", seek_seconds.to_s,
+      "-i", @source_file,
+      "-vf", "scale=480:-2",
+      "-q:v", "2",
+      "-frames:v", "1",
+      thumb_path
+    ]
+
+    out, err, status = Open3.capture3(*cmd)
+    unless status.success?
+      Rails.logger.warn "[HlsTranscodeService] Thumbnail generation failed: #{err.lines.last(3).join}"
+      return nil
+    end
+
+    "thumbnail.jpg"
   end
 end
