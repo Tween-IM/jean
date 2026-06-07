@@ -132,10 +132,17 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
     assign_category(product)
 
     if product.save
-      create_skus(product)
-      link_shipping_profiles(product)
-      product.commerce_storefront&.recache_stats!
-      render json: { product: product_json(product.reload, detail: :full) }, status: :created
+      begin
+        ActiveRecord::Base.transaction do
+          create_skus(product)
+          link_shipping_profiles(product)
+        end
+        product.commerce_storefront&.recache_stats!
+        render json: { product: product_json(product.reload, detail: :full) }, status: :created
+      rescue ActiveRecord::RecordInvalid => e
+        product.destroy
+        render json: { error: "validation_failed", message: e.message }, status: :unprocessable_entity
+      end
     else
       render_errors(product)
     end
