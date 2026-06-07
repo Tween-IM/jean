@@ -110,6 +110,7 @@ Rails.application.routes.draw do
         end
 
         namespace :commerce do
+          resources :uploads, only: [ :create ]
           resources :merchants, only: [ :index, :create, :show, :update ] do
             collection do
               get :me
