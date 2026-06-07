@@ -4,9 +4,15 @@ class Api::V1::Commerce::StorefrontsController < Api::V1::Commerce::BaseControll
   def index
     require_scope("commerce:read")
 
-    storefronts = ::CommerceStorefront.published.includes(:commerce_merchant).order(created_at: :desc)
+    # Merchants viewing their own storefronts should see all statuses;
+    # public discovery only shows published.
+    if params[:merchant_id].present?
+      storefronts = ::CommerceStorefront.includes(:commerce_merchant).order(created_at: :desc)
+      storefronts = storefronts.joins(:commerce_merchant).where(commerce_merchants: { merchant_id: params[:merchant_id] })
+    else
+      storefronts = ::CommerceStorefront.published.includes(:commerce_merchant).order(created_at: :desc)
+    end
     storefronts = storefronts.where(featured: true) if params[:featured] == "true"
-    storefronts = storefronts.joins(:commerce_merchant).where(commerce_merchants: { merchant_id: params[:merchant_id] }) if params[:merchant_id].present?
 
     if params[:search].present?
       query = "%#{params[:search].downcase}%"
@@ -28,6 +34,7 @@ class Api::V1::Commerce::StorefrontsController < Api::V1::Commerce::BaseControll
     return if ensure_merchant_owner(merchant)
 
     storefront = merchant.commerce_storefronts.new(storefront_params)
+    storefront.status = "published" if storefront.status.blank?
 
     if storefront.save
       render json: { storefront: storefront_json(storefront, detail: :full) }, status: :created

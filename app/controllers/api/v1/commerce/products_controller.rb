@@ -124,7 +124,10 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
     merchant = find_merchant
     return if ensure_merchant_owner(merchant)
 
-    product = merchant.commerce_products.new(product_params)
+    permitted = product_params
+    permitted[:title] = permitted.delete(:name) if permitted[:name].present?
+
+    product = merchant.commerce_products.new(permitted)
     assign_storefront(product)
     assign_category(product)
 
@@ -147,7 +150,10 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
     assign_storefront(product)
     assign_category(product)
 
-    if product.update(product_params)
+    permitted = product_params
+    permitted[:title] = permitted.delete(:name) if permitted[:name].present?
+
+    if product.update(permitted)
       update_skus(product) if params[:skus].present?
       link_shipping_profiles(product) if params[:shipping_profile_ids].present?
       product.commerce_storefront&.recache_stats!
@@ -172,7 +178,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
 
   def product_params
     params.require(:product).permit(
-      :title, :description, :status, :condition, :featured,
+      :title, :name, :description, :status, :condition, :featured,
       :weight_grams, :seo_title, :seo_description,
       media_urls: [], tags: [], dimensions: {}
     )
