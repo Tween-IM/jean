@@ -9,7 +9,7 @@ class Api::V1::Commerce::ReviewsController < Api::V1::Commerce::BaseController
       reviews = product.commerce_reviews.approved.order(created_at: :desc)
     elsif params[:storefront_id].present?
       storefront = ::CommerceStorefront.find_by!(storefront_id: params[:storefront_id])
-      reviews = storefront.commerce_reviews.approved.order(created_at: :desc)
+      reviews = ::CommerceReview.approved.where(commerce_merchant_id: storefront.commerce_merchant_id).order(created_at: :desc)
     else
       reviews = ::CommerceReview.approved.order(created_at: :desc)
     end
