@@ -225,7 +225,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
     Array(params[:skus]).each do |sku_params|
       sku_hash = sku_params.respond_to?(:to_unsafe_h) ? sku_params.to_unsafe_h : sku_params
       if sku_hash["sku_id"].present?
-        permitted = sku_hash.except("sku_id").permit(:title, :price_cents, :currency, :inventory_status, :quantity_available, properties: {})
+        permitted = ActionController::Parameters.new(sku_hash.except("sku_id")).permit(:title, :price_cents, :currency, :inventory_status, :quantity_available, properties: {})
         permitted[:currency] ||= 'NGN'
         sku = product.commerce_skus.find_by(sku_id: sku_hash["sku_id"])
         sku&.update!(permitted)
