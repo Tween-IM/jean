@@ -61,7 +61,11 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     checkout = find_checkout
     return if ensure_cart_owner(checkout.commerce_cart)
 
-    result = WalletService.authorize_payment(checkout.payment_id, authorization_params.to_h, @tep_token)
+    # Build auth_proof from authorization params + payment_method fallback
+    auth_proof = authorization_params.to_h
+    auth_proof[:payment_method] = params[:payment_method] if params[:payment_method].present?
+
+    result = WalletService.authorize_payment(checkout.payment_id, auth_proof, @tep_token)
     order = ::CommerceOrder.find_by!(order_id: checkout.order_id)
     checkout.update!(status: "completed", metadata: checkout.metadata.merge("authorization" => result))
     order.update!(status: "paid", metadata: order.metadata.merge("authorization" => result))
@@ -71,7 +75,19 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     render json: { checkout: checkout_json(checkout), order: order_json(order) }
   rescue WalletService::WalletError => e
     checkout&.update!(status: "failed", metadata: checkout.metadata.merge("payment_error" => e.message))
-    render json: { error: "payment_failed", message: e.message }, status: :payment_required
+    # Surface wallet-specific error codes so the frontend can show actionable messages
+    error_code = e.code&.to_s&.downcase || "payment_failed"
+    user_message = case error_code
+    when "payment_access_denied"
+      "Payment access denied. Please complete wallet verification in TweenPay."
+    when "insufficient_funds"
+      "Insufficient funds. Please top up your wallet."
+    when "insufficient_scope"
+      "Payment authorization failed. Please sign out and back in."
+    else
+      e.message
+    end
+    render json: { error: error_code, message: user_message }, status: :payment_required
   end
 
   def cancel
