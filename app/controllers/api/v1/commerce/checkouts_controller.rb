@@ -184,10 +184,14 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     ).tap do |order|
       cart.commerce_cart_items.includes(commerce_sku: :commerce_product).find_each do |cart_item|
         sku = cart_item.commerce_sku
+        product = sku.commerce_product
         order.commerce_order_items.create!(
           sku_id: sku.sku_id,
-          product_id: sku.commerce_product.product_id,
+          product_id: product.product_id,
           title: sku.title,
+          product_name: product.title,
+          product_media_url: product.media_urls.first,
+          variant_attributes: cart_item.variant_attributes,
           quantity: cart_item.quantity,
           unit_price_cents: cart_item.unit_price_cents,
           line_total_cents: cart_item.line_total_cents,

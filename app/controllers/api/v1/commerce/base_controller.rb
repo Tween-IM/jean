@@ -296,7 +296,11 @@ class Api::V1::Commerce::BaseController < Api::BaseController
   def order_item_json(item)
     {
       sku_id: item.sku_id,
+      product_id: item.product_id,
       title: item.title,
+      product_name: item.product_name,
+      product_media_url: item.product_media_url,
+      variant_attributes: item.variant_attributes,
       quantity: item.quantity,
       unit_price_cents: item.unit_price_cents,
       line_total_cents: item.line_total_cents,
