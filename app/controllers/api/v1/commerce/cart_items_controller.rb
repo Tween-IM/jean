@@ -10,8 +10,13 @@ class Api::V1::Commerce::CartItemsController < Api::V1::Commerce::BaseController
     sku = ::CommerceSku.find_by!(sku_id: params[:sku_id])
     item = cart.commerce_cart_items.find_or_initialize_by(commerce_sku: sku)
     item.quantity = params.require(:quantity)
+    item.currency = sku.currency
+    item.unit_price_cents = sku.price_cents
+    item.line_total_cents = sku.price_cents * item.quantity
 
     if item.save
+      cart.update!(currency: sku.currency) if cart.currency != sku.currency
+      cart.recalculate!
       render json: { cart: cart_json(cart.reload) }
     else
       render_errors(item)

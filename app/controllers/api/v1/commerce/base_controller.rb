@@ -129,11 +129,14 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       banner_url: storefront.banner_url,
       accent_color: storefront.accent_color,
       featured: storefront.featured,
+      is_default: storefront.is_default,
       rating_average: storefront.rating_average,
       rating_count: storefront.rating_count,
       product_count: storefront.product_count,
       order_count: storefront.order_count,
-      created_at: storefront.created_at
+      view_count: storefront.view_count,
+      created_at: storefront.created_at,
+      updated_at: storefront.updated_at
     }
 
     if detail == :full
@@ -141,6 +144,8 @@ class Api::V1::Commerce::BaseController < Api::BaseController
         about: storefront.about,
         policies: storefront.policies,
         social_share_enabled: storefront.social_share_enabled,
+        seo_title: storefront.seo_title,
+        seo_description: storefront.seo_description,
         merchant: merchant_json(storefront.commerce_merchant, detail: :public)
       )
     end

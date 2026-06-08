@@ -7,7 +7,7 @@ class Api::V1::Commerce::CartsController < Api::V1::Commerce::BaseController
     merchant = find_merchant
     cart = merchant.commerce_carts.create!(
       buyer_user_id: @current_user.matrix_user_id,
-      currency: params[:currency].presence || "USD",
+      currency: params[:currency].presence || "NGN",
       status: "active"
     )
 

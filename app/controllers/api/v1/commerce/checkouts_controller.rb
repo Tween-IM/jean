@@ -42,6 +42,8 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     render json: { checkout: checkout_json(checkout.reload), order: order_json(order), cart: cart_json(cart.reload) }, status: :created
   rescue ActiveRecord::RecordInvalid => e
     render_errors(e.record)
+  rescue WalletService::WalletError => e
+    render json: { error: "payment_failed", message: e.message }, status: :service_unavailable
   end
 
   def show
@@ -215,8 +217,6 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
       items: cart.commerce_cart_items.includes(:commerce_sku).map { |item| payment_item(item) },
       idempotency_key: idempotency_key || cart.cart_id
     ).with_indifferent_access
-  rescue WalletService::WalletError => e
-    raise ActiveRecord::RecordInvalid.new(nil), "Payment service unavailable: #{e.message}"
   end
 
   def payment_item(item)

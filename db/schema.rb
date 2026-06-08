@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_07_190730) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -340,6 +340,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_190730) do
     t.integer "product_count", default: 0
     t.decimal "rating_average", precision: 3, scale: 2
     t.integer "rating_count", default: 0
+    t.text "seo_description"
+    t.string "seo_title"
     t.string "slug", null: false
     t.boolean "social_share_enabled", default: true
     t.string "status", default: "draft", null: false
