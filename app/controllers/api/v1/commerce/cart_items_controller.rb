@@ -19,6 +19,7 @@ class Api::V1::Commerce::CartItemsController < Api::V1::Commerce::BaseController
       cart.recalculate!
       render json: { cart: cart_json(cart.reload) }
     else
+      Rails.logger.warn("[CART_ITEMS] Update failed for cart=#{cart.cart_id} sku=#{sku.sku_id} quantity=#{item.quantity}: #{item.errors.full_messages.join(', ')}")
       render_errors(item)
     end
   end

@@ -74,7 +74,10 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
 
     render json: { checkout: checkout_json(checkout), order: order_json(order) }
   rescue WalletService::WalletError => e
-    checkout&.update!(status: "failed", metadata: checkout.metadata.merge("payment_error" => e.message))
+    order = ::CommerceOrder.find_by(order_id: checkout.order_id)
+    restore_inventory!(order) if order
+    checkout&.update!(status: "failed", metadata: checkout.metadata.merge("payment_error" => e.message, "inventory_restored" => true))
+    order&.update!(status: "cancelled", metadata: order.metadata.merge("inventory_restored" => true, "cancelled_reason" => "payment_failed"))
     # Surface wallet-specific error codes so the frontend can show actionable messages
     error_code = e.code&.to_s&.downcase || "payment_failed"
     user_message = case error_code
