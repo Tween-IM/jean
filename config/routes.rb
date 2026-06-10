@@ -140,6 +140,9 @@ Rails.application.routes.draw do
               post :authorize
               post :cancel
             end
+            collection do
+              post :callback
+            end
           end
           resources :orders, only: [ :index, :show ] do
             member do
@@ -148,6 +151,7 @@ Rails.application.routes.draw do
             resource :fulfillment, only: [ :create ], controller: :fulfillments
             resources :refunds, only: [ :create ]
           end
+          resources :payouts, only: [ :index, :create ]
           resources :categories, only: [ :index, :show ]
           resources :reviews, only: [ :index ] do
             member do

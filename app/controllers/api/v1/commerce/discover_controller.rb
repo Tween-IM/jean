@@ -5,8 +5,8 @@ class Api::V1::Commerce::DiscoverController < Api::V1::Commerce::BaseController
     require_scope("commerce:read")
 
     featured_stores = ::CommerceStorefront.published.where(featured: true).includes(:commerce_merchant).limit(10)
-    trending_products = ::CommerceProduct.active.order(sales_count: :desc, view_count: :desc).includes(:commerce_merchant).limit(10)
-    featured_products = ::CommerceProduct.active.where(featured: true).includes(:commerce_merchant).limit(10)
+    trending_products = ::CommerceProduct.active.with_available_stock.order(sales_count: :desc, view_count: :desc).includes(:commerce_merchant).limit(10)
+    featured_products = ::CommerceProduct.active.with_available_stock.where(featured: true).includes(:commerce_merchant).limit(10)
     categories = ::CommerceCategory.active.top_level.includes(:subcategories).order(:sort_order).limit(12)
 
     render json: {

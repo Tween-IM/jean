@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_08_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_09_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -213,6 +213,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_08_160000) do
     t.index ["payment_id"], name: "index_commerce_orders_on_payment_id"
   end
 
+  create_table "commerce_payouts", force: :cascade do |t|
+    t.integer "amount_cents", null: false
+    t.bigint "commerce_merchant_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.string "currency", default: "NGN", null: false
+    t.string "destination_account_number"
+    t.string "destination_bank_code"
+    t.string "destination_bank_name"
+    t.jsonb "metadata", default: {}
+    t.string "payout_id", null: false
+    t.string "payout_method"
+    t.datetime "processed_at"
+    t.string "reference_id"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commerce_merchant_id", "status"], name: "index_commerce_payouts_on_commerce_merchant_id_and_status"
+    t.index ["commerce_merchant_id"], name: "index_commerce_payouts_on_commerce_merchant_id"
+    t.index ["payout_id"], name: "index_commerce_payouts_on_payout_id", unique: true
+    t.index ["reference_id"], name: "index_commerce_payouts_on_reference_id", unique: true
+  end
+
   create_table "commerce_product_shippings", force: :cascade do |t|
     t.bigint "commerce_product_id", null: false
     t.bigint "commerce_shipping_profile_id", null: false
@@ -281,6 +303,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_08_160000) do
     t.bigint "commerce_product_id"
     t.datetime "created_at", null: false
     t.integer "helpful_count", default: 0
+    t.text "helpful_voter_ids", default: [], array: true
     t.integer "rating", null: false
     t.string "review_id", null: false
     t.string "status", default: "pending", null: false
@@ -292,6 +315,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_08_160000) do
     t.index ["commerce_order_id"], name: "index_commerce_reviews_on_commerce_order_id"
     t.index ["commerce_product_id", "status"], name: "index_commerce_reviews_on_commerce_product_id_and_status"
     t.index ["commerce_product_id"], name: "index_commerce_reviews_on_commerce_product_id"
+    t.index ["helpful_voter_ids"], name: "index_commerce_reviews_on_helpful_voter_ids", using: :gin
     t.index ["review_id"], name: "index_commerce_reviews_on_review_id", unique: true
   end
 
@@ -749,6 +773,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_08_160000) do
   add_foreign_key "commerce_checkouts", "commerce_merchants"
   add_foreign_key "commerce_order_items", "commerce_orders"
   add_foreign_key "commerce_orders", "commerce_merchants"
+  add_foreign_key "commerce_payouts", "commerce_merchants"
   add_foreign_key "commerce_product_shippings", "commerce_products"
   add_foreign_key "commerce_product_shippings", "commerce_shipping_profiles"
   add_foreign_key "commerce_products", "commerce_merchants"

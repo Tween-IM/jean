@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
+  skip_before_action :authenticate_tep_token, only: [:callback]
+
   def create
     require_scope("commerce:checkout")
 
@@ -16,7 +18,7 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     ::CommerceCheckout.transaction do
       apply_shipping!(cart)
       cart.recalculate!
-      reserve_inventory!(cart)
+      ::Commerce::InventoryService.reserve!(cart)
       payment_data = create_payment_request(cart)
       checkout = ::CommerceCheckout.create!(
         commerce_cart: cart,
@@ -69,13 +71,14 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     order = ::CommerceOrder.find_by!(order_id: checkout.order_id)
     checkout.update!(status: "completed", metadata: checkout.metadata.merge("authorization" => result))
     order.update!(status: "paid", metadata: order.metadata.merge("authorization" => result))
+    increment_sales_count!(order)
     emit_order_created(order)
     emit_checkout_created(checkout)
 
     render json: { checkout: checkout_json(checkout), order: order_json(order) }
   rescue WalletService::WalletError => e
     order = ::CommerceOrder.find_by(order_id: checkout.order_id)
-    restore_inventory!(order) if order
+    ::Commerce::InventoryService.restore!(order) if order
     checkout&.update!(status: "failed", metadata: checkout.metadata.merge("payment_error" => e.message, "inventory_restored" => true))
     order&.update!(status: "cancelled", metadata: order.metadata.merge("inventory_restored" => true, "cancelled_reason" => "payment_failed"))
     # Surface wallet-specific error codes so the frontend can show actionable messages
@@ -101,10 +104,46 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
 
     order = ::CommerceOrder.find_by(order_id: checkout.order_id)
     checkout.update!(status: "cancelled")
-    restore_inventory!(order) if order
+    ::Commerce::InventoryService.restore!(order) if order
     order&.update!(status: "cancelled", metadata: order.metadata.merge("inventory_restored" => true))
 
     render json: { checkout: checkout_json(checkout), order: order ? order_json(order) : nil }
+  end
+
+  def callback
+    # Validate webhook signature from wallet service
+    unless valid_callback_signature?
+      return render json: { error: "unauthorized", message: "Invalid signature" }, status: :unauthorized
+    end
+
+    payment_id = params[:payment_id]
+    checkout = ::CommerceCheckout.find_by(payment_id: payment_id)
+
+    unless checkout
+      return render json: { error: "not_found", message: "Checkout not found" }, status: :not_found
+    end
+
+    # Idempotent: ignore if already processed
+    if checkout.status.in?(%w[completed failed cancelled expired])
+      return head :ok
+    end
+
+    order = ::CommerceOrder.find_by(order_id: checkout.order_id)
+    payment_status = params[:status]
+
+    if payment_status == "completed"
+      checkout.update!(status: "completed", metadata: checkout.metadata.merge("callback_processed_at" => Time.current.iso8601))
+      order&.update!(status: "paid", metadata: order.metadata.merge("callback_processed_at" => Time.current.iso8601))
+      increment_sales_count!(order) if order
+      emit_order_created(order) if order
+      emit_checkout_created(checkout)
+    else
+      ::Commerce::InventoryService.restore!(order) if order
+      checkout.update!(status: "failed", metadata: checkout.metadata.merge("payment_error" => params[:error] || "callback_failed", "inventory_restored" => true, "callback_processed_at" => Time.current.iso8601))
+      order&.update!(status: "cancelled", metadata: order.metadata.merge("inventory_restored" => true, "cancelled_reason" => "payment_failed", "callback_processed_at" => Time.current.iso8601))
+    end
+
+    head :ok
   end
 
   private
@@ -201,34 +240,10 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     end
   end
 
-  def reserve_inventory!(cart)
-    # Lock SKUs in consistent ID order to prevent deadlocks
-    sku_ids = cart.commerce_cart_items.pluck(:commerce_sku_id).sort
-    locked_skus = ::CommerceSku.where(id: sku_ids).lock.to_a.index_by(&:id)
-
-    cart.commerce_cart_items.includes(:commerce_sku).each do |item|
-      sku = locked_skus[item.commerce_sku_id]
-      next if sku.nil? || sku.quantity_available.nil?
-      raise ActiveRecord::RecordInvalid, item unless sku.available?(item.quantity)
-
-      sku.update!(quantity_available: sku.quantity_available - item.quantity)
-    end
-  end
-
-  def restore_inventory!(order)
-    return if order.metadata["inventory_restored"]
-
-    order.commerce_order_items.each do |item|
-      sku = ::CommerceSku.find_by(sku_id: item.sku_id)
-      next unless sku&.quantity_available
-
-      sku.update!(quantity_available: sku.quantity_available + item.quantity)
-    end
-  end
-
   def create_payment_request(cart)
     amount = cart.total_cents.to_d / 100
     callback_url = ENV.fetch("COMMERCE_CHECKOUT_CALLBACK_URL", "#{ENV.fetch('TMCP_BASE_URL', 'https://tmcp.local')}/api/v1/commerce/checkouts/callback")
+    merchant = cart.commerce_merchant
 
     WalletService.create_payment_request(
       amount,
@@ -238,7 +253,12 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
       merchant_order_id: cart.cart_id.upcase.gsub(/[^A-Z0-9\-_]/, "_"),
       callback_url: callback_url,
       items: cart.commerce_cart_items.includes(:commerce_sku).map { |item| payment_item(item) },
-      idempotency_key: idempotency_key || cart.cart_id
+      idempotency_key: idempotency_key || cart.cart_id,
+      metadata: {
+        commission_rate: merchant.commission_rate,
+        merchant_owner_matrix_id: merchant.owner_user_id,
+        merchant_business_name: merchant.display_name
+      }
     ).with_indifferent_access
   end
 
@@ -290,5 +310,27 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
       buyer_user_id: checkout.buyer_user_id,
       expires_at: checkout.expires_at.iso8601
     )
+  end
+
+  def increment_sales_count!(order)
+    order.commerce_order_items.group_by(&:product_id).each do |product_id, items|
+      product = ::CommerceProduct.find_by(product_id: product_id)
+      next unless product
+
+      product.increment!(:sales_count, items.sum(&:quantity))
+    end
+  end
+
+  def valid_callback_signature?
+    secret = ENV.fetch("WEBHOOK_SECRET", "")
+    return true if secret.blank? # Allow in development if secret not set
+
+    signature = request.headers["X-TMCP-Signature"]
+    return false if signature.blank?
+
+    payload = request.body.read
+    request.body.rewind
+    expected = OpenSSL::HMAC.hexdigest("SHA256", secret, payload)
+    ActiveSupport::SecurityUtils.secure_compare(signature, expected)
   end
 end

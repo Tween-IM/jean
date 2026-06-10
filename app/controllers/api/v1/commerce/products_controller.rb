@@ -4,7 +4,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
   def index
     require_scope("commerce:read")
 
-    products = ::CommerceProduct.active.includes(:commerce_merchant, :commerce_skus, :commerce_category).order(created_at: :desc)
+    products = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_skus, :commerce_category).order(created_at: :desc)
     products = products.joins(:commerce_merchant).where(commerce_merchants: { merchant_id: params[:merchant_id] }) if params[:merchant_id].present?
     products = products.where(commerce_storefront_id: ::CommerceStorefront.where(storefront_id: params[:storefront_id]).select(:id)) if params[:storefront_id].present?
     products = products.where(category_id: ::CommerceCategory.where(category_id: params[:category_id]).select(:id)) if params[:category_id].present?
@@ -33,25 +33,26 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
                else products.order(created_at: :desc)
                end
 
+    total_count = products.distinct.count
     products = products.distinct.limit(limit_param(default: 20, max: 100))
 
     render json: {
       products: products.map { |p| product_json(p, detail: :public) },
-      meta: { total: products.count }
+      meta: { total: total_count }
     }
   end
 
   def featured
     require_scope("commerce:read")
 
-    products = ::CommerceProduct.active.where(featured: true).includes(:commerce_merchant).order(created_at: :desc).limit(20)
+    products = ::CommerceProduct.active.with_available_stock.where(featured: true).includes(:commerce_merchant).order(created_at: :desc).limit(20)
     render json: { products: products.map { |p| product_json(p, detail: :public) } }
   end
 
   def trending
     require_scope("commerce:read")
 
-    products = ::CommerceProduct.active.order(sales_count: :desc, view_count: :desc).includes(:commerce_merchant).limit(20)
+    products = ::CommerceProduct.active.with_available_stock.order(sales_count: :desc, view_count: :desc).includes(:commerce_merchant).limit(20)
     render json: { products: products.map { |p| product_json(p, detail: :public) } }
   end
 
@@ -67,7 +68,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
       return
     end
 
-    scope = ::CommerceProduct.active.includes(:commerce_merchant, :commerce_skus)
+    scope = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_skus)
 
     if query.length >= 2
       search_query = "%#{query.downcase}%"
@@ -92,11 +93,12 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
             else scope.order(created_at: :desc)
             end
 
+    total_count = scope.count
     products = scope.limit(limit_param(default: 20, max: 50))
 
     render json: {
       products: products.map { |p| product_json(p, detail: :public) },
-      meta: { total: products.count, query: query }
+      meta: { total: total_count, query: query }
     }
   end
 
@@ -106,7 +108,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
     product = find_product
     product.increment!(:view_count)
 
-    related = ::CommerceProduct.active
+    related = ::CommerceProduct.active.with_available_stock
       .where.not(product_id: product.product_id)
       .where(category_id: product.category_id)
       .limit(4)

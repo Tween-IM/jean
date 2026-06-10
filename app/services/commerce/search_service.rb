@@ -3,7 +3,7 @@
 module Commerce
   class SearchService
     def self.search_products(query:, filters: {})
-      products = ::CommerceProduct.active.includes(:commerce_merchant, :commerce_skus, :commerce_category)
+      products = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_skus, :commerce_category)
 
       if query.present? && query.length >= 2
         search_term = "%#{query.downcase}%"

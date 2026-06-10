@@ -364,6 +364,44 @@ class WalletService
     end
   end
 
+  def self.refund_payment(payment_id, amount, currency, reason, tep_token)
+    user_id = extract_user_id_from_tep(tep_token)
+    get_circuit_breaker(user_id, :payments).call do
+      request_body = {
+        amount: amount,
+        currency: currency,
+        reason: reason || "merchant_refund",
+        notes: reason
+      }
+
+      response = make_wallet_request(:post, "/api/v1/tmcp/payments/#{payment_id}/refund",
+                                   request_body,
+                                   { "Authorization" => "Bearer #{tep_token}" })
+
+      response
+    end
+  end
+
+  def self.initiate_payout(wallet_id:, amount:, currency:, bank_account:, reference_id:, tep_token:)
+    user_id = extract_user_id_from_tep(tep_token)
+    get_circuit_breaker(user_id, :transfers).call do
+      request_body = {
+        wallet_id: wallet_id,
+        amount: amount,
+        currency: currency,
+        bank_account: bank_account,
+        reference_id: reference_id,
+        type: "payout"
+      }
+
+      response = make_wallet_request(:post, "/api/v1/tmcp/payouts",
+                                   request_body,
+                                   { "Authorization" => "Bearer #{tep_token}" })
+
+      response
+    end
+  end
+
   # Legacy mock methods for backwards compatibility
   def self.get_verification_status(user_id)
     # Mock verification status (PROTO Section 6.4.2)

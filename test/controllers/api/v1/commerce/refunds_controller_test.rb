@@ -11,10 +11,12 @@ class Api::V1::Commerce::RefundsControllerTest < ActionDispatch::IntegrationTest
     sku = product.commerce_skus.create!(title: "Size S", price_cents: 1500, currency: "NGN")
     order = create_paid_order(merchant, buyer, sku)
 
-    post api_v1_commerce_order_refunds_url(order.order_id),
-      params: { refund: { amount_cents: 1500, reason: "customer_request" } },
-      headers: tep_headers(owner, "commerce:merchant commerce:read"),
-      as: :json
+    with_wallet_stub(:refund_payment, { "refund_id" => "ref_test_123", "status" => "refunded" }) do
+      post api_v1_commerce_order_refunds_url(order.order_id),
+        params: { refund: { amount_cents: 1500, reason: "customer_request" } },
+        headers: tep_headers(owner, "commerce:merchant commerce:read"),
+        as: :json
+    end
 
     assert_response :created
     assert_equal "refunded", response.parsed_body.dig("order", "status")
@@ -28,10 +30,12 @@ class Api::V1::Commerce::RefundsControllerTest < ActionDispatch::IntegrationTest
     sku = product.commerce_skus.create!(title: "Size L", price_cents: 3000, currency: "NGN")
     order = create_paid_order(merchant, buyer, sku)
 
-    post api_v1_commerce_order_refunds_url(order.order_id),
-      params: { refund: { amount_cents: 1500, reason: "partial_return" } },
-      headers: tep_headers(owner, "commerce:merchant"),
-      as: :json
+    with_wallet_stub(:refund_payment, { "refund_id" => "ref_test_456", "status" => "refunded" }) do
+      post api_v1_commerce_order_refunds_url(order.order_id),
+        params: { refund: { amount_cents: 1500, reason: "partial_return" } },
+        headers: tep_headers(owner, "commerce:merchant"),
+        as: :json
+    end
 
     assert_response :created
     assert_equal "partially_refunded", response.parsed_body.dig("order", "status")
@@ -84,5 +88,55 @@ class Api::V1::Commerce::RefundsControllerTest < ActionDispatch::IntegrationTest
   def tep_headers(user, scopes)
     token = TepTokenService.encode({ user_id: user.matrix_user_id, miniapp_id: "miniapp.commerce.test" }, scopes: scopes.split)
     { "Authorization" => "Bearer #{token}" }
+  end
+
+  def with_wallet_stub(method_name, response)
+    original = WalletService.method(method_name)
+    WalletService.define_singleton_method(method_name) { |*, **| response }
+    yield
+  ensure
+    WalletService.define_singleton_method(method_name, original)
+  end
+
+  test "refund fails gracefully when wallet service errors" do
+    owner = create_user("fail_owner")
+    buyer = create_user("fail_buyer")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "ma.fail.test", display_name: "Fail Shop", status: "active")
+    product = merchant.commerce_products.create!(title: "Fail Item", status: "active")
+    sku = product.commerce_skus.create!(title: "Size M", price_cents: 2500, currency: "NGN")
+    order = create_paid_order(merchant, buyer, sku)
+
+    with_wallet_stub(:refund_payment, {}) do
+      post api_v1_commerce_order_refunds_url(order.order_id),
+        params: { refund: { amount_cents: 2500, reason: "test" } },
+        headers: tep_headers(owner, "commerce:merchant"),
+        as: :json
+    end
+
+    assert_response :unprocessable_entity
+    order.reload
+    assert_equal "paid", order.status
+  end
+
+  test "partial refund updates order to partially_refunded" do
+    owner = create_user("partial2_owner")
+    buyer = create_user("partial2_buyer")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "ma.partial2.test", display_name: "Partial2 Shop", status: "active")
+    product = merchant.commerce_products.create!(title: "Partial2 Item", status: "active")
+    sku = product.commerce_skus.create!(title: "Size XL", price_cents: 4000, currency: "NGN")
+    order = create_paid_order(merchant, buyer, sku)
+
+    with_wallet_stub(:refund_payment, { "refund_id" => "ref_partial2", "status" => "refunded" }) do
+      post api_v1_commerce_order_refunds_url(order.order_id),
+        params: { refund: { amount_cents: 2000, reason: "partial" } },
+        headers: tep_headers(owner, "commerce:merchant"),
+        as: :json
+    end
+
+    assert_response :created
+    order.reload
+    assert_equal "partially_refunded", order.status
+    assert_equal 1, order.metadata["refunds"].size
+    assert_equal 2000, order.metadata["refunds"].first["amount_cents"]
   end
 end

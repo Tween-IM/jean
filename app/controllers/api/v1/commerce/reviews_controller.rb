@@ -14,11 +14,12 @@ class Api::V1::Commerce::ReviewsController < Api::V1::Commerce::BaseController
       reviews = ::CommerceReview.approved.order(created_at: :desc)
     end
 
+    total_count = reviews.count
     reviews = reviews.limit(limit_param(default: 20, max: 100))
 
     render json: {
       reviews: reviews.map { |r| review_json(r) },
-      meta: { total: reviews.count }
+      meta: { total: total_count }
     }
   end
 
@@ -63,7 +64,14 @@ class Api::V1::Commerce::ReviewsController < Api::V1::Commerce::BaseController
     require_scope("commerce:read")
 
     review = find_review
+    voter_id = @current_user&.matrix_user_id
+
+    if voter_id.present? && review.helpful_voter_ids.include?(voter_id)
+      return render json: { review: review_json(review) }
+    end
+
     review.increment!(:helpful_count)
+    review.update!(helpful_voter_ids: review.helpful_voter_ids + [voter_id]) if voter_id.present?
 
     render json: { review: review_json(review) }
   end

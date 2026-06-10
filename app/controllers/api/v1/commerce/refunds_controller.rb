@@ -8,8 +8,36 @@ class Api::V1::Commerce::RefundsController < Api::V1::Commerce::BaseController
     return if ensure_merchant_owner(order.commerce_merchant)
 
     refund_data = refund_params.to_h
+    is_full_refund = refund_data["amount_cents"].to_i >= order.total_cents
+
+    # Attempt wallet refund before updating local state
+    if order.payment_id.present? && order.status == "paid"
+      begin
+        refund_response = WalletService.refund_payment(
+          order.payment_id,
+          refund_data["amount_cents"] / 100.0,
+          order.currency,
+          refund_data["reason"] || "merchant_refund",
+          @tep_token
+        )
+
+        unless refund_response.is_a?(Hash) && (refund_response["refund_id"] || refund_response[:refund_id] || refund_response["id"] || refund_response[:id])
+          Rails.logger.warn "[RefundsController] Wallet refund failed for order #{order.order_id}: #{refund_response.inspect}"
+          return render json: { error: "refund_failed", message: "Wallet refund could not be processed. Please try again." }, status: :unprocessable_entity
+        end
+      rescue WalletService::WalletError => e
+        Rails.logger.error "[RefundsController] Wallet refund error for order #{order.order_id}: #{e.message}"
+        return render json: { error: "refund_failed", message: "Wallet service error: #{e.message}" }, status: :unprocessable_entity
+      end
+    end
+
+    if is_full_refund
+      ::Commerce::InventoryService.restore!(order)
+      order.update!(metadata: order.metadata.merge("inventory_restored" => true, "cancelled_reason" => "refunded"))
+    end
+
     order.update!(
-      status: refund_data["amount_cents"].to_i >= order.total_cents ? "refunded" : "partially_refunded",
+      status: is_full_refund ? "refunded" : "partially_refunded",
       metadata: order.metadata.merge("refunds" => Array(order.metadata["refunds"]) + [ refund_data.merge("created_at" => Time.current.iso8601, "processed_by" => @current_user.matrix_user_id) ])
     )
 

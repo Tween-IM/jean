@@ -133,7 +133,8 @@ class Api::V1::PaymentsController < Api::BaseController
     end
 
     # Process refund with WalletService
-    refund_result = WalletService.refund_payment(payment_id, amount, raw_params["reason"] || "customer_request")
+    currency = payment_data["currency"] || "NGN"
+    refund_result = WalletService.refund_payment(payment_id, amount, currency, raw_params["reason"] || "customer_request", @tep_token)
 
     render json: refund_result.merge(
       refunded_at: Time.current.iso8601

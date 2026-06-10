@@ -173,6 +173,7 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       rating_count: product.rating_count,
       sales_count: product.sales_count,
       view_count: product.view_count,
+      in_stock: product.commerce_skus.any? { |s| s.inventory_status != "out_of_stock" },
       tags: product.tags,
       price_range: product.price_range,
       category: product.commerce_category ? category_json(product.commerce_category) : nil,

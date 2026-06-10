@@ -5,6 +5,7 @@ class CommerceSku < ApplicationRecord
   has_many :cart_items, class_name: "CommerceCartItem", dependent: :restrict_with_error
 
   before_validation :assign_sku_id
+  before_save :sync_inventory_status
 
   validates :sku_id, :price_cents, :currency, presence: true
   validates :sku_id, uniqueness: true
@@ -14,6 +15,7 @@ class CommerceSku < ApplicationRecord
 
   def available?(quantity = 1)
     return false if inventory_status == "out_of_stock"
+    return true if inventory_status == "preorder"
     return true if quantity_available.nil?
 
     quantity_available >= quantity
@@ -34,5 +36,15 @@ class CommerceSku < ApplicationRecord
       end
 
       raise "Failed to generate unique sku_id after 10 attempts"
+    end
+
+    def sync_inventory_status
+      return unless quantity_available_changed?
+
+      if quantity_available.present? && quantity_available <= 0 && inventory_status != "out_of_stock"
+        self.inventory_status = "out_of_stock"
+      elsif quantity_available_was.present? && quantity_available_was <= 0 && quantity_available.present? && quantity_available > 0 && inventory_status == "out_of_stock"
+        self.inventory_status = "in_stock"
+      end
     end
 end

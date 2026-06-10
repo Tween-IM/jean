@@ -11,6 +11,30 @@ class CommerceOrder < ApplicationRecord
   validates :status, inclusion: { in: %w[pending_payment paid processing fulfilled cancelled refunded partially_refunded] }
   validates :fulfillment_status, inclusion: { in: %w[not_required unfulfilled partially_fulfilled fulfilled failed] }
 
+  before_update :validate_status_transition
+
+  VALID_TRANSITIONS = {
+    'pending_payment' => %w[paid cancelled],
+    'paid' => %w[processing fulfilled cancelled refunded partially_refunded],
+    'processing' => %w[fulfilled partially_fulfilled cancelled refunded partially_refunded],
+    'fulfilled' => %w[refunded partially_refunded],
+    'partially_fulfilled' => %w[fulfilled refunded partially_refunded],
+    'cancelled' => [],
+    'refunded' => [],
+    'partially_refunded' => []
+  }.freeze
+
+  def validate_status_transition
+    return unless status_changed?
+    return unless status_was.present?
+
+    allowed = VALID_TRANSITIONS[status_was]
+    return if allowed&.include?(status)
+
+    errors.add(:status, "cannot transition from #{status_was} to #{status}")
+    throw :abort
+  end
+
   def shipping_address
     {
       line1: shipping_address_line1,

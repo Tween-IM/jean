@@ -4,6 +4,7 @@ class CommerceMerchant < ApplicationRecord
   has_many :commerce_products, dependent: :destroy
   has_many :commerce_carts, dependent: :destroy
   has_many :commerce_orders, dependent: :restrict_with_error
+  has_many :commerce_payouts, dependent: :restrict_with_error
   has_many :storefronts, class_name: "CommerceStorefront", dependent: :destroy
   has_many :products, class_name: "CommerceProduct", dependent: :destroy
   has_many :carts, class_name: "CommerceCart", dependent: :destroy

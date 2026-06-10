@@ -2,7 +2,7 @@
 class CommerceProduct < ApplicationRecord
   belongs_to :commerce_merchant
   belongs_to :commerce_storefront, optional: true
-  belongs_to :commerce_category, optional: true
+  belongs_to :commerce_category, optional: true, foreign_key: 'category_id'
   has_many :commerce_skus, dependent: :destroy
   has_many :skus, class_name: "CommerceSku", dependent: :destroy
   has_many :commerce_reviews, dependent: :restrict_with_error
@@ -20,6 +20,11 @@ class CommerceProduct < ApplicationRecord
   scope :active, -> { where(status: "active") }
   scope :featured, -> { where(featured: true) }
   scope :trending, -> { order(sales_count: :desc, view_count: :desc) }
+  scope :with_available_stock, -> {
+    joins(:commerce_skus)
+      .where.not(commerce_skus: { inventory_status: "out_of_stock" })
+      .distinct
+  }
 
   def price_range
     prices = commerce_skus.pluck(:price_cents)

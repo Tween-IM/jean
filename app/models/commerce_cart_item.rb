@@ -12,6 +12,10 @@ class CommerceCartItem < ApplicationRecord
   validates :commerce_sku_id, uniqueness: { scope: :commerce_cart_id }
   validate :sku_available
 
+  def variant_attributes
+    commerce_sku&.properties || {}
+  end
+
   private
     def copy_price
       return unless commerce_sku
