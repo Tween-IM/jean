@@ -14,7 +14,7 @@ class Api::V1::Commerce::CategoriesController < Api::V1::Commerce::BaseControlle
     require_scope("commerce:read")
 
     category = find_category
-    products = category.commerce_products.active.includes(:commerce_merchant, :commerce_skus).order(created_at: :desc).limit(50)
+    products = category.commerce_products.active.includes(:commerce_merchant).preload(:commerce_skus).order(created_at: :desc).limit(50)
 
     render json: {
       category: category_with_children_json(category),

@@ -4,7 +4,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
   def index
     require_scope("commerce:read")
 
-    products = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_skus, :commerce_category).order(created_at: :desc)
+    products = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_category).preload(:commerce_skus).order(created_at: :desc)
     products = products.joins(:commerce_merchant).where(commerce_merchants: { merchant_id: params[:merchant_id] }) if params[:merchant_id].present?
     products = products.where(commerce_storefront_id: ::CommerceStorefront.where(storefront_id: params[:storefront_id]).select(:id)) if params[:storefront_id].present?
     products = products.where(category_id: ::CommerceCategory.where(category_id: params[:category_id]).select(:id)) if params[:category_id].present?
@@ -68,7 +68,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
       return
     end
 
-    scope = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_skus)
+    scope = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant).preload(:commerce_skus)
 
     if query.length >= 2
       search_query = "%#{query.downcase}%"
