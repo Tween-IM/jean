@@ -62,14 +62,17 @@ production:
     <<: *default
     url: <%= ENV["DATABASE_URL"] %>
   cache:
-    <<: *primary_production
+    <<: *default
     database: tmcp_server_production_cache
+    url: <%= ENV.fetch("CACHE_DATABASE_URL") { URI.parse(ENV["DATABASE_URL"]).tap { |u| u.path = "/tmcp_server_production_cache" }.to_s if ENV["DATABASE_URL"] } %>
     migrations_paths: db/cache_migrate
   queue:
-    <<: *primary_production
+    <<: *default
     database: tmcp_server_production_queue
+    url: <%= ENV.fetch("QUEUE_DATABASE_URL") { URI.parse(ENV["DATABASE_URL"]).tap { |u| u.path = "/tmcp_server_production_queue" }.to_s if ENV["DATABASE_URL"] } %>
     migrations_paths: db/queue_migrate
   cable:
-    <<: *primary_production
+    <<: *default
     database: tmcp_server_production_cable
+    url: <%= ENV.fetch("CABLE_DATABASE_URL") { URI.parse(ENV["DATABASE_URL"]).tap { |u| u.path = "/tmcp_server_production_cable" }.to_s if ENV["DATABASE_URL"] } %>
     migrations_paths: db/cable_migrate
