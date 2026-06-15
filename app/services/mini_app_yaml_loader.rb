@@ -19,11 +19,21 @@ class MiniAppYamlLoader
     yaml_apps = load_from_yaml
     synced_count = 0
 
+    yaml_app_ids = yaml_apps.map { |app| app["app_id"] }
+
     yaml_apps.each do |app_config|
       mini_app = sync_mini_app(app_config)
       if mini_app
         synced_count += 1
         Rails.logger.info "Synced mini-app: #{mini_app.app_id}"
+      end
+    end
+
+    removed = MiniApp.where.not(app_id: yaml_app_ids).destroy_all
+    if removed.any?
+      removed.each do |app|
+        Doorkeeper::Application.where(uid: app.app_id).destroy_all
+        Rails.logger.info "Removed mini-app no longer in config: #{app.app_id}"
       end
     end
 
