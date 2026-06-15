@@ -86,13 +86,14 @@ Rails.application.configure do
   config.active_record.attributes_for_inspect = [ :id ]
 
    # Enable DNS rebinding protection and other `Host` header attacks.
-   config.hosts = ENV["ALLOWED_HOSTS"]&.split(",") || [
-     "tmcp.tween.im",    # Allow requests from tmcp.tween.im
-     "jean",              # Internal Docker service name
-     "jean:3000",         # Internal Docker service with port
-     "localhost",         # Allow localhost for health checks
-     "127.0.0.1"          # Allow IPv4 localhost
-   ]
+   base_hosts = ENV["ALLOWED_HOSTS"]&.split(",") || []
+   config.hosts = base_hosts + [
+     "tmcp.tween.im",
+     "jean",
+     "jean:3000",
+     "localhost",
+     "127.0.0.1"
+   ].uniq
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
