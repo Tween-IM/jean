@@ -10,7 +10,16 @@ module TmcpPrivateKeyLoader
 
   class << self
     def load
-      return if ENV["TMCP_PRIVATE_KEY"].present?
+      env_key = ENV["TMCP_PRIVATE_KEY"]
+
+      # If env var has literal \n sequences (common in Dokku/container envs), fix them
+      if env_key&.include?("\\n")
+        env_key = env_key.gsub("\\n", "\n")
+        ENV["TMCP_PRIVATE_KEY"] = env_key
+        return
+      end
+
+      return if env_key.present? && valid_pem?(env_key)
 
       key_content = nil
 
@@ -25,6 +34,13 @@ module TmcpPrivateKeyLoader
       end
 
       ENV["TMCP_PRIVATE_KEY"] = key_content if key_content
+    end
+
+    def valid_pem?(key)
+      OpenSSL::PKey::RSA.new(key)
+      true
+    rescue OpenSSL::PKey::RSAError
+      false
     end
   end
 end
