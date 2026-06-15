@@ -3,6 +3,49 @@
 # Changes to this file can be applied with: rails mini_apps:load_from_yaml
 
 official_mini_apps:
+  - app_id: ma_tweensocial
+    name: Tween Social
+    description: Official Tween social networking application
+    version: "1.0.0"
+    classification: official
+    oauth_client_type: public
+    developer_name: Tween IM
+    manifest:
+      permissions:
+        - user_read
+        - social_read
+        - social_write
+        - social_engage
+        - storage_read
+        - storage_write
+        - messaging_send
+      scopes:
+        - user:read
+        - social:read
+        - social:write
+        - social:engage
+        - storage:read
+        - storage:write
+        - messaging:send
+      entry_url: "https://miniapp.tween.im/tweensocial/"
+      redirect_uris:
+        - "https://miniapp.tween.im/tweensocial/callback"
+      icon_url: "https://cdn.tween.im/icons/tweensocial.png"
+      categories:
+        - social
+          - networking
+          - communication
+      features:
+        - social_feed
+        - photo_sharing
+        - video_sharing
+        - stories
+        - likes_reactions
+        - comments
+        - user_profiles
+        - follow_system
+        - direct_messaging
+
   - app_id: ma_tweenpay
     name: TweenPay
     description: Official Tween wallet and payment application
