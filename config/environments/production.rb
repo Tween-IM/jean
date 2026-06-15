@@ -88,8 +88,10 @@ Rails.application.configure do
    # Enable DNS rebinding protection and other `Host` header attacks.
    config.hosts = ENV["ALLOWED_HOSTS"]&.split(",") || [
      "tmcp.tween.im",    # Allow requests from tmcp.tween.im
-     "localhost",        # Allow localhost for health checks
-     "127.0.0.1"         # Allow IPv4 localhost
+     "jean",              # Internal Docker service name
+     "jean:3000",         # Internal Docker service with port
+     "localhost",         # Allow localhost for health checks
+     "127.0.0.1"          # Allow IPv4 localhost
    ]
   #
   # Skip DNS rebinding protection for the default health check endpoint.
