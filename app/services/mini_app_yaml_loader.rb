@@ -69,20 +69,19 @@ class MiniAppYamlLoader
     yaml_apps.each do |app_config|
       app_id = app_config["app_id"]
       mini_app = MiniApp.find_by(app_id: app_id)
+      next unless mini_app
 
-      if mini_app && mini_app.status != "active"
-        # For official mini-apps loaded from YAML, just activate them
-        mini_app.update!(status: "active")
+      oauth_app = Doorkeeper::Application.find_by(uid: mini_app.app_id)
 
-        # Create OAuth application
+      unless oauth_app
+        # Create OAuth application for this official mini-app
         create_oauth_application(mini_app)
-
         approved_count += 1
-        Rails.logger.info "Activated official mini-app: #{app_id}"
+        Rails.logger.info "Approved official mini-app: #{app_id}"
       end
     end
 
-    Rails.logger.info "Activated #{approved_count} official mini-apps"
+    Rails.logger.info "Approved #{approved_count} official mini-apps"
     approved_count
   end
 
