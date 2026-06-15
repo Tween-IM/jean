@@ -14,6 +14,15 @@ class Api::V1::Social::FollowsController < Api::V1::Social::BaseController
     render json: { follow_id: follow.id, creator: creator_json(creator.reload) }, status: :created
   end
 
+  def following
+    require_scope("social:read")
+
+    following_relations = ::SocialFollow.where(follower_user_id: @current_user.matrix_user_id, status: :active)
+    creator_user_ids = following_relations.pluck(:creator_user_id)
+    creators = SocialCreatorProfile.where(user_id: creator_user_ids)
+    render json: creators.map { |c| creator_json(c) }
+  end
+
   def destroy
     require_scope("social:engage")
 

@@ -87,6 +87,7 @@ Rails.application.routes.draw do
           patch "videos/*path", to: redirect("/api/v1/social/posts/%{path}", status: 308)
           delete "videos/*path", to: redirect("/api/v1/social/posts/%{path}", status: 308)
 
+          get "following", to: "follows#following"
           resources :creators, only: [ :show, :update ], constraints: { id: /@[^\/]+/ } do
             resource :follow, only: [ :create, :destroy ], controller: :follows
           end
