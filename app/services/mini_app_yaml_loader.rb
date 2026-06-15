@@ -29,7 +29,7 @@ class MiniAppYamlLoader
       end
     end
 
-    removed = MiniApp.where.not(app_id: yaml_app_ids).destroy_all
+    removed = MiniApp.where.not(app_id: yaml_app_ids).where(classification: "official").destroy_all
     if removed.any?
       removed.each do |app|
         Doorkeeper::Application.where(uid: app.app_id).destroy_all
