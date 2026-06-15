@@ -12,14 +12,22 @@ module Api
             alg: "RS256",
             use: "sig",
             kid: TMCP.config[:jwt_key_id],
-            n: Base64.urlsafe_encode64(public_key.n.to_s(2), padding: false),
-            e: Base64.urlsafe_encode64(public_key.e.to_s(2), padding: false)
+            n: encode_bn(public_key.n),
+            e: encode_bn(public_key.e)
           }]
         else
           []
         end
 
         render json: { keys: keys }, status: :ok
+      end
+
+      private
+
+      def encode_bn(bn)
+        hex = bn.to_s(16)
+        hex = "0#{hex}" if hex.length.odd?
+        Base64.urlsafe_encode64([hex].pack("H*"), padding: false)
       end
     end
   end
