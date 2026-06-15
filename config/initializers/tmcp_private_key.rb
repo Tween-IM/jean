@@ -33,7 +33,13 @@ module TmcpPrivateKeyLoader
         Rails.logger.warn "TMCP private key file not found at #{KEY_PATH} or local secrets"
       end
 
-      ENV["TMCP_PRIVATE_KEY"] = key_content if key_content
+      if key_content
+        ENV["TMCP_PRIVATE_KEY"] = key_content
+      else
+        # No file fallback either — unset the corrupted env var so
+        # TepTokenService.load_key soft-fails instead of crashing
+        ENV.delete("TMCP_PRIVATE_KEY")
+      end
     end
 
     def valid_pem?(key)

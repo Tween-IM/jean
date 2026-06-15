@@ -1,4 +1,6 @@
 Rails.application.routes.draw do
+  # JWKS endpoint for TEP token verification (RFC 7517)
+  get "/.well-known/jwks.json", to: "api/well_known/jwks#jwks"
   get "health/check"
   namespace :api do
     namespace :v1 do
