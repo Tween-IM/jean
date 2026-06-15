@@ -295,7 +295,7 @@ class MasClientService
 
     # Auto-register user in wallet service during TEP token issuance
     begin
-      WalletService.ensure_user_registered(matrix_user_id, matrix_access_token)
+      WalletService.ensure_user_registered(matrix_user_id, tep_token)
     rescue StandardError => e
       # Log but don't fail TEP token issuance
       Rails.logger.warn "Failed to register user #{matrix_user_id} in wallet service during token exchange: #{e.message}"
