@@ -84,7 +84,8 @@ class Api::V1::Social::BaseController < Api::BaseController
       liked: @liked_post_ids&.include?(post.id) || post.liked_by?(@current_user),
       bookmarked: @bookmarked_post_ids&.include?(post.id) || post.bookmarked_by?(@current_user),
       published_at: post.published_at,
-      created_at: post.created_at
+      created_at: post.created_at,
+      updated_at: post.updated_at
     }
   end
 
@@ -108,7 +109,9 @@ class Api::V1::Social::BaseController < Api::BaseController
       following_count: profile.following_count,
       post_count: profile.post_count,
       verified: profile.verified,
-      has_active_story: has_story
+      has_active_story: has_story,
+      created_at: profile.created_at,
+      updated_at: profile.updated_at
     }
   end
 
@@ -120,7 +123,8 @@ class Api::V1::Social::BaseController < Api::BaseController
       author_user_id: comment.author_user_id,
       body: comment.body,
       status: comment.status,
-      created_at: comment.created_at
+      created_at: comment.created_at,
+      updated_at: comment.updated_at
     }
 
     if @current_user

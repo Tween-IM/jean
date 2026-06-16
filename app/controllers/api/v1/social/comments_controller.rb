@@ -50,8 +50,14 @@ class Api::V1::Social::CommentsController < Api::V1::Social::BaseController
       author_user_id: comment.author_user_id,
       body: comment.body,
       status: comment.status,
-      created_at: comment.created_at
+      created_at: comment.created_at,
+      updated_at: comment.updated_at
     }
+
+    if @current_user
+      base[:like_count] = comment.social_comment_likes.count
+      base[:liked] = comment.social_comment_likes.exists?(user_id: @current_user.matrix_user_id)
+    end
 
     # Include replies if replies_by_parent is provided
     if replies_by_parent

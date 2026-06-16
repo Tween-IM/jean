@@ -41,6 +41,10 @@ class Api::V1::Social::StoriesController < Api::V1::Social::BaseController
   def create
     require_scope("social:write")
 
+    if (replay = idempotent_replay)
+      return render json: { story: story_json(replay, Set.new), idempotent_replay: true }, status: :ok
+    end
+
     creator = current_creator_profile
     attributes = story_params.merge(creator_user_id: creator.user_id)
     signed_blob_id = attributes.delete(:signed_blob_id)
@@ -57,10 +61,13 @@ class Api::V1::Social::StoriesController < Api::V1::Social::BaseController
     end
 
     if story.save
+      cache_idempotent_replay(story)
       render json: { story: story_json(story, Set.new) }, status: :created
     else
       render_errors(story)
     end
+  rescue ActiveStorage::Blob::InvalidSignatureError, ActiveStorage::FileNotFoundError
+    render json: { error: "invalid_signed_blob_id", message: "Signed blob id is invalid or expired" }, status: :unprocessable_entity
   end
 
   def destroy
@@ -94,7 +101,38 @@ class Api::V1::Social::StoriesController < Api::V1::Social::BaseController
   private
 
   def story_params
-    params.require(:story).permit(:media_url, :media_type, :caption, :signed_blob_id, :background_color, :duration_seconds)
+    SocialParams.permit(
+      params,
+      wrapper: :story,
+      keys: %i[media_url media_type caption signed_blob_id background_color duration_seconds]
+    )
+  end
+
+  IDEMPOTENCY_TTL = 24.hours
+
+  def idempotency_key
+    request.headers["Idempotency-Key"].presence || params[:idempotency_key].presence
+  end
+
+  def idempotent_replay
+    key = idempotency_key
+    return nil if key.blank?
+
+    cached = Rails.cache.read(idempotency_cache_key(key))
+    return nil unless cached
+
+    SocialStory.find_by(story_id: cached)
+  end
+
+  def cache_idempotent_replay(story)
+    key = idempotency_key
+    return if key.blank?
+
+    Rails.cache.write(idempotency_cache_key(key), story.story_id, expires_in: IDEMPOTENCY_TTL)
+  end
+
+  def idempotency_cache_key(key)
+    "social_story_idempotency:#{@current_user.matrix_user_id}:#{key}"
   end
 
   def probe_video_duration(attachment)

@@ -17,3 +17,7 @@ production:
     class: ExpireCommerceCheckoutsJob
     queue: default
     schedule: every 5 minutes
+  expire_social_stories:
+    class: ExpireSocialStoriesJob
+    queue: default
+    schedule: every 1 day at 3am UTC

@@ -18,6 +18,11 @@ class Api::V1::Social::ReportsController < Api::V1::Social::BaseController
   private
 
   def report_params
-    params.require(:report).permit(:reason, :details, metadata: {})
+    SocialParams.permit(
+      params,
+      wrapper: :report,
+      keys: %i[reason details],
+      hash_keys: %i[metadata]
+    )
   end
 end

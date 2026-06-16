@@ -25,6 +25,10 @@ class Api::V1::Social::CreatorsController < Api::V1::Social::BaseController
   private
 
   def creator_params
-    params.require(:creator).permit(:handle, :display_name, :avatar_url, :bio, :commerce_storefront_id)
+    SocialParams.permit(
+      params,
+      wrapper: :creator,
+      keys: %i[handle display_name avatar_url bio commerce_storefront_id]
+    )
   end
 end

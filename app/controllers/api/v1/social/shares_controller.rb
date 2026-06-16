@@ -20,8 +20,12 @@ class Api::V1::Social::SharesController < Api::V1::Social::BaseController
   private
 
   def share_params
-    return ActionController::Parameters.new(target: "link").permit(:target) if params[:share].blank?
-
-    params.require(:share).permit(:target, :room_id, metadata: {})
+    if params[:share].is_a?(ActionController::Parameters) || params[:share].is_a?(Hash)
+      params.require(:share).permit(:target, :room_id, metadata: {})
+    elsif params[:target].present? || params[:room_id].present? || params[:metadata].present?
+      params.permit(:target, :room_id, metadata: {})
+    else
+      ActionController::Parameters.new(target: "link").permit(:target)
+    end
   end
 end

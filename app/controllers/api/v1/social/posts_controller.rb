@@ -4,6 +4,10 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
   def create
     require_scope("social:write")
 
+    if (replay = idempotent_replay)
+      return render json: { post: post_json(replay), idempotent_replay: true }, status: :ok
+    end
+
     attributes = post_params
     signed_blob_id = attributes.delete(:signed_blob_id)
     attributes[:media_upload_id] ||= signed_blob_id if signed_blob_id.present?
@@ -12,12 +16,15 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
     post.creator_user_id = @current_user.matrix_user_id
 
     if post.save
+      cache_idempotent_replay(post)
       attach_source_media(post, signed_blob_id)
       emit_post_published(post) if post.status == "published"
       render json: { post: post_json(post) }, status: :created
     else
       render_errors(post)
     end
+  rescue ActiveStorage::Blob::InvalidSignatureError, ActiveStorage::FileNotFoundError
+    render json: { error: "invalid_signed_blob_id", message: "Signed blob id is invalid or expired" }, status: :unprocessable_entity
   end
 
   def show
@@ -56,11 +63,48 @@ class Api::V1::Social::PostsController < Api::V1::Social::BaseController
   private
 
   def post_params
-    params.require(:post).permit(:media_upload_id, :signed_blob_id, :caption, :playback_url, :thumbnail_url, :duration_seconds, :width, :height, :visibility, :status, :content_type, variants: [], commerce_refs: [])
+    SocialParams.permit(
+      params,
+      wrapper: :post,
+      keys: %i[media_upload_id signed_blob_id caption playback_url thumbnail_url duration_seconds width height visibility status content_type],
+      array_keys: %i[variants commerce_refs]
+    )
   end
 
   def post_update_params
-    params.require(:post).permit(:caption, :visibility, :status, commerce_refs: [])
+    SocialParams.permit(
+      params,
+      wrapper: :post,
+      keys: %i[caption visibility status],
+      array_keys: %i[commerce_refs]
+    )
+  end
+
+  IDEMPOTENCY_TTL = 24.hours
+
+  def idempotency_key
+    request.headers["Idempotency-Key"].presence || params[:idempotency_key].presence
+  end
+
+  def idempotent_replay
+    key = idempotency_key
+    return nil if key.blank?
+
+    cached = Rails.cache.read(idempotency_cache_key(key))
+    return nil unless cached
+
+    ::SocialPost.find_by(post_id: cached)
+  end
+
+  def cache_idempotent_replay(post)
+    key = idempotency_key
+    return if key.blank?
+
+    Rails.cache.write(idempotency_cache_key(key), post.post_id, expires_in: IDEMPOTENCY_TTL)
+  end
+
+  def idempotency_cache_key(key)
+    "social_post_idempotency:#{@current_user.matrix_user_id}:#{key}"
   end
 
   def attach_source_media(post, signed_blob_id)
