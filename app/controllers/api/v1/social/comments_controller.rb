@@ -43,11 +43,14 @@ class Api::V1::Social::CommentsController < Api::V1::Social::BaseController
   end
 
   def comment_json(comment, replies_by_parent = nil)
+    author_profile = SocialCreatorProfile.find_by(user_id: comment.author_user_id)
     base = {
       comment_id: comment.id,
       post_id: comment.social_post.post_id,
       parent_comment_id: comment.parent_comment_id,
-      author_user_id: comment.author_user_id,
+      author_handle: author_profile&.handle,
+      author_display_name: author_profile&.display_name,
+      author_avatar_url: author_profile&.avatar_url,
       body: comment.body,
       status: comment.status,
       created_at: comment.created_at,

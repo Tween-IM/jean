@@ -69,6 +69,7 @@ class Api::V1::Social::BaseController < Api::BaseController
     {
       post_id: post.post_id,
       content_type: post.content_type,
+      creator_handle: creator&.handle,
       creator: creator ? creator_json(creator) : nil,
       caption: post.caption,
       playback_url: post.playback_url,

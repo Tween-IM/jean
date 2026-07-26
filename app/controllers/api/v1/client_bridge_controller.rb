@@ -119,7 +119,8 @@ class Api::V1::ClientBridgeController < Api::BaseController
     creator_id = params[:creator_id]
     raise ClientBridgeError.new(-32602, "creator_id required") if creator_id.blank?
 
-    ::SocialCreatorProfile.find_by!(user_id: creator_id)
+    ::SocialCreatorProfile.find_by(handle: creator_id) ||
+      ::SocialCreatorProfile.find_by!(user_id: creator_id)
     { opened: true, creator_id: creator_id, deep_link: "tween://social/creator/#{creator_id}" }
   end
 
