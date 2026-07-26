@@ -68,24 +68,12 @@ class Api::V1::Social::ChatsController < Api::V1::Social::BaseController
     render json: { chat: chat_json(chat) }
   end
 
-  def share_contact
-    require_scope("social:engage")
-
-    chat = find_chat
-    my_id = @current_user.matrix_user_id
-    other_id = chat.other_user_id(my_id)
-
-    ContactShare.find_or_create_by!(from_user_id: my_id, to_user_id: other_id)
-
-    render json: { shared: true, message: "Tween ID shared. When they share back, you can chat directly." }
-  end
-
   def destroy
     require_scope("social:engage")
 
     chat = find_chat
     chat.update!(status: 'destroyed')
-    # Bot room cleanup deferred to U10
+    SocialRelayBotService.handle_delete(chat, @current_user.matrix_user_id) if chat.matrix_room_id.present?
 
     render json: { destroyed: true }
   end

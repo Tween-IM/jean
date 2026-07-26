@@ -117,7 +117,6 @@ Rails.application.routes.draw do
           member do
             post :block
             post :unblock
-            post :share_contact
           end
         end
 
