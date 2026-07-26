@@ -25,8 +25,13 @@ class SocialCreatorProfile < ApplicationRecord
   def explicit_contact?(other_user_id)
     return false if other_user_id.blank? || other_user_id == user_id
 
-    ContactShare.exists?(from_user_id: user_id, to_user_id: other_user_id) ||
+    return true if ContactShare.exists?(from_user_id: user_id, to_user_id: other_user_id) ||
       ContactShare.exists?(from_user_id: other_user_id, to_user_id: user_id)
+
+    return true if PhoneContactHash.exists?(user_id: user_id) &&
+      PhoneContactHash.exists?(user_id: other_user_id)
+
+    false
   end
 
   private

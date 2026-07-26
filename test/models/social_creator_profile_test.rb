@@ -62,4 +62,19 @@ class SocialCreatorProfileTest < ActiveSupport::TestCase
     dup = ContactShare.new(from_user_id: "@alice:tween.im", to_user_id: "@bob:tween.im")
     assert_not dup.valid?
   end
+
+  test "explicit_contact? returns true when both have phone contacts synced" do
+    PhoneContactHash.create!(user_id: "@alice:tween.im", phone_hash: "hash_a")
+    PhoneContactHash.create!(user_id: "@bob:tween.im", phone_hash: "hash_b")
+    assert @profile_a.explicit_contact?("@bob:tween.im")
+  end
+
+  test "explicit_contact? returns false when only one has phone contacts synced" do
+    PhoneContactHash.create!(user_id: "@alice:tween.im", phone_hash: "hash_a")
+    assert_not @profile_a.explicit_contact?("@bob:tween.im")
+  end
+
+  test "explicit_contact? returns false when neither has phone contacts synced" do
+    assert_not @profile_a.explicit_contact?("@bob:tween.im")
+  end
 end
