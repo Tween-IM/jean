@@ -352,9 +352,11 @@ class WalletService
   def self.authorize_payment(payment_id, auth_proof, tep_token)
     user_id = extract_user_id_from_tep(tep_token)
     get_circuit_breaker(user_id, :payments).call do
-      request_body = {
-        auth_proof: auth_proof
-      }
+      # Send flat body shape matching what the Flutter TMCP client sends and
+      # what tween-pay's TMCP PaymentsController#authorize_payment expects.
+      # Previously sent { auth_proof: { signature: ..., device_id: ..., ... } }
+      # which landed at params[:auth_proof][:signature] — never found.
+      request_body = auth_proof.is_a?(Hash) ? auth_proof : {}
 
       response = make_wallet_request(:post, "/api/v1/tmcp/payments/#{payment_id}/authorize",
                                    request_body,

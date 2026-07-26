@@ -66,7 +66,6 @@ class Api::V1::Social::BaseController < Api::BaseController
     {
       post_id: post.post_id,
       content_type: post.content_type,
-      creator_user_id: post.creator_user_id,
       creator: creator ? creator_json(creator) : nil,
       caption: post.caption,
       playback_url: post.playback_url,
@@ -100,7 +99,6 @@ class Api::V1::Social::BaseController < Api::BaseController
     end
 
     {
-      user_id: profile.user_id,
       handle: profile.handle,
       display_name: profile.display_name,
       avatar_url: profile.avatar_url,
@@ -116,11 +114,14 @@ class Api::V1::Social::BaseController < Api::BaseController
   end
 
   def comment_json(comment)
+    author_profile = SocialCreatorProfile.find_by(user_id: comment.author_user_id)
     base = {
       comment_id: comment.id,
       post_id: comment.social_post.post_id,
       parent_comment_id: comment.parent_comment_id,
-      author_user_id: comment.author_user_id,
+      author_handle: author_profile&.handle,
+      author_display_name: author_profile&.display_name,
+      author_avatar_url: author_profile&.avatar_url,
       body: comment.body,
       status: comment.status,
       created_at: comment.created_at,

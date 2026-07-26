@@ -74,6 +74,7 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     increment_sales_count!(order)
     emit_order_created(order)
     emit_checkout_created(checkout)
+    notify_merchant_order_created(order)
 
     render json: { checkout: checkout_json(checkout), order: order_json(order) }
   rescue WalletService::WalletError => e
@@ -137,6 +138,7 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
       increment_sales_count!(order) if order
       emit_order_created(order) if order
       emit_checkout_created(checkout)
+      notify_merchant_order_created(order) if order
     else
       ::Commerce::InventoryService.restore!(order) if order
       checkout.update!(status: "failed", metadata: checkout.metadata.merge("payment_error" => params[:error] || "callback_failed", "inventory_restored" => true, "callback_processed_at" => Time.current.iso8601))
@@ -310,6 +312,34 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
       buyer_user_id: checkout.buyer_user_id,
       expires_at: checkout.expires_at.iso8601
     )
+  end
+
+  def notify_merchant_order_created(order)
+    merchant = order.commerce_merchant
+    return unless merchant&.webhook_url.present?
+
+    WebhookService.new.deliver(
+      webhook_url: merchant.webhook_url,
+      event_type: "commerce.order.created",
+      payload: {
+        order_id: order.order_id,
+        payment_id: order.payment_id,
+        status: order.status,
+        total_cents: order.total_cents,
+        currency: order.currency,
+        buyer_user_id: order.buyer_user_id,
+        items: order.commerce_order_items.map do |item|
+          {
+            sku_id: item.sku_id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price_cents: item.unit_price_cents
+          }
+        end
+      }
+    )
+  rescue => e
+    Rails.logger.warn "[Commerce] Failed to notify merchant order.created for order #{order.order_id}: #{e.message}"
   end
 
   def increment_sales_count!(order)

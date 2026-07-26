@@ -18,6 +18,7 @@ class Notification < ApplicationRecord
     social: "social",
     matrix: "matrix",
     tweenpay: "tweenpay",
+    commerce: "commerce",
     system: "system"
   }, prefix: true
 

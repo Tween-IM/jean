@@ -49,7 +49,7 @@ class Api::V1::Commerce::CheckoutsControllerTest < ActionDispatch::IntegrationTe
 
     with_wallet_stub(:authorize_payment, { "status" => "completed", "txn_id" => "txn_auth_test" }) do
       post authorize_api_v1_commerce_checkout_url(checkout_id),
-        params: { authorization: { signature: "sig", device_id: "device" } },
+        params: { authorization: { signature: "test_sig", device_id: "device_123", timestamp: (Time.current.to_f * 1000).to_i.to_s }, payment_method: "wallet" },
         headers: tep_headers(buyer, "commerce:checkout"),
         as: :json
     end
@@ -85,6 +85,45 @@ class Api::V1::Commerce::CheckoutsControllerTest < ActionDispatch::IntegrationTe
     assert_equal "cancelled", response.parsed_body.dig("checkout", "status")
     assert_equal 3, sku.reload.quantity_available
     assert_equal true, response.parsed_body.dig("order", "metadata", "inventory_restored")
+  end
+
+  test "authorize delivers merchant webhook for new order" do
+    owner = create_user("wh-seller")
+    buyer = create_user("wh-buyer")
+    merchant = CommerceMerchant.create!(
+      owner_user_id: owner.matrix_user_id,
+      miniapp_id: "miniapp.shop.test",
+      display_name: "Webhook Shop",
+      status: "active",
+      webhook_url: "https://shop.example/webhooks"
+    )
+    product = merchant.commerce_products.create!(title: "Widget", status: "active")
+    sku = product.commerce_skus.create!(title: "Red", price_cents: 3_000, currency: "NGN", quantity_available: 5)
+    cart = merchant.commerce_carts.create!(buyer_user_id: buyer.matrix_user_id, currency: "NGN")
+    cart.commerce_cart_items.create!(commerce_sku: sku, quantity: 1)
+
+    with_wallet_stub(:create_payment_request, { payment_id: "pay_wh_test", status: "created" }) do
+      post api_v1_commerce_checkouts_url,
+        params: { cart_id: cart.cart_id },
+        headers: tep_headers(buyer, "commerce:checkout"),
+        as: :json
+    end
+    checkout_id = response.parsed_body.dig("checkout", "checkout_id")
+
+    deliveries_before = WebhookDelivery.count
+    with_wallet_stub(:authorize_payment, { "status" => "completed", "txn_id" => "txn_wh_test" }) do
+      post authorize_api_v1_commerce_checkout_url(checkout_id),
+        params: { authorization: { signature: "wh_sig", device_id: "wh_device", timestamp: (Time.current.to_f * 1000).to_i.to_s }, payment_method: "wallet" },
+        headers: tep_headers(buyer, "commerce:checkout"),
+        as: :json
+    end
+
+    assert_response :success
+    assert_equal "paid", response.parsed_body.dig("order", "status")
+    assert_equal deliveries_before + 1, WebhookDelivery.count
+    delivery = WebhookDelivery.last
+    assert_equal "commerce.order.created", delivery.event_type
+    assert_equal "https://shop.example/webhooks", delivery.webhook_url
   end
 
   test "checkout creation is idempotent and does not reserve inventory twice" do

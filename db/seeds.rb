@@ -25,5 +25,10 @@ else
   puts "⚠️  No mini-apps were approved. Check the YAML config and database."
 end
 
+# Load notification seeds (social, payment, system)
+load(Rails.root.join("db/seeds/notifications.rb")) if File.exist?(Rails.root.join("db/seeds/notifications.rb"))
+load(Rails.root.join("db/seeds/notifications_mona.rb")) if File.exist?(Rails.root.join("db/seeds/notifications_mona.rb"))
+load(Rails.root.join("db/seeds/notifications_fantabulous.rb")) if File.exist?(Rails.root.join("db/seeds/notifications_fantabulous.rb"))
+
 puts "\n🎉 Database seeding complete!"
 puts "Run 'rails db:seed' to ensure these are created in your database."

@@ -158,10 +158,13 @@ class Api::V1::Social::StoriesController < Api::V1::Social::BaseController
   def story_json(story, viewed_set)
     ActiveStorage::Current.url_options = { host: request.base_url } if ActiveStorage::Current.url_options.blank?
 
+    creator_profile = SocialCreatorProfile.find_by(user_id: story.creator_user_id)
     {
       id: story.id,
       story_id: story.story_id,
-      creator_user_id: story.creator_user_id,
+      creator_handle: creator_profile&.handle,
+      creator_display_name: creator_profile&.display_name,
+      creator_avatar_url: creator_profile&.avatar_url,
       media_url: story.source_media.attached? ? story.source_media.url : story.media_url,
       media_type: story.media_type,
       caption: story.caption,

@@ -77,7 +77,6 @@ class Api::V1::Commerce::BaseController < Api::BaseController
   def merchant_json(merchant, detail: :public)
     base = {
       merchant_id: merchant.merchant_id,
-      owner_user_id: merchant.owner_user_id,
       miniapp_id: merchant.miniapp_id,
       display_name: merchant.display_name,
       status: merchant.status,
@@ -86,8 +85,6 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       logo_url: merchant.logo_url,
       banner_url: merchant.banner_url,
       business_type: merchant.business_type,
-      phone: merchant.phone,
-      email: merchant.email,
       website: merchant.website,
       city: merchant.city,
       state: merchant.state,
@@ -100,6 +97,9 @@ class Api::V1::Commerce::BaseController < Api::BaseController
 
     if detail == :full
       base.merge!(
+        owner_user_id: merchant.owner_user_id,
+        phone: merchant.phone,
+        email: merchant.email,
         registration_number: merchant.registration_number,
         address_line1: merchant.address_line1,
         address_line2: merchant.address_line2,
@@ -331,9 +331,12 @@ class Api::V1::Commerce::BaseController < Api::BaseController
   # ============================================================================
 
   def review_json(review)
+    reviewer = SocialCreatorProfile.find_by(user_id: review.buyer_user_id)
     {
       review_id: review.review_id,
-      buyer_user_id: review.buyer_user_id,
+      reviewer_handle: reviewer&.handle,
+      reviewer_display_name: reviewer&.display_name,
+      reviewer_avatar_url: reviewer&.avatar_url,
       rating: review.rating,
       title: review.title,
       body: review.body,

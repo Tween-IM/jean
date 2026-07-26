@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_09_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_26_180608) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -402,6 +402,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_09_170000) do
     t.index ["commerce_merchant_id", "status"], name: "index_commerce_warehouses_on_commerce_merchant_id_and_status"
     t.index ["commerce_merchant_id"], name: "index_commerce_warehouses_on_commerce_merchant_id"
     t.index ["warehouse_id"], name: "index_commerce_warehouses_on_warehouse_id", unique: true
+  end
+
+  create_table "contact_shares", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "from_user_id", null: false
+    t.string "to_user_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["from_user_id", "to_user_id"], name: "index_contact_shares_on_from_user_id_and_to_user_id", unique: true
+    t.index ["to_user_id"], name: "index_contact_shares_on_to_user_id"
   end
 
   create_table "mfa_methods", force: :cascade do |t|

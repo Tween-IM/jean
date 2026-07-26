@@ -147,4 +147,46 @@ class WalletServiceTest < ActiveSupport::TestCase
 
     assert_not_equal id1, id2
   end
+
+  # ============================================================================
+  # authorize_payment — Flat Body Shape (regression test)
+  # ============================================================================
+
+  test "authorize_payment sends flat body to wallet API, not nested auth_proof" do
+    tep_token = "tep.payment.auth.test.token"
+    payment_id = "pay_flat_test_123"
+    auth_proof = { signature: "sig_abc", device_id: "device_1", timestamp: "1751468000000", payment_method: "wallet" }
+
+    body_received = nil
+    original = WalletService.method(:make_wallet_request)
+    WalletService.define_singleton_method(:make_wallet_request) do |method, endpoint, body, headers|
+      body_received = body
+      { "status" => "completed", "txn_id" => "txn_flat_test" }
+    end
+
+    WalletService.authorize_payment(payment_id, auth_proof, tep_token)
+
+    assert_equal auth_proof, body_received
+    refute body_received.key?(:auth_proof)
+  ensure
+    WalletService.define_singleton_method(:make_wallet_request, original) if original
+  end
+
+  test "authorize_payment sends empty hash when auth_proof is not a Hash" do
+    tep_token = "tep.payment.nilproof"
+    payment_id = "pay_nil_123"
+
+    body_received = nil
+    original = WalletService.method(:make_wallet_request)
+    WalletService.define_singleton_method(:make_wallet_request) do |method, endpoint, body, headers|
+      body_received = body
+      { "status" => "completed", "txn_id" => "txn_nil_test" }
+    end
+
+    WalletService.authorize_payment(payment_id, nil, tep_token)
+
+    assert_equal({}, body_received)
+  ensure
+    WalletService.define_singleton_method(:make_wallet_request, original) if original
+  end
 end

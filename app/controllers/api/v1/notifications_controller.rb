@@ -27,6 +27,10 @@ class Api::V1::NotificationsController < Api::V1::Social::BaseController
     render json: { success: true, unread_count: count }
   end
 
+  def read
+    mark_read
+  end
+
   def mark_read
     require_scope("social:engage")
 
@@ -52,6 +56,7 @@ class Api::V1::NotificationsController < Api::V1::Social::BaseController
 
     render json: { success: true, data: notification.as_json }
   end
+  alias_method :unread, :mark_unread
 
   private
 
