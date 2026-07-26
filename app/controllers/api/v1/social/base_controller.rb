@@ -13,11 +13,32 @@ class Api::V1::Social::BaseController < Api::BaseController
 
   private
 
+  HANDLE_ADJECTIVES = %w[cool swift bright calm bold warm keen crisp vivid sharp sleek wild rare fine pure lush].freeze
+  HANDLE_NOUNS = %w[fox owl hawk bear wolf lion deer swan dove fern star moon leaf wave peak dusk dawn].freeze
+
   def current_creator_profile
-    @current_creator_profile ||= SocialCreatorProfile.find_or_create_by!(user_id: @current_user.matrix_user_id) do |profile|
-      profile.handle = @current_user.matrix_username.to_s.split(":").first
-      profile.display_name = @current_user.matrix_username
+    @current_creator_profile ||= SocialCreatorProfile.find_by(user_id: @current_user.matrix_user_id) ||
+      create_creator_profile
+  end
+
+  def create_creator_profile
+    handle = generate_unique_handle
+    SocialCreatorProfile.create!(
+      user_id: @current_user.matrix_user_id,
+      handle: handle,
+      display_name: nil
+    )
+  end
+
+  def generate_unique_handle
+    20.times do
+      adj = HANDLE_ADJECTIVES.sample
+      noun = HANDLE_NOUNS.sample
+      num = rand(1000..9999)
+      candidate = "#{adj}_#{noun}_#{num}"
+      return candidate unless SocialCreatorProfile.exists?(handle: candidate)
     end
+    "#{HANDLE_ADJECTIVES.sample}_#{HANDLE_NOUNS.sample}_#{SecureRandom.hex(4)}"
   end
 
   def find_post
