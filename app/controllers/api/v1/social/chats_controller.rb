@@ -7,15 +7,18 @@ class Api::V1::Social::ChatsController < Api::V1::Social::BaseController
     target_id = params[:target_user_id]
     return render json: { error: "missing_target", message: "target_user_id required" }, status: :bad_request if target_id.blank?
 
-    my_id = @current_user.matrix_user_id
-    return render json: { error: "self_chat", message: "Cannot chat with yourself" }, status: :bad_request if target_id == my_id
+    # Resolve handle to Matrix ID if needed
+    target_user_id = resolve_user_id(target_id)
+    return render json: { error: "user_not_found", message: "User not found" }, status: :not_found unless target_user_id
 
-    chat = SocialChat.find_by(user_a_id: my_id, user_b_id: target_id) ||
-           SocialChat.find_by(user_a_id: target_id, user_b_id: my_id)
+    my_id = @current_user.matrix_user_id
+    return render json: { error: "self_chat", message: "Cannot chat with yourself" }, status: :bad_request if target_user_id == my_id
+
+    chat = SocialChat.find_by(user_a_id: my_id, user_b_id: target_user_id) ||
+           SocialChat.find_by(user_a_id: target_user_id, user_b_id: my_id)
 
     unless chat
-      chat = SocialChat.create!(user_a_id: my_id, user_b_id: target_id, status: 'active')
-      # Bot room creation deferred to U10 (relay bot service)
+      chat = SocialChat.create!(user_a_id: my_id, user_b_id: target_user_id, status: 'active')
     end
 
     other = SocialCreatorProfile.find_by(user_id: chat.other_user_id(my_id))
@@ -79,6 +82,13 @@ class Api::V1::Social::ChatsController < Api::V1::Social::BaseController
   end
 
   private
+
+  def resolve_user_id(id)
+    return id if id.start_with?('@')
+
+    profile = SocialCreatorProfile.find_by(handle: id)
+    profile&.user_id
+  end
 
   def find_chat
     SocialChat.for_user(@current_user.matrix_user_id).find(params[:id])
