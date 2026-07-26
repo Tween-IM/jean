@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_26_182327) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_26_215831) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -572,6 +572,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_26_182327) do
     t.index ["social_post_id", "user_id"], name: "index_social_bookmarks_on_social_post_id_and_user_id", unique: true
     t.index ["social_post_id"], name: "index_social_bookmarks_on_social_post_id"
     t.index ["user_id", "created_at"], name: "index_social_bookmarks_on_user_id_and_created_at"
+  end
+
+  create_table "social_chats", force: :cascade do |t|
+    t.string "blocked_by_user_id"
+    t.datetime "created_at", null: false
+    t.datetime "last_message_at"
+    t.string "matrix_room_id"
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_a_id", null: false
+    t.string "user_b_id", null: false
+    t.index ["matrix_room_id"], name: "index_social_chats_on_matrix_room_id", unique: true
+    t.index ["user_a_id", "user_b_id"], name: "index_social_chats_on_user_a_id_and_user_b_id", unique: true
+    t.index ["user_a_id"], name: "index_social_chats_on_user_a_id"
+    t.index ["user_b_id"], name: "index_social_chats_on_user_b_id"
   end
 
   create_table "social_comment_likes", force: :cascade do |t|

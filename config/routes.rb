@@ -112,6 +112,15 @@ Rails.application.routes.draw do
           end
         end
 
+        # Social chat endpoints (bot-relayed messaging)
+        resources :chats, only: [ :index, :show, :create, :destroy ], controller: "social/chats" do
+          member do
+            post :block
+            post :unblock
+            post :share_contact
+          end
+        end
+
         namespace :commerce do
           resources :uploads, only: [ :create ]
           resources :merchants, only: [ :index, :create, :show, :update ] do
