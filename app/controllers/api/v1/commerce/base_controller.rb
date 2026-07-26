@@ -140,13 +140,20 @@ class Api::V1::Commerce::BaseController < Api::BaseController
     }
 
     if detail == :full
+      merchant = storefront.commerce_merchant
       base.merge!(
         about: storefront.about,
         policies: storefront.policies,
         social_share_enabled: storefront.social_share_enabled,
         seo_title: storefront.seo_title,
         seo_description: storefront.seo_description,
-        merchant: merchant_json(storefront.commerce_merchant, detail: :public)
+        phone: merchant.phone,
+        email: merchant.email,
+        website: merchant.website,
+        city: merchant.city,
+        state: merchant.state,
+        country: merchant.country,
+        merchant: merchant_json(merchant, detail: :public)
       )
     end
 
@@ -271,7 +278,6 @@ class Api::V1::Commerce::BaseController < Api::BaseController
     base = {
       order_id: order.order_id,
       merchant_id: order.commerce_merchant.merchant_id,
-      buyer_user_id: order.buyer_user_id,
       status: order.status,
       payment_id: order.payment_id,
       subtotal_cents: order.subtotal_cents,
@@ -288,7 +294,10 @@ class Api::V1::Commerce::BaseController < Api::BaseController
     }
 
     if detail == :full
-      base[:merchant] = merchant_json(order.commerce_merchant, detail: :public)
+      base.merge!(
+        buyer_user_id: order.buyer_user_id,
+        merchant: merchant_json(order.commerce_merchant, detail: :public)
+      )
     end
 
     base
