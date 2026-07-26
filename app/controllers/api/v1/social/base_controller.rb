@@ -98,7 +98,7 @@ class Api::V1::Social::BaseController < Api::BaseController
       profile.has_active_story?
     end
 
-    {
+    result = {
       handle: profile.handle,
       display_name: profile.display_name,
       avatar_url: profile.avatar_url,
@@ -111,6 +111,14 @@ class Api::V1::Social::BaseController < Api::BaseController
       created_at: profile.created_at,
       updated_at: profile.updated_at
     }
+
+    # Only expose user_id to the profile owner (self-view) so the client
+    # can check identity and look up DM rooms. Never visible to others.
+    if @current_user && profile.user_id == @current_user.matrix_user_id
+      result[:user_id] = profile.user_id
+    end
+
+    result
   end
 
   def comment_json(comment)
