@@ -53,7 +53,12 @@ class Api::V1::Social::FeedController < Api::V1::Social::BaseController
   def creator_feed(creator_id, cursor, limit)
     return [ [], nil ] if creator_id.blank?
 
-    query = ::SocialPost.feedable.where(creator_user_id: creator_id)
+    # creator_id may be a handle (from the redacted API) or a full Matrix ID.
+    profile = SocialCreatorProfile.find_by(handle: creator_id) ||
+              SocialCreatorProfile.find_by(user_id: creator_id)
+    return [ [], nil ] unless profile
+
+    query = ::SocialPost.feedable.where(creator_user_id: profile.user_id)
     apply_cursor(query, cursor, limit)
   end
 
