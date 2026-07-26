@@ -25,7 +25,10 @@ class Api::V1::Social::BaseController < Api::BaseController
   end
 
   def find_creator_profile
-    ::SocialCreatorProfile.find_by!(user_id: params[:creator_id] || params[:id])
+    id = params[:creator_id] || params[:id]
+    profile = ::SocialCreatorProfile.find_by(handle: id) ||
+              ::SocialCreatorProfile.find_by!(user_id: id)
+    profile
   end
 
   def ensure_post_visible(post)
