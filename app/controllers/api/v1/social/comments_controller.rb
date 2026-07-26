@@ -42,36 +42,6 @@ class Api::V1::Social::CommentsController < Api::V1::Social::BaseController
     params.require(:comment).permit(:body, :parent_comment_id)
   end
 
-  def comment_json(comment, replies_by_parent = nil)
-    author_profile = SocialCreatorProfile.find_by(user_id: comment.author_user_id)
-    base = {
-      comment_id: comment.id,
-      post_id: comment.social_post.post_id,
-      parent_comment_id: comment.parent_comment_id,
-      author_handle: author_profile&.handle,
-      author_display_name: author_profile&.display_name,
-      author_avatar_url: author_profile&.avatar_url,
-      body: comment.body,
-      status: comment.status,
-      created_at: comment.created_at,
-      updated_at: comment.updated_at
-    }
-
-    if @current_user
-      base[:like_count] = comment.social_comment_likes.count
-      base[:liked] = comment.social_comment_likes.exists?(user_id: @current_user.matrix_user_id)
-    end
-
-    # Include replies if replies_by_parent is provided
-    if replies_by_parent
-      child_replies = replies_by_parent[comment.id] || []
-      base[:replies] = child_replies.map { |reply| comment_json(reply, replies_by_parent) }
-      base[:reply_count] = child_replies.length
-    end
-
-    base
-  end
-
   def emit_comment_created(comment)
     MatrixEventService.publish_comment_created(
       body: comment.body,

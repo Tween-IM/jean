@@ -141,6 +141,7 @@ Rails.application.routes.draw do
               get :trending
               get :search
             end
+            resources :reviews, only: [ :create ], controller: "reviews"
           end
           resources :carts, only: [ :create, :show ] do
             post :shipping_quotes, on: :member
