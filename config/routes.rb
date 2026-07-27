@@ -112,6 +112,9 @@ Rails.application.routes.draw do
           end
         end
 
+        # Phone contact sync
+        post "contacts/sync", to: "social/contacts#sync"
+
         # Social chat endpoints (bot-relayed messaging)
         resources :chats, only: [ :index, :show, :create, :destroy ], controller: "social/chats" do
           member do
