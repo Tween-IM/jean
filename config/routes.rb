@@ -162,6 +162,7 @@ Rails.application.routes.draw do
             end
             resource :fulfillment, only: [ :create ], controller: :fulfillments
             resources :refunds, only: [ :create ]
+            resources :messages, only: [ :create ], controller: "messages"
           end
           resources :payouts, only: [ :index, :create ]
           resources :categories, only: [ :index, :show ]
