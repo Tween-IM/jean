@@ -23,7 +23,7 @@ class Api::V1::Social::BaseController < Api::BaseController
 
   def create_creator_profile
     handle = generate_unique_handle
-    avatar_url = "https://api.dicebear.com/9.x/initials/svg?seed=#{CGI.escape(handle)}"
+    avatar_url = "https://api.dicebear.com/9.x/avataaars/svg?seed=#{CGI.escape(handle)}"
     SocialCreatorProfile.create!(
       user_id: @current_user.matrix_user_id,
       handle: handle,
