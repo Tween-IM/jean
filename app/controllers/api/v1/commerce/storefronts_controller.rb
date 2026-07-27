@@ -50,7 +50,7 @@ class Api::V1::Commerce::StorefrontsController < Api::V1::Commerce::BaseControll
     storefront.increment!(:view_count)
 
     render json: {
-      storefront: storefront_json(storefront, detail: :full),
+      storefront: storefront_json(storefront, detail: :public),
       products: storefront.commerce_products.active.limit(20).map { |p| product_json(p, detail: :public) }
     }
   end
@@ -62,7 +62,7 @@ class Api::V1::Commerce::StorefrontsController < Api::V1::Commerce::BaseControll
     storefront.increment!(:view_count)
 
     render json: {
-      storefront: storefront_json(storefront, detail: :full),
+      storefront: storefront_json(storefront, detail: :public),
       products: storefront.commerce_products.active.limit(20).map { |p| product_json(p, detail: :public) }
     }
   end
