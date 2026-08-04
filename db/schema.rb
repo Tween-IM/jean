@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_26_215831) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_04_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -357,6 +357,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_26_215831) do
     t.string "banner_url"
     t.bigint "commerce_merchant_id", null: false
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
     t.text "description"
     t.string "display_name", null: false
     t.boolean "featured", default: false
@@ -378,6 +379,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_26_215831) do
     t.integer "view_count", default: 0
     t.index ["commerce_merchant_id", "slug"], name: "index_commerce_storefronts_on_commerce_merchant_id_and_slug", unique: true
     t.index ["commerce_merchant_id"], name: "index_commerce_storefronts_on_commerce_merchant_id"
+    t.index ["deleted_at"], name: "index_commerce_storefronts_on_deleted_at"
     t.index ["featured"], name: "index_commerce_storefronts_on_featured"
     t.index ["status"], name: "index_commerce_storefronts_on_status"
     t.index ["store_url_slug"], name: "index_commerce_storefronts_on_store_url_slug", unique: true
@@ -551,7 +553,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_26_215831) do
     t.string "phone_hash", null: false
     t.datetime "updated_at", null: false
     t.string "user_id", null: false
-    t.index ["phone_hash", "user_id"], name: "index_phone_contact_hashes_on_phone_hash_and_user_id"
+    t.index ["phone_hash", "user_id"], name: "index_phone_contact_hashes_on_phone_hash_and_user_id", unique: true
     t.index ["user_id"], name: "index_phone_contact_hashes_on_user_id"
   end
 

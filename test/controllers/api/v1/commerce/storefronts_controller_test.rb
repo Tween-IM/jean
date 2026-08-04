@@ -23,6 +23,38 @@ class Api::V1::Commerce::StorefrontsControllerTest < ActionDispatch::Integration
     assert_equal "Fresh drops", response.parsed_body.dig("storefront", "description")
   end
 
+  test "merchant can archive a storefront and it disappears from listings" do
+    owner = create_user("storefront-archive-owner")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "miniapp.shop.test", display_name: "Shop", status: "active")
+
+    post api_v1_commerce_storefronts_url,
+      params: { merchant_id: merchant.merchant_id, storefront: { display_name: "Main Shop", status: "published" } },
+      headers: tep_headers(owner, "commerce:read commerce:merchant"),
+      as: :json
+
+    storefront_id = response.parsed_body.dig("storefront", "storefront_id")
+    delete api_v1_commerce_storefront_url(storefront_id),
+      headers: tep_headers(owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    assert_equal "closed", response.parsed_body.dig("storefront", "status")
+    assert_not_nil CommerceStorefront.find_by(storefront_id: storefront_id).deleted_at
+
+    get "#{api_v1_commerce_storefronts_url}?merchant_id=#{merchant.merchant_id}",
+      headers: tep_headers(owner, "commerce:read"),
+      as: :json
+
+    assert_response :success
+    ids = response.parsed_body.dig("storefronts").map { |s| s["storefront_id"] }
+    assert_not_includes ids, storefront_id
+
+    get api_v1_commerce_storefront_url(storefront_id),
+      headers: tep_headers(owner, "commerce:read"),
+      as: :json
+    assert_response :not_found
+  end
+
   private
 
   def create_user(username)

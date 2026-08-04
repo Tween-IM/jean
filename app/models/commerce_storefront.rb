@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 class CommerceStorefront < ApplicationRecord
   belongs_to :commerce_merchant
   has_many :commerce_products, dependent: :nullify
@@ -15,6 +16,7 @@ class CommerceStorefront < ApplicationRecord
   validates :status, inclusion: { in: %w[draft published suspended closed] }
   validates :accent_color, format: { with: /\A#[0-9A-Fa-f]{6}\z/, message: "must be a valid hex color" }, allow_blank: true
 
+  scope :active, -> { where(deleted_at: nil) }
   scope :published, -> { where(status: "published") }
   scope :featured, -> { where(featured: true) }
 
@@ -23,6 +25,16 @@ class CommerceStorefront < ApplicationRecord
       product_count: commerce_products.where(status: "active").count,
       order_count: commerce_merchant.commerce_orders.where.not(status: %w[pending_payment cancelled]).count
     )
+  end
+
+  # Archive (soft delete): removes the store from seller surfaces and public
+  # discovery without destroying order history or owned products.
+  def archive!
+    update!(status: "closed", deleted_at: Time.current)
+  end
+
+  def restore!
+    update!(status: "draft", deleted_at: nil)
   end
 
   private

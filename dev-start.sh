@@ -37,6 +37,12 @@ if [ ! -f "secrets/tmcp_private_key.txt" ]; then
     chmod 600 secrets/tmcp_private_key.txt
 fi
 
+if [ ! -f "secrets/phone_hash_pepper.txt" ]; then
+    echo "Creating phone hash pepper..."
+    openssl rand -base64 32 | tr -d '\n' > secrets/phone_hash_pepper.txt
+    chmod 600 secrets/phone_hash_pepper.txt
+fi
+
 # Start services
 echo ""
 echo "Starting services..."
