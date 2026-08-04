@@ -137,6 +137,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
       begin
         ActiveRecord::Base.transaction do
           create_skus(product)
+          ensure_default_sku(product)
           link_shipping_profiles(product)
         end
         product.commerce_storefront&.recache_stats!
@@ -221,6 +222,27 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
       permitted_sku[:currency] ||= 'NGN'
       product.commerce_skus.create!(permitted_sku)
     end
+  end
+
+  # Fast Lane listings carry price inside dimensions.listing rather than a
+  # skus array. Without at least one SKU a product has no price_range and is
+  # filtered out of the marketplace (`with_available_stock` joins SKUs), so
+  # synthesize a default SKU from the listing price when none were provided.
+  def ensure_default_sku(product)
+    return if product.commerce_skus.any?
+
+    listing = product.dimensions.to_h.dig("listing")
+    return if listing.blank?
+
+    price_cents = listing["price"]
+    return if price_cents.blank?
+
+    product.commerce_skus.create!(
+      title: "Default",
+      price_cents: price_cents,
+      currency: listing["currency"] || 'NGN',
+      inventory_status: "in_stock"
+    )
   end
 
   def update_skus(product)
