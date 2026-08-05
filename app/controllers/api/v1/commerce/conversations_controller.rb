@@ -74,6 +74,33 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     render json: { conversation: conversation_json(conversation, role: role_for(conversation)) }
   end
 
+  # PATCH /api/v1/commerce/conversations/:id — close or reopen.
+  def update
+    require_scope("commerce:read")
+
+    conversation = find_conversation
+    return if ensure_participant(conversation)
+
+    status = params[:status].to_s
+    unless status.in?(%w[open closed])
+      return render json: { error: "invalid_status", message: "Status must be 'open' or 'closed'" }, status: :unprocessable_entity
+    end
+
+    conversation.update!(status: status)
+    render json: { conversation: conversation_json(conversation, role: role_for(conversation)) }
+  end
+
+  # POST /api/v1/commerce/conversations/:id/read — mark the caller's copy read.
+  def read
+    require_scope("commerce:read")
+
+    conversation = find_conversation
+    return if ensure_participant(conversation)
+
+    conversation.mark_read!(role_for(conversation))
+    render json: { conversation: conversation_json(conversation, role: role_for(conversation)) }
+  end
+
   # GET /api/v1/commerce/conversations/:id/messages — read history.
   # POST /api/v1/commerce/conversations/:id/messages — send a message.
   def messages
@@ -147,6 +174,7 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
       conversation_id: conversation.conversation_id,
       status: conversation.status,
       role: role,
+      unread: conversation.unread_for?(role),
       buyer_label: conversation.buyer_label,
       seller_label: conversation.seller_label,
       last_message_at: conversation.last_message_at,

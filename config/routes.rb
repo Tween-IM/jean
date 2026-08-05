@@ -167,10 +167,11 @@ Rails.application.routes.draw do
             resources :refunds, only: [ :create ]
             resources :messages, only: [ :create ], controller: "messages"
           end
-          resources :conversations, only: [ :index, :show ] do
+          resources :conversations, only: [ :index, :show, :update ] do
             member do
               get :messages
               post :messages
+              post :read
             end
           end
           post "products/:product_id/contact", to: "conversations#create", as: :product_contact
@@ -276,7 +277,7 @@ Rails.application.routes.draw do
 
   namespace :admin do
     get "dashboard", to: "dashboard#index", as: :dashboard
-    resources :mini_apps, only: [:index, :show, :new, :create, :edit, :destroy], path: "mini-apps" do
+    resources :mini_apps, only: [ :index, :show, :new, :create, :edit, :destroy ], path: "mini-apps" do
       member do
         post :update
         patch :update
@@ -286,8 +287,8 @@ Rails.application.routes.draw do
         delete :hard_delete
       end
     end
-    resources :users, only: [:index, :show, :edit, :update]
-    resources :oauth_applications, only: [:index, :show, :destroy], path: "oauth-apps"
+    resources :users, only: [ :index, :show, :edit, :update ]
+    resources :oauth_applications, only: [ :index, :show, :destroy ], path: "oauth-apps"
 
     # Mini-app review workflow
     get "mini-app-reviews", to: "mini_app_reviews#index", as: :mini_app_reviews

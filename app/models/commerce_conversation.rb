@@ -36,6 +36,22 @@ class CommerceConversation < ApplicationRecord
     merchant&.display_name.presence || "Seller"
   end
 
+  def last_read_at_for(role)
+    role == "seller" ? seller_last_read_at : buyer_last_read_at
+  end
+
+  def unread_for?(role)
+    return false unless last_message_at.present?
+
+    last_read = last_read_at_for(role)
+    last_read.nil? || last_message_at > last_read
+  end
+
+  def mark_read!(role)
+    column = role == "seller" ? :seller_last_read_at : :buyer_last_read_at
+    update!(column => Time.current)
+  end
+
   private
 
   def assign_conversation_id

@@ -130,6 +130,54 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
     assert_equal [], response.parsed_body["messages"]
   end
 
+  test "a new inquiry is unread for the seller and read once marked" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im",
+      last_message_at: 1.minute.ago
+    )
+
+    get api_v1_commerce_conversation_url(conversation.conversation_id),
+        headers: tep_headers(@seller, "commerce:read"),
+        as: :json
+
+    assert_response :success
+    assert_equal true, response.parsed_body.dig("conversation", "unread")
+
+    post read_api_v1_commerce_conversation_url(conversation.conversation_id),
+         headers: tep_headers(@seller, "commerce:read"),
+         as: :json
+
+    assert_response :success
+    assert_equal false, response.parsed_body.dig("conversation", "unread")
+    assert conversation.reload.seller_last_read_at.present?
+  end
+
+  test "seller can close and reopen a conversation" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+
+    patch api_v1_commerce_conversation_url(conversation.conversation_id),
+          params: { status: "closed" },
+          headers: tep_headers(@seller, "commerce:read"),
+          as: :json
+
+    assert_response :success
+    assert_equal "closed", response.parsed_body.dig("conversation", "status")
+
+    patch api_v1_commerce_conversation_url(conversation.conversation_id),
+          params: { status: "open" },
+          headers: tep_headers(@seller, "commerce:read"),
+          as: :json
+
+    assert_response :success
+    assert_equal "open", response.parsed_body.dig("conversation", "status")
+  end
+
   private
 
   def create_user(username)

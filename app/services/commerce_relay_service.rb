@@ -114,6 +114,7 @@ class CommerceRelayService
       "m.tween.relay_role" => "system",
       "m.tween.relay_type" => "commerce_inquiry"
     })
+    conversation.update!(last_message_at: Time.current)
 
     room_id
   rescue => e
