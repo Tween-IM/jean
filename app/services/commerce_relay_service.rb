@@ -2,14 +2,25 @@
 
 # CommerceRelayService
 #
-# Creates bot-relayed Matrix rooms for order-based buyer-seller messaging.
-# Neither party sees the other's Matrix ID — display uses order context labels.
-# Bot stays in the room permanently (no promotion to DM for commerce).
+# Creates bot-relayed Matrix rooms for buyer-seller messaging (order chat and
+# classified marketplace conversations). Neither party sees the other's
+# Matrix ID — display uses order/inquiry context labels.
+#
+# BOT: Reuses the TMCP Application Service bot configuration (registered in
+# matrix-homeserver-config.yaml with sender_localpart "_tmcp"). Acting as the
+# virtual user @_tmcp_commerce via AS identity assertion (hs_token +
+# ?user_id=), so NO separate sidecar bot is required. The @_tmcp.* users
+# namespace is exclusive to the AS, which lets us expand to commerce-specific
+# identities like @_tmcp_commerce freely.
 #
 class CommerceRelayService
-  # Reuse the same bot credentials from SocialRelayBotService
-  BOT_USER_ID = ENV.fetch("RELAY_BOT_USER_ID", "@tween_relay_bot:tween.im")
-  BOT_ACCESS_TOKEN = ENV.fetch("RELAY_BOT_ACCESS_TOKEN", "")
+  # Virtual commerce bot within the AS's exclusive @_tmcp.* namespace.
+  BOT_USER_ID = "@_tmcp_commerce:#{ENV.fetch('MATRIX_DOMAIN', 'tween.im')}".freeze
+
+  # hs_token authenticates TMCP Server to the homeserver as the AS
+  # (matrix-homeserver-config.yaml). Fall back to MATRIX_AS_TOKEN where that
+  # legacy name is in use.
+  AS_TOKEN = ENV["MATRIX_AS_TOKEN"].presence || ENV.fetch("MATRIX_HS_TOKEN", "")
 
   class Error < StandardError; end
 
@@ -19,7 +30,7 @@ class CommerceRelayService
 
     room_id = create_matrix_room(
       name: nil,
-      invite: [ BOT_USER_ID ],
+      invite: [],
       is_direct: false,
       preset: "trusted_private_chat",
       initial_state: [ {
@@ -62,8 +73,9 @@ class CommerceRelayService
   # Classified (marketplace) buyer↔seller conversations
   # ==========================================================================
   #
-  # The relay bot owns the room. Neither party is a member, so nobody ever
-  # sees the other's Tween/Matrix ID — only the friendly labels below.
+  # The @_tmcp_commerce bot owns the room. Neither party is a member, so
+  # nobody ever sees the other's Tween/Matrix ID — only the friendly labels
+  # below.
 
   def self.create_inquiry_room(conversation)
     return conversation.matrix_room_id if conversation.matrix_room_id.present?
@@ -71,9 +83,10 @@ class CommerceRelayService
     product = conversation.product
     room_id = create_matrix_room(
       name: nil,
-      invite: [ BOT_USER_ID ],
+      invite: [],
       is_direct: false,
       preset: "trusted_private_chat",
+      room_alias_name: "tmcp_inquiry_#{conversation.conversation_id}",
       initial_state: [ {
         type: "m.tween.relay",
         content: {
@@ -153,11 +166,6 @@ class CommerceRelayService
       .reverse
   end
 
-  def self.handle_delete(order, _leaving_user_id)
-    # Commerce rooms are persistent — just stop relaying.
-    # Room remains accessible from order detail.
-  end
-
   private
 
   def self.create_matrix_room(params)
@@ -167,6 +175,7 @@ class CommerceRelayService
       invite: params[:invite] || [],
       is_direct: params[:is_direct] || false,
       initial_state: params[:initial_state] || [],
+      room_alias_name: params[:room_alias_name],
       name: params[:name]
     }.compact
 
@@ -178,16 +187,19 @@ class CommerceRelayService
     txn_id = "tween_commerce_#{SecureRandom.hex(16)}"
     make_matrix_request(
       :put,
-      "/_matrix/client/v3/rooms/#{room_id}/send/m.room.message/#{txn_id}",
+      "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/m.room.message/#{txn_id}",
       content
     )
   end
 
-  def self.make_matrix_request(method, path, body = nil)
-    url = "#{matrix_base_url}#{path}"
+  # Call the homeserver as the AS bot (@_tmcp_commerce). The user_id query
+  # param is the Matrix Application Service identity assertion — events and
+  # room creation are attributed to the virtual bot, not to any human user.
+  def self.make_matrix_request(method, path, body = nil, user_id: BOT_USER_ID)
+    url = matrix_request_url(path, user_id: user_id)
     headers = {
       "Content-Type" => "application/json",
-      "Authorization" => "Bearer #{BOT_ACCESS_TOKEN}"
+      "Authorization" => "Bearer #{AS_TOKEN}"
     }
 
     response = case method
@@ -204,7 +216,17 @@ class CommerceRelayService
     JSON.parse(response.body) unless response.body.blank?
   end
 
+  def self.matrix_request_url(path, user_id:)
+    uri = URI("#{matrix_base_url}#{path}")
+    query = URI.decode_www_form(uri.query.to_s)
+    query << [ "user_id", user_id ]
+    uri.query = URI.encode_www_form(query)
+    uri.to_s
+  end
+
   def self.matrix_base_url
-    ENV.fetch("MATRIX_HOMESERVER_URL", "https://core.tween.im")
+    ENV["MATRIX_API_URL"].presence ||
+      ENV["MATRIX_HOMESERVER_URL"].presence ||
+      "https://core.tween.im"
   end
 end
