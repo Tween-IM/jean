@@ -115,6 +115,10 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
 
     render json: {
       product: product_json(product, detail: :full),
+      review_eligibility: Commerce::ReviewEligibilityService.can_review?(
+        buyer_user_id: @current_user.matrix_user_id,
+        product: product
+      ),
       reviews: product.commerce_reviews.approved.limit(10).map { |r| review_json(r) },
       related_products: related.map { |p| product_json(p, detail: :public) }
     }

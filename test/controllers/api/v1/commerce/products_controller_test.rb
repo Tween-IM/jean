@@ -49,6 +49,33 @@ class Api::V1::Commerce::ProductsControllerTest < ActionDispatch::IntegrationTes
     assert_response :unprocessable_entity
   end
 
+  test "show reports review eligibility only after a purchase" do
+    owner = create_user("review-elig-owner")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "miniapp.shop.test", display_name: "Shop", status: "active")
+    product = merchant.commerce_products.create!(title: "Camry 2018", status: "active", condition: "used")
+
+    # Buyer with no purchase — not eligible.
+    buyer = create_user("review-elig-buyer")
+    get api_v1_commerce_product_url(product.product_id),
+        headers: tep_headers(buyer, "commerce:read"),
+        as: :json
+    assert_response :success
+    assert_equal false, response.parsed_body.dig("review_eligibility", "eligible")
+
+    # After a paid order — eligible.
+    merchant.commerce_orders.create!(
+      buyer_user_id: buyer.matrix_user_id,
+      payment_id: "pay_review_elig",
+      status: "paid",
+      subtotal_cents: 1000, total_cents: 1000, currency: "NGN"
+    )
+    get api_v1_commerce_product_url(product.product_id),
+        headers: tep_headers(buyer, "commerce:read"),
+        as: :json
+    assert_response :success
+    assert_equal true, response.parsed_body.dig("review_eligibility", "eligible")
+  end
+
   private
 
   def create_user(username)
