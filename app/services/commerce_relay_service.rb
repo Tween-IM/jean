@@ -6,20 +6,21 @@
 # classified marketplace conversations). Neither party sees the other's
 # Matrix ID — display uses order/inquiry context labels.
 #
-# BOT: Reuses an existing TMCP bot token — no new sidecar. Resolution order:
-# MATRIX_ACCESS_TOKEN (documented "access token for event publishing") →
-# MATRIX_HS_TOKEN (AS hs_token) → MATRIX_AS_TOKEN (legacy name). The token
-# is sent as a Bearer, acting as whatever bot user owns it. Event
-# namespacing is carried by the `m.tween.relay` state (relay_type:
+# BOT: Reuses the existing TMCP AS token — no new sidecar. Verified against
+# the homeserver: MATRIX_AS_TOKEN authenticates as @_tmcp:tween.im and can
+# create relay rooms, send, and read history. Resolution order:
+# MATRIX_RELAY_TOKEN (explicit override) → MATRIX_AS_TOKEN → MATRIX_HS_TOKEN.
+# Event namespacing is carried by the `m.tween.relay` state (relay_type:
 # commerce_order / commerce_inquiry).
 #
 class CommerceRelayService
   # Outgoing homeserver token + which env var it came from (for diagnostics).
+  # MATRIX_ACCESS_TOKEN is intentionally excluded — it is a non-production
+  # placeholder in some deployments and would shadow the working AS token.
   TOKEN_SOURCE, AS_TOKEN = [
     "MATRIX_RELAY_TOKEN",
-    "MATRIX_ACCESS_TOKEN",
-    "MATRIX_HS_TOKEN",
-    "MATRIX_AS_TOKEN"
+    "MATRIX_AS_TOKEN",
+    "MATRIX_HS_TOKEN"
   ].filter_map { |key|
     value = ENV[key].presence
     value && [ key, value ]
