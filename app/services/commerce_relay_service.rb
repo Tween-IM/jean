@@ -6,21 +6,17 @@
 # classified marketplace conversations). Neither party sees the other's
 # Matrix ID — display uses order/inquiry context labels.
 #
-# BOT: Reuses the TMCP Application Service bot configuration (registered in
-# matrix-homeserver-config.yaml with sender_localpart "_tmcp"). Acting as the
-# virtual user @_tmcp_commerce via AS identity assertion (hs_token +
-# ?user_id=), so NO separate sidecar bot is required. The @_tmcp.* users
-# namespace is exclusive to the AS, which lets us expand to commerce-specific
-# identities like @_tmcp_commerce freely.
+# BOT: Reuses the TMCP Application Service bot — the registered sender user
+# `@_tmcp` (matrix-homeserver-config.yaml: sender_localpart "_tmcp"). The AS
+# hs_token (MATRIX_HS_TOKEN) authenticates client-server calls as this user,
+# so NO separate sidecar bot is required. Event namespacing is carried by the
+# `m.tween.relay` state (relay_type: commerce_order / commerce_inquiry).
 #
 class CommerceRelayService
-  # Virtual commerce bot within the AS's exclusive @_tmcp.* namespace.
-  BOT_USER_ID = "@_tmcp_commerce:#{ENV.fetch('MATRIX_DOMAIN', 'tween.im')}".freeze
-
   # hs_token authenticates TMCP Server to the homeserver as the AS
-  # (matrix-homeserver-config.yaml). Fall back to MATRIX_AS_TOKEN where that
-  # legacy name is in use.
-  AS_TOKEN = ENV["MATRIX_AS_TOKEN"].presence || ENV.fetch("MATRIX_HS_TOKEN", "")
+  # (matrix-homeserver-config.yaml). Fall back to the legacy MATRIX_AS_TOKEN
+  # name where that is the configured variable.
+  AS_TOKEN = ENV.fetch("MATRIX_HS_TOKEN", "").presence || ENV["MATRIX_AS_TOKEN"]
 
   class Error < StandardError; end
 
@@ -73,9 +69,8 @@ class CommerceRelayService
   # Classified (marketplace) buyer↔seller conversations
   # ==========================================================================
   #
-  # The @_tmcp_commerce bot owns the room. Neither party is a member, so
-  # nobody ever sees the other's Tween/Matrix ID — only the friendly labels
-  # below.
+  # The @_tmcp AS bot owns the room. Neither party is a member, so nobody
+  # ever sees the other's Tween/Matrix ID — only the friendly labels below.
 
   def self.create_inquiry_room(conversation)
     return conversation.matrix_room_id if conversation.matrix_room_id.present?
@@ -86,7 +81,6 @@ class CommerceRelayService
       invite: [],
       is_direct: false,
       preset: "trusted_private_chat",
-      room_alias_name: "tmcp_inquiry_#{conversation.conversation_id}",
       initial_state: [ {
         type: "m.tween.relay",
         content: {
@@ -175,7 +169,6 @@ class CommerceRelayService
       invite: params[:invite] || [],
       is_direct: params[:is_direct] || false,
       initial_state: params[:initial_state] || [],
-      room_alias_name: params[:room_alias_name],
       name: params[:name]
     }.compact
 
@@ -192,11 +185,11 @@ class CommerceRelayService
     )
   end
 
-  # Call the homeserver as the AS bot (@_tmcp_commerce). The user_id query
-  # param is the Matrix Application Service identity assertion — events and
-  # room creation are attributed to the virtual bot, not to any human user.
-  def self.make_matrix_request(method, path, body = nil, user_id: BOT_USER_ID)
-    url = matrix_request_url(path, user_id: user_id)
+  # Call the homeserver as the TMCP AS user (@_tmcp). The AS hs_token with no
+  # user_id acts as the registered sender user — the same path used by
+  # PaymentBotService / MatrixService.
+  def self.make_matrix_request(method, path, body = nil)
+    url = "#{matrix_base_url}#{path}"
     headers = {
       "Content-Type" => "application/json",
       "Authorization" => "Bearer #{AS_TOKEN}"
@@ -210,18 +203,11 @@ class CommerceRelayService
     end
 
     unless response.success?
-      raise Error, "Matrix API error: #{response.status}"
+      body = response.body.to_s[0..300]
+      raise Error, "Matrix API error: #{response.status} #{body}"
     end
 
     JSON.parse(response.body) unless response.body.blank?
-  end
-
-  def self.matrix_request_url(path, user_id:)
-    uri = URI("#{matrix_base_url}#{path}")
-    query = URI.decode_www_form(uri.query.to_s)
-    query << [ "user_id", user_id ]
-    uri.query = URI.encode_www_form(query)
-    uri.to_s
   end
 
   def self.matrix_base_url
