@@ -6,17 +6,24 @@
 # classified marketplace conversations). Neither party sees the other's
 # Matrix ID — display uses order/inquiry context labels.
 #
-# BOT: Reuses the TMCP Application Service bot — the registered sender user
-# `@_tmcp` (matrix-homeserver-config.yaml: sender_localpart "_tmcp"). The AS
-# hs_token (MATRIX_HS_TOKEN) authenticates client-server calls as this user,
-# so NO separate sidecar bot is required. Event namespacing is carried by the
-# `m.tween.relay` state (relay_type: commerce_order / commerce_inquiry).
+# BOT: Reuses an existing TMCP bot token — no new sidecar. Resolution order:
+# MATRIX_ACCESS_TOKEN (documented "access token for event publishing") →
+# MATRIX_HS_TOKEN (AS hs_token) → MATRIX_AS_TOKEN (legacy name). The token
+# is sent as a Bearer, acting as whatever bot user owns it. Event
+# namespacing is carried by the `m.tween.relay` state (relay_type:
+# commerce_order / commerce_inquiry).
 #
 class CommerceRelayService
-  # hs_token authenticates TMCP Server to the homeserver as the AS
-  # (matrix-homeserver-config.yaml). Fall back to the legacy MATRIX_AS_TOKEN
-  # name where that is the configured variable.
-  AS_TOKEN = ENV.fetch("MATRIX_HS_TOKEN", "").presence || ENV["MATRIX_AS_TOKEN"]
+  # Outgoing homeserver token + which env var it came from (for diagnostics).
+  TOKEN_SOURCE, AS_TOKEN = [
+    "MATRIX_RELAY_TOKEN",
+    "MATRIX_ACCESS_TOKEN",
+    "MATRIX_HS_TOKEN",
+    "MATRIX_AS_TOKEN"
+  ].filter_map { |key|
+    value = ENV[key].presence
+    value && [ key, value ]
+  }.first || [ nil, "" ]
 
   class Error < StandardError; end
 
@@ -206,7 +213,7 @@ class CommerceRelayService
       body = response.body.to_s[0..300]
       Rails.logger.error(
         "[CommerceRelay] Matrix #{method.upcase} #{url} failed: " \
-        "#{response.status} #{body} (as_token_set=#{AS_TOKEN.present?})"
+        "#{response.status} #{body} (token_source=#{TOKEN_SOURCE})"
       )
       raise Error, "Matrix API error: #{response.status} #{body}"
     end
