@@ -204,6 +204,10 @@ class CommerceRelayService
 
     unless response.success?
       body = response.body.to_s[0..300]
+      Rails.logger.error(
+        "[CommerceRelay] Matrix #{method.upcase} #{url} failed: " \
+        "#{response.status} #{body} (as_token_set=#{AS_TOKEN.present?})"
+      )
       raise Error, "Matrix API error: #{response.status} #{body}"
     end
 
