@@ -167,6 +167,13 @@ Rails.application.routes.draw do
             resources :refunds, only: [ :create ]
             resources :messages, only: [ :create ], controller: "messages"
           end
+          resources :conversations, only: [ :index, :show ] do
+            member do
+              get :messages
+              post :messages
+            end
+          end
+          post "products/:product_id/contact", to: "conversations#create", as: :product_contact
           resources :payouts, only: [ :index, :create ]
           resources :categories, only: [ :index, :show ]
           resources :reviews, only: [ :index ] do

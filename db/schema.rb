@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -130,6 +130,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_110000) do
     t.index ["commerce_cart_id"], name: "index_commerce_checkouts_on_commerce_cart_id"
     t.index ["commerce_merchant_id"], name: "index_commerce_checkouts_on_commerce_merchant_id"
     t.index ["payment_id"], name: "index_commerce_checkouts_on_payment_id"
+  end
+
+  create_table "commerce_conversations", force: :cascade do |t|
+    t.string "buyer_user_id", null: false
+    t.string "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_message_at"
+    t.string "matrix_room_id"
+    t.string "product_id", null: false
+    t.string "status", default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.index ["buyer_user_id", "product_id"], name: "index_commerce_conversations_on_buyer_user_id_and_product_id", unique: true
+    t.index ["buyer_user_id"], name: "index_commerce_conversations_on_buyer_user_id"
+    t.index ["conversation_id"], name: "index_commerce_conversations_on_conversation_id", unique: true
   end
 
   create_table "commerce_merchants", force: :cascade do |t|
