@@ -165,7 +165,6 @@ Rails.application.routes.draw do
             end
             resource :fulfillment, only: [ :create ], controller: :fulfillments
             resources :refunds, only: [ :create ]
-            resources :messages, only: [ :create ], controller: "messages"
           end
           resources :conversations, only: [ :index, :show, :update ] do
             member do

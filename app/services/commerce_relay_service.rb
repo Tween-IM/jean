@@ -2,16 +2,18 @@
 
 # CommerceRelayService
 #
-# Creates bot-relayed Matrix rooms for buyer-seller messaging (order chat and
-# classified marketplace conversations). Neither party sees the other's
-# Matrix ID — display uses order/inquiry context labels.
+# Creates bot-relayed Matrix rooms for classified (marketplace) buyer↔seller
+# conversations. The same conversation system also serves online-store chat
+# (buyers message the store from the product page or their order) — there is
+# no separate order-chat path. Neither party sees the other's Matrix ID —
+# display uses inquiry context labels.
 #
 # BOT: Reuses the existing TMCP AS token — no new sidecar. Verified against
 # the homeserver: MATRIX_AS_TOKEN authenticates as @_tmcp:tween.im and can
 # create relay rooms, send, and read history. Resolution order:
 # MATRIX_RELAY_TOKEN (explicit override) → MATRIX_AS_TOKEN → MATRIX_HS_TOKEN.
 # Event namespacing is carried by the `m.tween.relay` state (relay_type:
-# commerce_order / commerce_inquiry).
+# commerce_inquiry).
 #
 class CommerceRelayService
   # Outgoing homeserver token + which env var it came from (for diagnostics).
@@ -28,53 +30,8 @@ class CommerceRelayService
 
   class Error < StandardError; end
 
-  def self.create_order_room(order)
-    buyer = order.buyer_user_id
-    seller = order.commerce_merchant.owner_user_id
-
-    room_id = create_matrix_room(
-      name: nil,
-      invite: [],
-      is_direct: false,
-      preset: "trusted_private_chat",
-      initial_state: [ {
-        type: "m.tween.relay",
-        content: {
-          relay_type: "commerce_order",
-          order_id: order.order_id,
-          buyer_user_id: buyer,
-          seller_user_id: seller,
-          buyer_label: "Order ##{order.order_id.to_s.first(8)}",
-          seller_label: order.commerce_merchant.display_name
-        }
-      } ]
-    )
-
-    room_id
-  rescue => e
-    Rails.logger.error "[CommerceRelay] Failed to create room for order #{order.order_id}: #{e.message}"
-    raise Error, "Failed to create commerce relay room"
-  end
-
-  def self.relay_message(order, sender_user_id, message_body)
-    room_id = order.metadata&.dig("commerce_room_id")
-    return unless room_id.present?
-
-    is_buyer = sender_user_id == order.buyer_user_id
-    label = is_buyer ? "Order ##{order.order_id.to_s.first(8)}" : order.commerce_merchant.display_name
-
-    content = {
-      msgtype: "m.text",
-      body: message_body,
-      "m.tween.relay_sender" => label,
-      "m.tween.relay_type" => "commerce_order"
-    }
-
-    send_matrix_message(room_id, content)
-  end
-
   # ==========================================================================
-  # Classified (marketplace) buyer↔seller conversations
+  # Classified / store buyer↔seller conversations
   # ==========================================================================
   #
   # The @_tmcp AS bot owns the room. Neither party is a member, so nobody
