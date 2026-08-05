@@ -15,6 +15,7 @@ class CommerceProduct < ApplicationRecord
   validates :product_id, uniqueness: true
   validates :status, inclusion: { in: %w[draft active archived rejected] }
   validates :condition, inclusion: { in: %w[new used refurbished] }
+  validates :store_type, inclusion: { in: %w[marketplace ecommerce] }, allow_nil: true
   validates :rating_average, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 5 }, allow_nil: true
 
   scope :active, -> { where(status: "active") }
@@ -25,6 +26,12 @@ class CommerceProduct < ApplicationRecord
       .where.not(commerce_skus: { inventory_status: "out_of_stock" })
       .distinct
   }
+
+  # Effective experience type. A product attached to a storefront inherits the
+  # store's type; a standalone product is always a marketplace listing.
+  def effective_store_type
+    store_type.presence || commerce_storefront&.store_type || "marketplace"
+  end
 
   def price_range
     prices = commerce_skus.pluck(:price_cents)

@@ -14,7 +14,18 @@ class CommerceStorefront < ApplicationRecord
   validates :slug, uniqueness: { scope: :commerce_merchant_id }
   validates :store_url_slug, uniqueness: true, allow_blank: true
   validates :status, inclusion: { in: %w[draft published suspended closed] }
+  validates :store_type, inclusion: { in: %w[marketplace ecommerce] }
   validates :accent_color, format: { with: /\A#[0-9A-Fa-f]{6}\z/, message: "must be a valid hex color" }, allow_blank: true
+
+  # `featured` is an admin/platform control (which stores Tween surfaces in
+  # recommendations). Merchants instead opt in via `allow_promotion` — whether
+  # they're willing to be featured at all.
+  scope :promotable, -> { where(allow_promotion: true) }
+
+  enum :store_type, {
+    marketplace: "marketplace",
+    ecommerce: "ecommerce"
+  }, default: "marketplace"
 
   scope :active, -> { where(deleted_at: nil) }
   scope :published, -> { where(status: "published") }

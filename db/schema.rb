@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_04_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_110000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -262,6 +262,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_04_100000) do
     t.text "seo_description"
     t.string "seo_title"
     t.string "status", default: "draft", null: false
+    t.string "store_type", default: "marketplace", null: false
     t.bigint "subcategory_id"
     t.string "tags", default: [], array: true
     t.string "title", null: false
@@ -354,6 +355,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_04_100000) do
   create_table "commerce_storefronts", force: :cascade do |t|
     t.text "about"
     t.string "accent_color", default: "#7C3AED"
+    t.boolean "allow_promotion", default: true, null: false
     t.string "banner_url"
     t.bigint "commerce_merchant_id", null: false
     t.datetime "created_at", null: false
@@ -373,6 +375,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_04_100000) do
     t.string "slug", null: false
     t.boolean "social_share_enabled", default: true
     t.string "status", default: "draft", null: false
+    t.string "store_type", default: "marketplace", null: false
     t.string "store_url_slug"
     t.string "storefront_id", null: false
     t.datetime "updated_at", null: false

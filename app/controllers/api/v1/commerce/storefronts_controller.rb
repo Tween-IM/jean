@@ -119,8 +119,8 @@ class Api::V1::Commerce::StorefrontsController < Api::V1::Commerce::BaseControll
   def storefront_params
     params.require(:storefront).permit(
       :display_name, :slug, :description, :status, :logo_url, :banner_url,
-      :accent_color, :about, :featured, :social_share_enabled,
-      :seo_title, :seo_description, policies: {}
+      :accent_color, :about, :allow_promotion, :social_share_enabled,
+      :seo_title, :seo_description, :store_type, policies: {}
     )
   end
 

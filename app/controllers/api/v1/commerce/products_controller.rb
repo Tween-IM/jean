@@ -189,7 +189,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
   def product_params
     params.require(:product).permit(
       :title, :name, :description, :status, :condition, :featured,
-      :weight_grams, :seo_title, :seo_description,
+      :weight_grams, :seo_title, :seo_description, :store_type,
       media_urls: [], tags: [], dimensions: {}
     )
   end
@@ -198,13 +198,16 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
     if params[:storefront_id].present?
       product.commerce_storefront = product.commerce_merchant.commerce_storefronts.find_by!(storefront_id: params[:storefront_id])
     else
-      # Products require a storefront. Auto-create a default one if the merchant
-      # doesn't have any yet (e.g. individual sellers who skipped storefront setup).
+      # Products always belong to a store. Auto-create a marketplace store if
+      # the merchant doesn't have one yet (individual / classified sellers).
       product.commerce_storefront = product.commerce_merchant.commerce_storefronts.first_or_create! do |sf|
         sf.display_name = product.commerce_merchant.display_name
         sf.status = "published"
+        sf.store_type = "marketplace"
       end
     end
+    # A product inherits the store's experience type when one isn't explicit.
+    product.store_type ||= product.commerce_storefront.store_type
   end
 
   def assign_category(product)

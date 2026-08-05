@@ -114,6 +114,40 @@ rails server -e production
 - Follow Rails naming conventions
 - Use UUIDs for primary keys where appropriate
 
+### Commerce data model (store-first)
+
+Commerce is store-first: every product belongs to a storefront, there are no
+standalone listings.
+
+```
+Tween user
+   ├─ Social profile
+   └─ CommerceMerchant (payout wallet, contact, KYB)
+        └─ N × CommerceStorefront  (store_type: marketplace | ecommerce)
+             └─ M × CommerceProduct (always has a storefront)
+                  └─ SKUs (sellable units / variants)
+```
+
+Key rules:
+- `commerce_storefronts.store_type` defaults to `"marketplace"`; validated
+  `in %w[marketplace ecommerce]`. `marketplace` = classified/personal
+  (one price, auto-SKU, no variants). `ecommerce` = full catalog (variants,
+  SKUs, inventory, shipping profiles, warehouses).
+- `commerce_products.store_type` inherits from the storefront when absent
+  (`effective_store_type`). Products auto-get a default storefront on create if
+  none is provided (a `marketplace` store).
+- **`featured` is admin-only** (which stores Tween surfaces). Merchants may only
+  set `allow_promotion` (default true). Never permit merchants to set
+  `featured` in strong params.
+- Changing `store_type`: upgrade allowed freely; downgrade to `marketplace`
+  must be blocked server-side when any product in the store has multiple SKUs
+  / variants (mirrors `CommerceProduct#hasVariants` on the client).
+- Payouts settle to the Tween Wallet via `commerce_merchants.wallet_id` — no
+  bank account fields.
+- Money is `*_cents` + `currency` throughout commerce tables.
+
+See `../tween-app/AGENTS.md` for the client-side conventions and routing.
+
 ### API Design (TMCP Protocol Compliant)
 - RESTful endpoints following Rails conventions
 - JSON responses matching protocol specifications
