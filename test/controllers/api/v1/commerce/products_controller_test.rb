@@ -76,6 +76,26 @@ class Api::V1::Commerce::ProductsControllerTest < ActionDispatch::IntegrationTes
     assert_equal true, response.parsed_body.dig("review_eligibility", "eligible")
   end
 
+  test "search filters by price range and condition" do
+    owner = create_user("search-filter-owner")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "miniapp.shop.test", display_name: "Shop", status: "active")
+    category = CommerceCategory.create!(name: "Phones", slug: "phones", status: "active")
+
+    cheap_new = merchant.commerce_products.create!(title: "Cheap New", status: "active", condition: "new", category_id: category.id)
+    cheap_new.commerce_skus.create!(title: "Default", price_cents: 5_000, currency: "NGN", inventory_status: "in_stock")
+    pricey_used = merchant.commerce_products.create!(title: "Pricey Used", status: "active", condition: "used", category_id: category.id)
+    pricey_used.commerce_skus.create!(title: "Default", price_cents: 80_000, currency: "NGN", inventory_status: "in_stock")
+
+    get "/api/v1/commerce/products/search?category_id=#{category.category_id}&min_price=1000&max_price=50000&condition=new",
+        headers: tep_headers(owner, "commerce:read"),
+        as: :json
+
+    assert_response :success
+    titles = response.parsed_body["products"].map { |p| p["title"] }
+    assert_includes titles, "Cheap New"
+    refute_includes titles, "Pricey Used"
+  end
+
   private
 
   def create_user(username)

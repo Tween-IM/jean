@@ -84,6 +84,14 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
       )
     end
 
+    if params[:min_price].present? || params[:max_price].present?
+      scope = scope.joins(:commerce_skus)
+      scope = scope.where("commerce_skus.price_cents >= ?", params[:min_price].to_i) if params[:min_price].present?
+      scope = scope.where("commerce_skus.price_cents <= ?", params[:max_price].to_i) if params[:max_price].present?
+    end
+
+    scope = scope.where(condition: params[:condition].to_s) if params[:condition].present?
+
     scope = case sort
             when "price_asc" then scope.joins(:commerce_skus).order("commerce_skus.price_cents ASC")
             when "price_desc" then scope.joins(:commerce_skus).order("commerce_skus.price_cents DESC")
