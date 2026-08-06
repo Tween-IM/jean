@@ -81,23 +81,77 @@ class CommerceRelayService
 
   # Relay a buyer/seller message into the conversation room. Only the bot is
   # a member; the label + role let clients render the other party safely.
-  def self.relay_inquiry_message(conversation, sender_user_id, message_body)
+  # [media] is an optional hash describing an attachment:
+  #   type: image|video|audio|file, url:, mime:, size:, name:, thumbnail_url:
+  def self.relay_inquiry_message(conversation, sender_user_id, message_body, media: nil)
     room_id = conversation.matrix_room_id
     return unless room_id.present?
 
     is_buyer = sender_user_id == conversation.buyer_user_id
     label = is_buyer ? conversation.buyer_label : conversation.seller_label
 
-    content = {
-      msgtype: "m.text",
-      body: message_body,
+    content = if media.present?
+                media_content(media, caption: message_body)
+    else
+                {
+                  msgtype: "m.text",
+                  body: message_body
+                }
+    end
+
+    content.merge!(
       "m.tween.relay_sender" => label,
       "m.tween.relay_role" => is_buyer ? "buyer" : "seller",
       "m.tween.relay_type" => "commerce_inquiry"
-    }
+    )
 
     send_matrix_message(room_id, content)
     conversation.update!(last_message_at: Time.current)
+  end
+
+  # Build Matrix media message content (m.image / m.video / m.audio / m.file)
+  # from a relay attachment. `url` is the public storage URL.
+  def self.media_content(media, caption: nil)
+    type = media[:type].to_s
+    url = media[:url].to_s
+    mime = media[:mime].to_s
+    size = media[:size].to_i
+    name = media[:name].to_s
+    thumbnail_url = media[:thumbnail_url].to_s
+
+    info = { mimetype: mime, size: size }
+    info[:thumbnail_url] = thumbnail_url if thumbnail_url.present?
+
+    case type
+    when "image"
+      {
+        msgtype: "m.image",
+        body: caption.presence || name.presence || "Photo",
+        url: url,
+        info: info
+      }
+    when "video"
+      {
+        msgtype: "m.video",
+        body: caption.presence || name.presence || "Video",
+        url: url,
+        info: info
+      }
+    when "audio"
+      {
+        msgtype: "m.audio",
+        body: name.presence || "Voice note",
+        url: url,
+        info: info
+      }
+    else
+      {
+        msgtype: "m.file",
+        body: name.presence || "File",
+        url: url,
+        info: info
+      }
+    end
   end
 
   # Read conversation history as the bot. Returns a friendly, ID-free list.
@@ -112,17 +166,28 @@ class CommerceRelayService
 
     chunk = response&.dig("chunk") || []
     chunk
-      .select { |ev| ev["type"] == "m.room.message" && ev.dig("content", "msgtype") == "m.text" }
+      .select { |ev| ev["type"] == "m.room.message" }
       .map do |ev|
         content = ev["content"] || {}
+        msgtype = content["msgtype"].to_s
+        next if msgtype == "m.notice"
+
+        info = content["info"] || {}
         {
           id: ev["event_id"],
           role: content["m.tween.relay_role"] || "system",
           label: content["m.tween.relay_sender"] || "Tween",
           body: content["body"],
-          sent_at: ev["origin_server_ts"]
-        }
+          sent_at: ev["origin_server_ts"],
+          msgtype: msgtype,
+          media_url: content["url"],
+          media_mime: info["mimetype"],
+          media_size: info["size"],
+          media_name: msgtype == "m.file" ? content["body"] : nil,
+          thumbnail_url: info["thumbnail_url"]
+        }.compact
       end
+      .compact
       .reverse
   end
 

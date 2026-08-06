@@ -126,7 +126,11 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
 
   def send_relay_message(conversation)
     body = params[:body].to_s.strip
-    return render json: { error: "invalid_message", message: "Message cannot be empty" }, status: :unprocessable_entity if body.blank?
+    media = media_params
+
+    if body.blank? && media.blank?
+      return render json: { error: "invalid_message", message: "Message cannot be empty" }, status: :unprocessable_entity
+    end
 
     if conversation.matrix_room_id.blank?
       begin
@@ -137,7 +141,12 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     end
 
     role = role_for(conversation)
-    CommerceRelayService.relay_inquiry_message(conversation, @current_user.matrix_user_id, body)
+    CommerceRelayService.relay_inquiry_message(
+      conversation,
+      @current_user.matrix_user_id,
+      body,
+      media: media
+    )
 
     render json: {
       message: {
@@ -145,9 +154,31 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
         role: role,
         label: role == "buyer" ? conversation.buyer_label : conversation.seller_label,
         body: body,
-        sent_at: (Time.current.to_f * 1000).to_i
-      }
+        sent_at: (Time.current.to_f * 1000).to_i,
+        msgtype: media ? media[:type] : "text",
+        media_url: media&.dig(:url),
+        media_mime: media&.dig(:mime),
+        media_size: media&.dig(:size),
+        media_name: media&.dig(:name),
+        thumbnail_url: media&.dig(:thumbnail_url)
+      }.compact
     }, status: :created
+  end
+
+  def media_params
+    type = params[:media_type].to_s
+    url = params[:media_url].to_s
+    return nil if type.blank? || url.blank?
+    return nil unless type.in?(%w[image video audio file])
+
+    {
+      type: type,
+      url: url,
+      mime: params[:media_mime].to_s,
+      size: params[:media_size].to_i,
+      name: params[:media_name].to_s,
+      thumbnail_url: params[:thumbnail_url].to_s
+    }
   end
 
   def find_conversation

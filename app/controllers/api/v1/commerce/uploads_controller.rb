@@ -6,10 +6,27 @@ class Api::V1::Commerce::UploadsController < Api::V1::Commerce::BaseController
     image/png
     image/heic
     image/webp
+    image/gif
+    video/mp4
+    video/quicktime
+    video/webm
+    audio/mpeg
+    audio/mp4
+    audio/wav
+    audio/ogg
+    audio/aac
+    application/pdf
+    application/zip
+    application/x-zip-compressed
+    application/octet-stream
+    text/plain
+    application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    application/msword
+    application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
   ].freeze
 
   def create
-    require_scope("commerce:merchant")
+    require_scope("commerce:read")
 
     blob = ActiveStorage::Blob.create_before_direct_upload!(
       filename: upload_params.fetch(:filename),

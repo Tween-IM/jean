@@ -130,6 +130,31 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
     assert_equal [], response.parsed_body["messages"]
   end
 
+  test "a participant can send an image message" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+
+    post messages_api_v1_commerce_conversation_url(conversation.conversation_id),
+         params: {
+           body: "Here it is",
+           media_type: "image",
+           media_url: "https://r2.tween.im/chat-photo.jpg",
+           media_mime: "image/jpeg",
+           media_size: 2048
+         },
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :created
+    message = response.parsed_body["message"]
+    assert_equal "image", message["msgtype"]
+    assert_equal "https://r2.tween.im/chat-photo.jpg", message["media_url"]
+    assert_equal "image/jpeg", message["media_mime"]
+  end
+
   test "a new inquiry is unread for the seller and read once marked" do
     conversation = CommerceConversation.create!(
       buyer_user_id: @buyer.matrix_user_id,
