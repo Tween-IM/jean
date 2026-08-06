@@ -179,7 +179,7 @@ class CommerceRelayService
           label: content["m.tween.relay_sender"] || "Tween",
           body: content["body"],
           sent_at: ev["origin_server_ts"],
-          msgtype: msgtype,
+          msgtype: content["msgtype"].to_s.delete_prefix("m."),
           media_url: content["url"],
           media_mime: info["mimetype"],
           media_size: info["size"],

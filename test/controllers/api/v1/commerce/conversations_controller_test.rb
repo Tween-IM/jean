@@ -155,6 +155,45 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
     assert_equal "image/jpeg", message["media_mime"]
   end
 
+  test "history normalizes Matrix msgtypes for media messages" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+    CommerceRelayService.define_singleton_method(:make_matrix_request) do |*args|
+      if args.first == :get
+        {
+          "chunk" => [ {
+            "type" => "m.room.message",
+            "event_id" => "$audio1",
+            "origin_server_ts" => 1_700_000_000_000,
+            "content" => {
+              "msgtype" => "m.audio",
+              "body" => "Voice note.m4a",
+              "url" => "https://r2.tween.im/vn.m4a",
+              "m.tween.relay_role" => "buyer",
+              "m.tween.relay_sender" => "Buyer",
+              "info" => { "mimetype" => "audio/mp4", "size" => 1024 }
+            }
+          } ]
+        }
+      else
+        { "room_id" => "!room:tween.im" }
+      end
+    end
+
+    get messages_api_v1_commerce_conversation_url(conversation.conversation_id),
+        headers: tep_headers(@seller, "commerce:read"),
+        as: :json
+
+    assert_response :success
+    message = response.parsed_body["messages"].first
+    assert_equal "audio", message["msgtype"]
+    assert_equal "https://r2.tween.im/vn.m4a", message["media_url"]
+    assert_equal "audio/mp4", message["media_mime"]
+  end
+
   test "a new inquiry is unread for the seller and read once marked" do
     conversation = CommerceConversation.create!(
       buyer_user_id: @buyer.matrix_user_id,
