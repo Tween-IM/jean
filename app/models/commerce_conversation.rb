@@ -12,7 +12,7 @@ class CommerceConversation < ApplicationRecord
 
   validates :conversation_id, :buyer_user_id, :product_id, presence: true
   validates :conversation_id, uniqueness: true
-  validates :status, inclusion: { in: %w[open closed] }
+  validates :status, inclusion: { in: %w[open closed dm_pending dm_active] }
 
   def product
     @product ||= ::CommerceProduct.find_by(product_id: product_id)

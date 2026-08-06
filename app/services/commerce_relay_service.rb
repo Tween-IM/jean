@@ -191,6 +191,57 @@ class CommerceRelayService
       .reverse
   end
 
+  # ==========================================================================
+  # Direct-chat promotion
+  # ==========================================================================
+  #
+  # When a party opts in, create a REAL DM room between buyer and seller so
+  # both can continue with the full chat experience (composer, push, ...).
+  # The relay conversation stays as context. Neither party is revealed to the
+  # other before both sides consent (the room is created, but the buyer only
+  # joins after accepting).
+
+  def self.create_dm_room(conversation)
+    return conversation.dm_room_id if conversation.dm_room_id.present?
+
+    buyer = conversation.buyer_user_id
+    seller = conversation.seller_user_id
+    room_id = create_matrix_room(
+      # No room name: in a 1:1 the client titles the room by the other
+      # member's actual Matrix display name, so each side sees the other's
+      # real name.
+      name: nil,
+      invite: [ buyer, seller ].compact,
+      is_direct: true,
+      preset: "trusted_private_chat",
+      initial_state: [ {
+        type: "m.tween.commerce_dm",
+        content: {
+          conversation_id: conversation.conversation_id
+        }
+      } ]
+    )
+
+    conversation.update!(dm_room_id: room_id)
+    room_id
+  rescue => e
+    Rails.logger.error "[CommerceRelay] Failed to create DM room for conversation #{conversation.conversation_id}: #{e.message}"
+    raise Error, "Failed to create direct chat room"
+  end
+
+  # Post a system notice (role "system") into the relay room.
+  def self.send_system_message(room_id, text)
+    return unless room_id.present?
+
+    send_matrix_message(room_id, {
+      msgtype: "m.text",
+      body: text,
+      "m.tween.relay_sender" => "Tween",
+      "m.tween.relay_role" => "system",
+      "m.tween.relay_type" => "commerce_inquiry"
+    })
+  end
+
   private
 
   def self.create_matrix_room(params)

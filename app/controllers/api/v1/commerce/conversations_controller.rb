@@ -101,6 +101,67 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     render json: { conversation: conversation_json(conversation, role: role_for(conversation)) }
   end
 
+  # POST /api/v1/commerce/conversations/:id/offer_dm
+  # A participant offers to continue in a real direct chat. Creates the DM
+  # room (both invited) but the counterparty only joins after accepting.
+  def offer_dm
+    require_scope("commerce:read")
+
+    conversation = find_conversation
+    return if ensure_participant(conversation)
+
+    role = role_for(conversation)
+    if conversation.status.in?(%w[dm_pending dm_active])
+      return render json: { conversation: conversation_json(conversation, role: role) }
+    end
+
+    begin
+      CommerceRelayService.create_dm_room(conversation)
+    rescue CommerceRelayService::Error
+      return render json: { error: "relay_unavailable", message: "Could not create a direct chat" }, status: :service_unavailable
+    end
+
+    conversation.update!(status: "dm_pending", dm_offered_by: role)
+    offering_label = role == "buyer" ? conversation.buyer_label : conversation.seller_label
+    CommerceRelayService.send_system_message(
+      conversation.matrix_room_id,
+      "#{offering_label} wants to continue in a direct chat."
+    )
+
+    render json: { conversation: conversation_json(conversation, role: role) }
+  end
+
+  # POST /api/v1/commerce/conversations/:id/accept_dm
+  def accept_dm
+    require_scope("commerce:read")
+
+    conversation = find_conversation
+    return if ensure_participant(conversation)
+
+    if conversation.dm_room_id.blank?
+      return render json: { error: "no_dm", message: "No direct chat has been offered" }, status: :unprocessable_entity
+    end
+
+    conversation.update!(status: "dm_active")
+    conversation.mark_read!(role_for(conversation))
+
+    render json: {
+      conversation: conversation_json(conversation, role: role_for(conversation)),
+      dm_room_id: conversation.dm_room_id
+    }
+  end
+
+  # POST /api/v1/commerce/conversations/:id/decline_dm
+  def decline_dm
+    require_scope("commerce:read")
+
+    conversation = find_conversation
+    return if ensure_participant(conversation)
+
+    conversation.update!(status: "open", dm_offered_by: nil)
+    render json: { conversation: conversation_json(conversation, role: role_for(conversation)) }
+  end
+
   # GET /api/v1/commerce/conversations/:id/messages — read history.
   # POST /api/v1/commerce/conversations/:id/messages — send a message.
   def messages
@@ -208,6 +269,8 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
       unread: conversation.unread_for?(role),
       buyer_label: conversation.buyer_label,
       seller_label: conversation.seller_label,
+      dm_room_id: conversation.dm_room_id,
+      dm_offered_by: conversation.dm_offered_by,
       last_message_at: conversation.last_message_at,
       created_at: conversation.created_at,
       product: product ? product_json(product, detail: :public) : nil

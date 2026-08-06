@@ -155,8 +155,7 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
     assert_equal "image/jpeg", message["media_mime"]
   end
 
-  test "history normalizes Matrix msgtypes for media messages" do
-    conversation = CommerceConversation.create!(
+  test "history normalizes Matrix msgtypes for media messages" do    conversation = CommerceConversation.create!(
       buyer_user_id: @buyer.matrix_user_id,
       product_id: @product.product_id,
       matrix_room_id: "!room:tween.im"
@@ -240,6 +239,54 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
 
     assert_response :success
     assert_equal "open", response.parsed_body.dig("conversation", "status")
+  end
+
+  test "seller offers a direct chat and the buyer accepts" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+
+    post offer_dm_api_v1_commerce_conversation_url(conversation.conversation_id),
+         headers: tep_headers(@seller, "commerce:read"),
+         as: :json
+
+    assert_response :success
+    body = response.parsed_body["conversation"]
+    assert_equal "dm_pending", body["status"]
+    assert_equal "seller", body["dm_offered_by"]
+    assert body["dm_room_id"].present?
+
+    post accept_dm_api_v1_commerce_conversation_url(conversation.conversation_id),
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :success
+    assert_equal "dm_active", response.parsed_body.dig("conversation", "status")
+    conversation.reload
+    assert_equal conversation.dm_room_id, response.parsed_body["dm_room_id"]
+    assert conversation.reload.status == "dm_active"
+  end
+
+  test "declining a direct chat returns the conversation to open" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im",
+      dm_room_id: "!dm_room:tween.im",
+      dm_offered_by: "seller",
+      status: "dm_pending"
+    )
+
+    post decline_dm_api_v1_commerce_conversation_url(conversation.conversation_id),
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :success
+    body = response.parsed_body["conversation"]
+    assert_equal "open", body["status"]
+    assert_nil body["dm_offered_by"]
   end
 
   private
