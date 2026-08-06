@@ -313,6 +313,9 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
     assert response_body.key?("status")
     assert response_body["sender"].key?("user_id")
     assert response_body["recipient"].key?("user_id")
+    # Display names are resolved server-side even when TweenPay omits them.
+    assert_equal "alice", response_body["sender"]["display_name"]
+    assert_equal "bob", response_body["recipient"]["display_name"]
   end
 
   test "should confirm P2P transfer with PIN auth" do

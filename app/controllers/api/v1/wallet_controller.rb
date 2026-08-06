@@ -183,6 +183,13 @@ class Api::V1::WalletController < Api::BaseController
       return render json: { error: result[:error] }, status: :unprocessable_entity
     end
 
+    # TweenPay doesn't always resolve display names — fill them in here so
+    # the in-chat payment card (and any client UI) can identify who paid.
+    sender = result[:sender] ||= {}
+    recipient = result[:recipient] ||= {}
+    sender["display_name"] ||= resolve_display_name(sender["user_id"] || sender[:user_id])
+    recipient["display_name"] ||= resolve_display_name(recipient["user_id"] || recipient[:user_id])
+
     if idempotency_key
       Rails.cache.write(cache_key, transfer_id, expires_in: 5.minutes)
     end
@@ -378,5 +385,18 @@ class Api::V1::WalletController < Api::BaseController
     # Mock room members - in production, query Matrix homeserver
     # Returns array of Matrix user IDs
     [ "@alice:tween.example", "@bob:tween.example", "@charlie:tween.example" ]
+  end
+
+  # Friendly name for an in-chat payment narration: creator profile name,
+  # then handle, then the user_id localpart (e.g. "mona" from
+  # "@mona:tween.im"). Never exposes more than a display label.
+  def resolve_display_name(user_id)
+    return nil if user_id.blank?
+
+    profile = ::SocialCreatorProfile.find_by(user_id: user_id)
+    return profile.display_name if profile&.display_name.present?
+    return profile.handle if profile&.handle.present?
+
+    user_id.to_s.split(":").first.sub("@", "")
   end
 end
