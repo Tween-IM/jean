@@ -289,6 +289,124 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
     assert_nil body["dm_offered_by"]
   end
 
+  test "buyer can offer a direct chat" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+
+    post offer_dm_api_v1_commerce_conversation_url(conversation.conversation_id),
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :success
+    body = response.parsed_body["conversation"]
+    assert_equal "dm_pending", body["status"]
+    assert_equal "buyer", body["dm_offered_by"]
+  end
+
+  test "the offerer cannot accept their own direct chat" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im",
+      dm_room_id: "!dm_room:tween.im",
+      dm_offered_by: "buyer",
+      status: "dm_pending"
+    )
+
+    post accept_dm_api_v1_commerce_conversation_url(conversation.conversation_id),
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :forbidden
+    conversation.reload
+    assert_equal "dm_pending", conversation.status
+  end
+
+  test "accepting a non-pending direct chat is rejected" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im",
+      dm_room_id: "!dm_room:tween.im",
+      dm_offered_by: "seller",
+      status: "open"
+    )
+
+    post accept_dm_api_v1_commerce_conversation_url(conversation.conversation_id),
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :unprocessable_entity
+  end
+
+  test "DM rooms are deduped per buyer/seller pair" do
+    second_product = @merchant.commerce_products.create!(
+      title: "Another item",
+      status: "active",
+      condition: "used",
+      store_type: "marketplace"
+    )
+    first = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+    second = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: second_product.product_id,
+      matrix_room_id: "!room2:tween.im"
+    )
+
+    post offer_dm_api_v1_commerce_conversation_url(first.conversation_id),
+         headers: tep_headers(@seller, "commerce:read"),
+         as: :json
+    assert_response :success
+    first_room = response.parsed_body.dig("conversation", "dm_room_id")
+    assert first_room.present?
+
+    post offer_dm_api_v1_commerce_conversation_url(second.conversation_id),
+         headers: tep_headers(@seller, "commerce:read"),
+         as: :json
+    assert_response :success
+    second_room = response.parsed_body.dig("conversation", "dm_room_id")
+
+    assert_equal first_room, second_room
+    assert_equal 1, CommerceDmRoom.count
+  end
+
+  test "payment_recipient returns the counterparty id only to a participant" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+
+    # Buyer → seller is the recipient.
+    get payment_recipient_api_v1_commerce_conversation_url(conversation.conversation_id),
+        headers: tep_headers(@buyer, "commerce:read"),
+        as: :json
+    assert_response :success
+    body = response.parsed_body
+    assert_equal @seller.matrix_user_id, body["recipient_user_id"]
+    assert_equal "Inquiry Shop", body["recipient_label"]
+
+    # Seller → buyer is the recipient.
+    get payment_recipient_api_v1_commerce_conversation_url(conversation.conversation_id),
+        headers: tep_headers(@seller, "commerce:read"),
+        as: :json
+    assert_response :success
+    assert_equal @buyer.matrix_user_id, response.parsed_body["recipient_user_id"]
+
+    # A stranger is not allowed.
+    get payment_recipient_api_v1_commerce_conversation_url(conversation.conversation_id),
+        headers: tep_headers(@other, "commerce:read"),
+        as: :json
+    assert_response :forbidden
+  end
+
   private
 
   def create_user(username)

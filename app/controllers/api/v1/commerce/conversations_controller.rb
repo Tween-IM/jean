@@ -104,6 +104,7 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
   # POST /api/v1/commerce/conversations/:id/offer_dm
   # A participant offers to continue in a real direct chat. Creates the DM
   # room (both invited) but the counterparty only joins after accepting.
+  # Only the party who did NOT offer may accept.
   def offer_dm
     require_scope("commerce:read")
 
@@ -113,6 +114,10 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     role = role_for(conversation)
     if conversation.status.in?(%w[dm_pending dm_active])
       return render json: { conversation: conversation_json(conversation, role: role) }
+    end
+
+    if conversation.dm_offered_by.present? && conversation.dm_offered_by == role
+      return render json: { error: "already_offered", message: "You already offered a direct chat" }, status: :unprocessable_entity
     end
 
     begin
@@ -132,6 +137,8 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
   end
 
   # POST /api/v1/commerce/conversations/:id/accept_dm
+  # Only the party who did NOT offer may accept (the offerer cannot accept
+  # their own request — that would impersonate the counterparty).
   def accept_dm
     require_scope("commerce:read")
 
@@ -142,11 +149,20 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
       return render json: { error: "no_dm", message: "No direct chat has been offered" }, status: :unprocessable_entity
     end
 
+    role = role_for(conversation)
+    if conversation.status != "dm_pending"
+      return render json: { error: "invalid_dm_state", message: "This direct chat is not pending acceptance" }, status: :unprocessable_entity
+    end
+
+    if conversation.dm_offered_by == role
+      return render json: { error: "self_accept", message: "You offered this direct chat; only the other party can accept" }, status: :forbidden
+    end
+
     conversation.update!(status: "dm_active")
-    conversation.mark_read!(role_for(conversation))
+    conversation.mark_read!(role)
 
     render json: {
-      conversation: conversation_json(conversation, role: role_for(conversation)),
+      conversation: conversation_json(conversation, role: role),
       dm_room_id: conversation.dm_room_id
     }
   end
@@ -160,6 +176,34 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
 
     conversation.update!(status: "open", dm_offered_by: nil)
     render json: { conversation: conversation_json(conversation, role: role_for(conversation)) }
+  end
+
+  # GET /api/v1/commerce/conversations/:id/payment_recipient
+  # Resolve the counterparty's Matrix ID for the in-chat payment flow only.
+  #
+  # Privacy: this ID is intentionally NOT included in any relay/chat payload
+  # (the relay hides both parties' IDs). It is returned here, scoped to a
+  # participant, solely so the client can drive the shared P2P transfer
+  # bottom sheet. The recipient is the person you are already talking to.
+  def payment_recipient
+    require_scope("commerce:read")
+
+    conversation = find_conversation
+    return if ensure_participant(conversation)
+
+    role = role_for(conversation)
+    recipient_user_id = role == "buyer" ? conversation.seller_user_id : conversation.buyer_user_id
+    recipient_label = role == "buyer" ? conversation.seller_label : conversation.buyer_label
+
+    if recipient_user_id.blank?
+      return render json: { error: "no_recipient", message: "This conversation has no payment recipient" }, status: :unprocessable_entity
+    end
+
+    render json: {
+      recipient_user_id: recipient_user_id,
+      recipient_label: recipient_label,
+      role: role
+    }
   end
 
   # GET /api/v1/commerce/conversations/:id/messages — read history.

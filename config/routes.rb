@@ -175,6 +175,7 @@ Rails.application.routes.draw do
               post :offer_dm
               post :accept_dm
               post :decline_dm
+              get :payment_recipient
             end
           end
           post "products/:product_id/contact", to: "conversations#create", as: :product_contact

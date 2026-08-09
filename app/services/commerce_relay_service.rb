@@ -211,16 +211,30 @@ class CommerceRelayService
   # The relay conversation stays as context. Neither party is revealed to the
   # other before both sides consent (the room is created, but the buyer only
   # joins after accepting).
-
+  #
+  # WhatsApp-style dedup: one shared 1:1 room per (buyer, seller) pair. No
+  # matter how many product conversations they share, they reuse the same
+  # room. The room carries m.tween.commerce_dm with both labels so the client
+  # can title it per viewer (buyer sees the storefront name, seller sees the
+  # customer name).
   def self.create_dm_room(conversation)
     return conversation.dm_room_id if conversation.dm_room_id.present?
 
     buyer = conversation.buyer_user_id
     seller = conversation.seller_user_id
+    return if buyer.blank? || seller.blank?
+
+    existing = ::CommerceDmRoom.for_pair(buyer, seller)
+    if existing
+      conversation.update!(dm_room_id: existing.matrix_room_id)
+      return existing.matrix_room_id
+    end
+
     room_id = create_matrix_room(
-      # No room name: in a 1:1 the client titles the room by the other
-      # member's actual Matrix display name, so each side sees the other's
-      # real name.
+      # No room name: the client titles a m.tween.commerce_dm room per viewer
+      # using the buyer_label/seller_label state below (buyer sees the
+      # storefront name, seller sees the customer name). Leaving it unnamed
+      # avoids leaking one party's name to the other.
       name: nil,
       invite: [ buyer, seller ].compact,
       is_direct: true,
@@ -228,13 +242,31 @@ class CommerceRelayService
       initial_state: [ {
         type: "m.tween.commerce_dm",
         content: {
-          conversation_id: conversation.conversation_id
+          conversation_id: conversation.conversation_id,
+          buyer_user_id: buyer,
+          seller_user_id: seller,
+          buyer_label: conversation.buyer_label,
+          seller_label: conversation.seller_label
         }
       } ]
     )
 
+    ::CommerceDmRoom.create!(
+      buyer_user_id: buyer,
+      seller_user_id: seller,
+      matrix_room_id: room_id
+    )
     conversation.update!(dm_room_id: room_id)
     room_id
+  rescue ActiveRecord::RecordInvalid => e
+    # Race between two concurrent offers for the same pair: re-read and reuse.
+    Rails.logger.info "[CommerceRelay] DM dedup race for (#{conversation.buyer_user_id}, #{conversation.seller_user_id}): #{e.message}"
+    existing = ::CommerceDmRoom.for_pair(conversation.buyer_user_id, conversation.seller_user_id)
+    if existing
+      conversation.update!(dm_room_id: existing.matrix_room_id)
+      return existing.matrix_room_id
+    end
+    raise Error, "Failed to create direct chat room"
   rescue => e
     Rails.logger.error "[CommerceRelay] Failed to create DM room for conversation #{conversation.conversation_id}: #{e.message}"
     raise Error, "Failed to create direct chat room"

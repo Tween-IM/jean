@@ -614,7 +614,7 @@ class MatrixEventService
       request["Authorization"] = "Bearer #{as_token}"
       request["Content-Type"] = "application/json"
       request.body = {
-        name: "Tween",
+        name: "Tween Notification",
         preset: "trusted_private_chat",
         is_direct: true,
         invite: [ user_id ],
