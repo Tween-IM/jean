@@ -166,6 +166,9 @@ class CommerceRelayService
   end
 
   # Read conversation history as the bot. Returns a friendly, ID-free list.
+  # Includes both ordinary messages and payment events (m.tween.wallet.p2p,
+  # m.tween.money) so the commerce chat can render the same PaymentCard the
+  # normal chat uses.
   def self.inquiry_room_messages(conversation, limit: 50)
     room_id = conversation.matrix_room_id
     return [] if room_id.blank?
@@ -177,29 +180,108 @@ class CommerceRelayService
 
     chunk = response&.dig("chunk") || []
     chunk
-      .select { |ev| ev["type"] == "m.room.message" }
+      .select { |ev| message_or_payment_event?(ev["type"]) }
       .map do |ev|
         content = ev["content"] || {}
         msgtype = content["msgtype"].to_s
         next if msgtype == "m.notice"
 
         info = content["info"] || {}
-        {
-          id: ev["event_id"],
-          role: content["m.tween.relay_role"] || "system",
-          label: content["m.tween.relay_sender"] || "Tween",
-          body: content["body"],
-          sent_at: ev["origin_server_ts"],
-          msgtype: content["msgtype"].to_s.delete_prefix("m."),
-          media_url: content["url"],
-          media_mime: info["mimetype"],
-          media_size: info["size"],
-          media_name: msgtype == "m.file" ? content["body"] : nil,
-          thumbnail_url: info["thumbnail_url"]
-        }.compact
+        if payment_event?(ev["type"], msgtype)
+          payment_message_json(ev, content)
+        else
+          {
+            id: ev["event_id"],
+            role: content["m.tween.relay_role"] || "system",
+            label: content["m.tween.relay_sender"] || "Tween",
+            body: content["body"],
+            sent_at: ev["origin_server_ts"],
+            msgtype: content["msgtype"].to_s.delete_prefix("m."),
+            media_url: content["url"],
+            media_mime: info["mimetype"],
+            media_size: info["size"],
+            media_name: msgtype == "m.file" ? content["body"] : nil,
+            thumbnail_url: info["thumbnail_url"]
+          }.compact
+        end
       end
       .compact
       .reverse
+  end
+
+  # Post a payment event (m.tween.wallet.p2p) into the conversation relay
+  # room so both sides see the PaymentCard in the commerce chat.
+  def self.relay_payment_event(conversation, payload)
+    room_id = conversation.matrix_room_id
+    return unless room_id.present?
+
+    content = {
+      msgtype: "m.tween.money",
+      body: "💸 Payment",
+      transfer_id: payload[:transfer_id],
+      amount: payload[:amount],
+      currency: payload[:currency],
+      note: payload[:note],
+      sender: {
+        user_id: payload[:sender_user_id],
+        display_name: payload[:sender_label]
+      },
+      recipient: {
+        user_id: payload[:recipient_user_id],
+        display_name: payload[:recipient_label]
+      },
+      status: payload[:status] || "completed",
+      "m.tween.relay_role" => "system",
+      "m.tween.relay_sender" => "Tween",
+      "m.tween.relay_type" => "commerce_payment"
+    }.compact
+
+    txn_id = "tween_commerce_pay_#{SecureRandom.hex(16)}"
+    make_matrix_request(
+      :put,
+      "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/m.tween.wallet.p2p/#{txn_id}",
+      content
+    )
+    conversation.update!(last_message_at: Time.current)
+  rescue => e
+    Rails.logger.error "[CommerceRelay] Failed to relay payment event for conversation #{conversation.conversation_id}: #{e.message}"
+  end
+
+  def self.message_or_payment_event?(event_type)
+    return true if event_type == "m.room.message"
+    payment_event?(event_type, nil)
+  end
+
+  def self.payment_event?(event_type, msgtype)
+    event_type.to_s.start_with?("m.tween.") ||
+      msgtype.to_s.start_with?("m.tween.")
+  end
+
+  def self.payment_message_json(event, content)
+    sender = content["sender"] || {}
+    recipient = content["recipient"] || {}
+    sender_id = sender.is_a?(Hash) ? sender["user_id"] : sender
+    recipient_id = recipient.is_a?(Hash) ? recipient["user_id"] : recipient
+    sender_name = sender.is_a?(Hash) ? sender["display_name"] : nil
+    recipient_name = recipient.is_a?(Hash) ? recipient["display_name"] : nil
+
+    {
+      id: event["event_id"],
+      role: content["m.tween.relay_role"] || "system",
+      label: content["m.tween.relay_sender"] || "Tween",
+      body: content["body"],
+      sent_at: event["origin_server_ts"],
+      msgtype: "m.tween.money",
+      is_payment: true,
+      amount: content["amount"],
+      currency: content["currency"],
+      transfer_id: content["transfer_id"],
+      status: content["status"],
+      sender_id: sender_id,
+      sender_name: sender_name,
+      recipient_id: recipient_id,
+      recipient_name: recipient_name
+    }.compact
   end
 
   # ==========================================================================

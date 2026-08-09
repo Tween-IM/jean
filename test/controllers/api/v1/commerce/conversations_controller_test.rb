@@ -407,6 +407,29 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
     assert_response :forbidden
   end
 
+  test "payment_relay posts a payment event into the relay room" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+
+    post payments_relay_api_v1_commerce_conversation_url(conversation.conversation_id),
+         params: { transfer_id: "p2p_abc", amount: 50.0, currency: "NGN", status: "completed" },
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :success
+    assert_equal "relayed", response.parsed_body["status"]
+
+    # Strangers cannot relay a payment into the room.
+    post payments_relay_api_v1_commerce_conversation_url(conversation.conversation_id),
+         params: { transfer_id: "p2p_evil", amount: 1.0, currency: "NGN", status: "completed" },
+         headers: tep_headers(@other, "commerce:read"),
+         as: :json
+    assert_response :forbidden
+  end
+
   private
 
   def create_user(username)

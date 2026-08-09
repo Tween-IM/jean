@@ -206,6 +206,47 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     }
   end
 
+  # POST /api/v1/commerce/conversations/:id/payments/relay
+  # Mirror a completed in-chat P2P payment into the conversation relay room so
+  # both sides see the PaymentCard (the same card the normal chat renders).
+  # The payment itself is executed against the wallet service by the client;
+  # this only posts the display event. IDs are resolved server-side.
+  def payment_relay
+    require_scope("commerce:read")
+
+    conversation = find_conversation
+    return if ensure_participant(conversation)
+
+    transfer_id = params[:transfer_id].to_s
+    amount = params[:amount]
+    currency = params[:currency].presence || "NGN"
+    status = params[:status].presence || "completed"
+
+    if transfer_id.blank? || amount.nil?
+      return render json: { error: "invalid_payment", message: "Transfer id and amount are required" }, status: :unprocessable_entity
+    end
+
+    role = role_for(conversation)
+    sender_user_id = @current_user.matrix_user_id
+    recipient_user_id = role == "buyer" ? conversation.seller_user_id : conversation.buyer_user_id
+    sender_label = role == "buyer" ? conversation.buyer_label : conversation.seller_label
+    recipient_label = role == "buyer" ? conversation.seller_label : conversation.buyer_label
+
+    CommerceRelayService.relay_payment_event(
+      conversation,
+      transfer_id: transfer_id,
+      amount: amount.to_f,
+      currency: currency,
+      status: status,
+      sender_user_id: sender_user_id,
+      sender_label: sender_label,
+      recipient_user_id: recipient_user_id,
+      recipient_label: recipient_label
+    )
+
+    render json: { status: "relayed" }
+  end
+
   # GET /api/v1/commerce/conversations/:id/messages — read history.
   # POST /api/v1/commerce/conversations/:id/messages — send a message.
   def messages
