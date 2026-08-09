@@ -107,6 +107,7 @@ Rails.application.routes.draw do
           post :read, on: :member
           post :unread, on: :member
           collection do
+            get :room
             post :mark_all_read
             get :unread_count
           end

@@ -27,6 +27,18 @@ class Api::V1::NotificationsController < Api::V1::Social::BaseController
     render json: { success: true, unread_count: count }
   end
 
+  # The user's private push/notification Matrix room. The client joins it on
+  # login so Synapse routes real push for every event published there.
+  def room
+    require_scope("social:read")
+
+    room_id = MatrixEventService.find_or_create_user_room(
+      @current_user.matrix_user_id,
+      ENV.fetch("MATRIX_DOMAIN", "tween.im")
+    )
+    render json: { success: true, room_id: room_id }
+  end
+
   def read
     mark_read
   end

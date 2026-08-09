@@ -107,6 +107,17 @@ class CommerceRelayService
 
     send_matrix_message(room_id, content)
     conversation.update!(last_message_at: Time.current)
+
+    # Real push to the recipient via their private notification room.
+    recipient = is_buyer ? conversation.seller_user_id : conversation.buyer_user_id
+    if recipient.present?
+      MatrixEventService.publish_commerce_inquiry(
+        recipient_user_id: recipient,
+        conversation_id: conversation.conversation_id,
+        label: label,
+        body: message_body
+      )
+    end
   end
 
   # Build Matrix media message content (m.image / m.video / m.audio / m.file)

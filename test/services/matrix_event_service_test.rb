@@ -127,4 +127,25 @@ class MatrixEventServiceTest < ActiveSupport::TestCase
 
     assert_not_nil result
   end
+
+  test "find_or_create_user_room creates an invited, hidden notification room" do
+    stubbed = stub_request(:post, "https://matrix.tween.example/_matrix/client/v3/createRoom")
+      .with { |req| req.body.include?("@alice:tween.example") && req.body.include?("m.tween.notifications") }
+      .to_return(status: 200, body: '{"room_id":"!notif:tween.example"}')
+
+    room_id = MatrixEventService.send(:get_user_room, @user_id)
+
+    assert_equal "!notif:tween.example", room_id
+    assert_requested stubbed, times: 1
+    assert UserNotificationRoom.find_by(user_id: @user_id, matrix_room_id: "!notif:tween.example")
+  end
+
+  test "find_or_create_user_room reuses the cached room" do
+    UserNotificationRoom.create!(user_id: @user_id, matrix_room_id: "!existing:tween.example")
+
+    room_id = MatrixEventService.send(:get_user_room, @user_id)
+
+    assert_equal "!existing:tween.example", room_id
+    assert_not_requested :any, /createRoom/
+  end
 end

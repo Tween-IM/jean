@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 class MatrixEventService
   # TMCP Protocol Section 8: Event System
   # Updated for v1.5.0 with Payment Bot integration
@@ -151,6 +152,28 @@ class MatrixEventService
       }
 
       publish_event(event)
+    end
+
+    # Commerce relay-chat push: publish a lightweight event to the recipient's
+    # private notification room so Synapse → Sygnal delivers a real push.
+    # The recipient is a member of their notification room; the relay room
+    # stays bot-only for privacy.
+    def publish_commerce_inquiry(recipient_user_id:, conversation_id:, label:, body:)
+      room_id = get_user_room(recipient_user_id)
+      return unless room_id
+
+      publish_event(
+        type: "m.tween.commerce.inquiry",
+        room_id: room_id,
+        sender_id: "@_tmcp:tween.im",
+        content: {
+          msgtype: "m.tween.commerce",
+          body: "New message from #{label}: #{body.to_s.truncate(120)}",
+          conversation_id: conversation_id,
+          label: label,
+          deep_link: "tween://commerce/conversation/#{conversation_id}"
+        }
+      )
     end
 
     def publish_p2p_status_update(transfer_id, status, details = {})
@@ -564,22 +587,51 @@ class MatrixEventService
       as_token = ENV["MATRIX_AS_TOKEN"]
       return nil unless as_token
 
-      # Look up rooms where the user is a member via the AS API
-      uri = URI("#{MATRIX_API_URL}/_matrix/client/v3/joined_rooms")
+      record = ::UserNotificationRoom.find_by(user_id: user_id)
+      return record.matrix_room_id if record&.matrix_room_id
+
+      room_id = create_notification_room(user_id, domain, as_token)
+      return nil unless room_id
+
+      ::UserNotificationRoom.create!(user_id: user_id, matrix_room_id: room_id)
+      room_id
+    rescue StandardError => e
+      Rails.logger.error "Failed to resolve user room: #{e.message}"
+      nil
+    end
+
+    # Create a private 1:1 between the AS bot and [user_id], inviting them so
+    # the client auto-joins and the Matrix pusher can deliver real push.
+    # Marked m.tween.notifications so clients hide it from the chat list.
+    def create_notification_room(user_id, domain, as_token)
+      uri = URI("#{MATRIX_API_URL}/_matrix/client/v3/createRoom")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = (uri.scheme == "https")
+      http.open_timeout = 10
+      http.read_timeout = 15
 
-      request = Net::HTTP::Get.new(uri)
+      request = Net::HTTP::Post.new(uri)
       request["Authorization"] = "Bearer #{as_token}"
+      request["Content-Type"] = "application/json"
+      request.body = {
+        name: "Tween",
+        preset: "trusted_private_chat",
+        is_direct: true,
+        invite: [ user_id ],
+        initial_state: [ { type: "m.tween.notifications", content: {} } ]
+      }.to_json
 
       response = http.request(request)
       return nil unless response.code.to_i == 200
 
-      rooms = JSON.parse(response.body)["joined_rooms"]
-      rooms&.first
+      JSON.parse(response.body)["room_id"]
     rescue StandardError => e
-      Rails.logger.error "Failed to resolve user room: #{e.message}"
+      Rails.logger.error "Failed to create notification room for #{user_id}: #{e.message}"
       nil
+    end
+
+    def get_default_room
+      ENV.fetch("MATRIX_DEFAULT_ROOM", nil)
     end
   end
 end
