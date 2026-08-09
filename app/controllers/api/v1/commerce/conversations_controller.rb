@@ -221,6 +221,7 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     amount = params[:amount]
     currency = params[:currency].presence || "NGN"
     status = params[:status].presence || "completed"
+    note = params[:note].to_s.presence
 
     if transfer_id.blank? || amount.nil?
       return render json: { error: "invalid_payment", message: "Transfer id and amount are required" }, status: :unprocessable_entity
@@ -238,6 +239,7 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
       amount: amount.to_f,
       currency: currency,
       status: status,
+      note: note,
       sender_user_id: sender_user_id,
       sender_label: sender_label,
       recipient_user_id: recipient_user_id,
@@ -245,6 +247,9 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     )
 
     render json: { status: "relayed" }
+  rescue CommerceRelayService::Error => e
+    Rails.logger.error "[PaymentRelay] #{conversation.conversation_id}: #{e.message}"
+    render json: { error: "relay_failed", message: "Could not relay the payment into the chat" }, status: :service_unavailable
   end
 
   # GET /api/v1/commerce/conversations/:id/messages — read history.

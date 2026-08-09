@@ -217,7 +217,7 @@ class CommerceRelayService
 
     content = {
       msgtype: "m.tween.money",
-      body: "💸 Payment",
+      body: "Paid #{payload[:amount]} #{payload[:currency] || "NGN"}",
       transfer_id: payload[:transfer_id],
       amount: payload[:amount],
       currency: payload[:currency],
@@ -245,6 +245,7 @@ class CommerceRelayService
     conversation.update!(last_message_at: Time.current)
   rescue => e
     Rails.logger.error "[CommerceRelay] Failed to relay payment event for conversation #{conversation.conversation_id}: #{e.message}"
+    raise Error, "Payment relay failed: #{e.message}"
   end
 
   def self.message_or_payment_event?(event_type)
@@ -280,7 +281,8 @@ class CommerceRelayService
       sender_id: sender_id,
       sender_name: sender_name,
       recipient_id: recipient_id,
-      recipient_name: recipient_name
+      recipient_name: recipient_name,
+      note: content["note"]
     }.compact
   end
 

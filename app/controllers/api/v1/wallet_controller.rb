@@ -222,8 +222,12 @@ class Api::V1::WalletController < Api::BaseController
         timestamp: Time.current.iso8601
       }
       Rails.logger.info "[CONFIRM_P2P] Event data with note: #{event_data.inspect}"
-      MatrixEventService.publish_p2p_transfer(event_data)
-      Rails.logger.info "Published P2P transfer event to room #{result[:room_id]} with status: #{result[:status]}"
+      begin
+        MatrixEventService.publish_p2p_transfer_now!(event_data)
+        Rails.logger.info "Published P2P transfer event to room #{result[:room_id]} with status: #{result[:status]}"
+      rescue => e
+        Rails.logger.error "[CONFIRM_P2P] Failed to publish in-chat event for #{transfer_id}: #{e.message}"
+      end
     end
 
     render json: result

@@ -430,6 +430,26 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
     assert_response :forbidden
   end
 
+  test "payment_relay returns 503 when the matrix relay write fails" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+
+    CommerceRelayService.define_singleton_method(:make_matrix_request) do |*|
+      raise CommerceRelayService::Error, "Matrix API error: 403"
+    end
+
+    post payments_relay_api_v1_commerce_conversation_url(conversation.conversation_id),
+         params: { transfer_id: "p2p_fail", amount: 10.0, currency: "NGN", status: "completed" },
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :service_unavailable
+    assert_equal "relay_failed", response.parsed_body["error"]
+  end
+
   private
 
   def create_user(username)

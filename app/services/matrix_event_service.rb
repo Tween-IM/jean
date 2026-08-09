@@ -102,6 +102,17 @@ class MatrixEventService
     end
 
     def publish_p2p_transfer(transfer_data)
+      publish_event(p2p_transfer_event(transfer_data))
+    end
+
+    # Synchronous variant used by the wallet confirm controller so the in-chat
+    # PaymentCard lands in the room before the confirm response returns —
+    # no dependency on the async job queue for real-time feedback.
+    def publish_p2p_transfer_now!(transfer_data)
+      _publish_event_sync(p2p_transfer_event(transfer_data))
+    end
+
+    def p2p_transfer_event(transfer_data)
       sender = transfer_data["sender"] || transfer_data[:sender]
       recipient = transfer_data["recipient"] || transfer_data[:recipient]
       status = transfer_data["status"] || transfer_data[:status]
@@ -151,7 +162,7 @@ class MatrixEventService
         }
       }
 
-      publish_event(event)
+      event
     end
 
     # Commerce relay-chat push: publish a lightweight event to the recipient's
