@@ -15,6 +15,12 @@ class CircuitBreakerService
     @success_count = 0
   end
 
+  # Exceptions that represent client errors (4xx: bad input, missing scope,
+  # auth failures) rather than a service outage. These must not open the
+  # circuit breaker. Subclasses of [StandardError]; set this to the wallet
+  # service's ClientError class.
+  class_attribute :client_error_class
+
   def call(&block)
     case @state
     when STATES[:closed]
@@ -28,13 +34,17 @@ class CircuitBreakerService
 
   private
 
+  def client_error?(error)
+    client_error_class && error.is_a?(client_error_class)
+  end
+
   def execute_closed(&block)
     begin
       result = block.call
       record_success
       result
     rescue => e
-      record_failure
+      record_failure unless client_error?(e)
       raise e
     end
   end
@@ -59,9 +69,11 @@ class CircuitBreakerService
       end
       result
     rescue => e
-      @state = STATES[:open]
-      @last_failure_time = Time.current
-      @success_count = 0
+      unless client_error?(e)
+        @state = STATES[:open]
+        @last_failure_time = Time.current
+        @success_count = 0
+      end
       raise e
     end
   end

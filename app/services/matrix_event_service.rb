@@ -610,6 +610,7 @@ class MatrixEventService
       Rails.logger.error "Failed to resolve user room: #{e.message}"
       nil
     end
+    public :find_or_create_user_room
 
     # Create a private 1:1 between the AS bot and [user_id], inviting them so
     # the client auto-joins and the Matrix pusher can deliver real push.

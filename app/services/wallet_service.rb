@@ -12,6 +12,11 @@ class WalletService
     end
   end
 
+  # A 4xx response from the wallet service — the request was rejected because
+  # of bad input/auth, not because the service is down. These must NOT trip the
+  # circuit breaker (a client error is not an outage).
+  class ClientError < WalletError; end
+
   # Circuit breakers for different operations (PROTO Section 7.7)
   # Per-user circuit breakers to prevent one user from affecting others
   # Using Concurrent::Map for thread-safe atomic operations
@@ -36,7 +41,11 @@ class WalletService
     # Return existing or create new circuit breaker (thread-safe atomic operation)
     # Concurrent::Map has compute_if_absent for atomic operations
     CIRCUIT_BREAKERS.compute_if_absent(key) do
-      CircuitBreakerService.new("#{operation}:#{user_id}")
+      breaker = CircuitBreakerService.new("#{operation}:#{user_id}")
+      # 4xx responses from the wallet (bad input, missing scope) are client
+      # errors, not outages — they must not open the circuit.
+      breaker.client_error_class = ClientError
+      breaker
     end
   end
 
@@ -121,7 +130,13 @@ class WalletService
         begin
           error_data = JSON.parse(response.body)
           if error_data["error"]
-            raise WalletError.new(error_data["error"]["message"] || "Wallet service error", error_data["error"]["code"])
+            code = error_data["error"]["code"]
+            message = error_data["error"]["message"] || "Wallet service error"
+            # 4xx = client/validation error (bad request, missing scope, etc.).
+            # Don't open the circuit breaker for these — the service is up.
+            raise(ClientError, message) if response.status.between?(400, 499)
+
+            raise WalletError.new(message, code)
           end
         rescue JSON::ParserError
         end
