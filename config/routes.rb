@@ -177,6 +177,7 @@ Rails.application.routes.draw do
               post :decline_dm
               get :payment_recipient
               post "payments/relay", to: "conversations#payment_relay"
+              post "payments/relay_status", to: "conversations#payment_relay_status"
             end
           end
           post "products/:product_id/contact", to: "conversations#create", as: :product_contact

@@ -135,7 +135,8 @@ class Api::V1::WalletController < Api::BaseController
       @tep_token,
       room_id: room_id,
       note: params[:note],
-      idempotency_key: params[:idempotency_key]
+      idempotency_key: params[:idempotency_key],
+      require_acceptance: ActiveModel::Type::Boolean.new.cast(params[:require_acceptance])
     )
 
     # Store room_id in the transfer data for later use in confirm
@@ -239,13 +240,17 @@ class Api::V1::WalletController < Api::BaseController
     result = WalletService.accept_p2p_transfer(transfer_id, @tep_token)
 
     if result[:status] == "completed"
+      # Publish the status update into the transfer's room so the normal
+      # chat's PaymentCard updates in realtime via sync.
+      room_id = result[:room_id] || Rails.cache.read("#{Rails.env}:p2p_room:#{transfer_id}")
       MatrixEventService.publish_p2p_status_update(
         transfer_id,
         "completed",
         {
           user_id: @current_user.matrix_user_id,
           accepted_at: result[:timestamp] || result[:accepted_at],
-          accepted_by: "recipient"
+          accepted_by: "recipient",
+          room_id: room_id
         }
       )
     end
@@ -257,6 +262,19 @@ class Api::V1::WalletController < Api::BaseController
   def reject_p2p
     transfer_id = params[:transfer_id]
     result = WalletService.reject_p2p_transfer(transfer_id, @tep_token, params[:reason])
+
+    room_id = result[:room_id] || Rails.cache.read("#{Rails.env}:p2p_room:#{transfer_id}")
+    MatrixEventService.publish_p2p_status_update(
+      transfer_id,
+      "rejected",
+      {
+        user_id: @current_user.matrix_user_id,
+        rejected_at: Time.current,
+        rejected_by: "recipient",
+        reason: params[:reason],
+        room_id: room_id
+      }
+    )
 
     render json: result.merge(
       refund_initiated: true,

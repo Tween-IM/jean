@@ -252,6 +252,31 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     render json: { error: "relay_failed", message: "Could not relay the payment into the chat" }, status: :service_unavailable
   end
 
+  # POST /api/v1/commerce/conversations/:id/payments/relay_status
+  # Mirror a P2P payment status change (accepted/rejected) into the
+  # conversation relay room so both sides' commerce PaymentCard updates
+  # without depending on the DM room.
+  def payment_relay_status
+    require_scope("commerce:read")
+
+    conversation = find_conversation
+    return if ensure_participant(conversation)
+
+    transfer_id = params[:transfer_id].to_s
+    status = params[:status].to_s
+
+    unless transfer_id.present? && %w[completed rejected].include?(status)
+      return render json: { error: "invalid_status", message: "Transfer id and a completed/rejected status are required" }, status: :unprocessable_entity
+    end
+
+    CommerceRelayService.relay_payment_status(conversation, transfer_id, status)
+
+    render json: { status: "relayed" }
+  rescue CommerceRelayService::Error => e
+    Rails.logger.error "[PaymentRelayStatus] #{conversation.conversation_id}: #{e.message}"
+    render json: { error: "relay_failed", message: "Could not relay the payment status into the chat" }, status: :service_unavailable
+  end
+
   # GET /api/v1/commerce/conversations/:id/messages — read history.
   # POST /api/v1/commerce/conversations/:id/messages — send a message.
   def messages

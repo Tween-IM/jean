@@ -259,6 +259,7 @@ class WalletService
         note: options[:note],
         idempotency_key: options[:idempotency_key]
       }
+      request_body[:require_acceptance] = options[:require_acceptance] if options.key?(:require_acceptance)
 
       response = make_wallet_request(:post, "/api/v1/tmcp/transfers/p2p/initiate",
                                    request_body,

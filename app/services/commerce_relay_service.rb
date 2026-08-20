@@ -248,6 +248,34 @@ class CommerceRelayService
     raise Error, "Payment relay failed: #{e.message}"
   end
 
+  # Post a payment status update (m.tween.wallet.p2p.status) into the
+  # conversation relay room so both sides' commerce PaymentCard reflects the
+  # accept/decline without depending on the DM room.
+  def self.relay_payment_status(conversation, transfer_id, status)
+    room_id = conversation.matrix_room_id
+    return unless room_id.present?
+
+    content = {
+      msgtype: "m.tween.money",
+      transfer_id: transfer_id,
+      status: status,
+      timestamp: Time.current.iso8601,
+      "m.tween.relay_role" => "system",
+      "m.tween.relay_sender" => "Tween",
+      "m.tween.relay_type" => "commerce_payment_status"
+    }
+
+    txn_id = "tween_commerce_pay_status_#{SecureRandom.hex(16)}"
+    make_matrix_request(
+      :put,
+      "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/m.tween.wallet.p2p.status/#{txn_id}",
+      content
+    )
+  rescue => e
+    Rails.logger.error "[CommerceRelay] Failed to relay payment status for conversation #{conversation.conversation_id}: #{e.message}"
+    raise Error, "Payment status relay failed: #{e.message}"
+  end
+
   def self.message_or_payment_event?(event_type)
     return true if event_type == "m.room.message"
     payment_event?(event_type, nil)

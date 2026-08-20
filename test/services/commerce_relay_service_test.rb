@@ -64,4 +64,22 @@ class CommerceRelayServiceTest < ActiveSupport::TestCase
     assert_equal "Inquiry Shop", content[:recipient][:display_name]
     assert_equal "completed", content[:status]
   end
+
+  test "relay_payment_status posts a status update carrying the transfer id and status" do
+    captured = nil
+    CommerceRelayService.define_singleton_method(:make_matrix_request) do |method, path, body|
+      captured = [method, path, body]
+      { "event_id" => "$status1" }
+    end
+
+    CommerceRelayService.relay_payment_status(@conversation, "p2p_abc", "completed")
+
+    assert_equal :put, captured[0]
+    assert_includes captured[1], "/rooms/%21room%3Atween.im/send/m.tween.wallet.p2p.status/"
+    content = captured[2]
+    assert_equal "m.tween.money", content[:msgtype]
+    assert_equal "p2p_abc", content[:transfer_id]
+    assert_equal "completed", content[:status]
+    assert_equal "commerce_payment_status", content["m.tween.relay_type"]
+  end
 end

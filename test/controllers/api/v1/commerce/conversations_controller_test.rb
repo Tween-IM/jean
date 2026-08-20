@@ -450,6 +450,37 @@ class Api::V1::Commerce::ConversationsControllerTest < ActionDispatch::Integrati
     assert_equal "relay_failed", response.parsed_body["error"]
   end
 
+  test "payment_relay_status mirrors an accepted/rejected payment status" do
+    conversation = CommerceConversation.create!(
+      buyer_user_id: @buyer.matrix_user_id,
+      product_id: @product.product_id,
+      matrix_room_id: "!room:tween.im"
+    )
+
+    post payments_relay_status_api_v1_commerce_conversation_url(conversation.conversation_id),
+         params: { transfer_id: "p2p_abc", status: "completed" },
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+
+    assert_response :success
+    assert_equal "relayed", response.parsed_body["status"]
+
+    # Invalid statuses are rejected.
+    post payments_relay_status_api_v1_commerce_conversation_url(conversation.conversation_id),
+         params: { transfer_id: "p2p_abc", status: "weird" },
+         headers: tep_headers(@buyer, "commerce:read"),
+         as: :json
+    assert_response :unprocessable_entity
+    assert_equal "invalid_status", response.parsed_body["error"]
+
+    # Strangers cannot mirror a status into the room.
+    post payments_relay_status_api_v1_commerce_conversation_url(conversation.conversation_id),
+         params: { transfer_id: "p2p_evil", status: "rejected" },
+         headers: tep_headers(@other, "commerce:read"),
+         as: :json
+    assert_response :forbidden
+  end
+
   private
 
   def create_user(username)
