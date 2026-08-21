@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "digest"
+
 # CommerceRelayService
 #
 # Creates bot-relayed Matrix rooms for classified (marketplace) buyer↔seller
@@ -255,6 +257,11 @@ class CommerceRelayService
     room_id = conversation.matrix_room_id
     return unless room_id.present?
 
+    relay_payment_status_to_room(room_id, transfer_id, status)
+  end
+
+  def self.relay_payment_status_to_room(room_id, transfer_id, status)
+
     content = {
       msgtype: "m.tween.money",
       transfer_id: transfer_id,
@@ -265,15 +272,44 @@ class CommerceRelayService
       "m.tween.relay_type" => "commerce_payment_status"
     }
 
-    txn_id = "tween_commerce_pay_status_#{SecureRandom.hex(16)}"
-    make_matrix_request(
+    txn_id = "tween_pay_status_#{Digest::SHA256.hexdigest("#{transfer_id}:#{status}")[0, 32]}"
+    response = make_matrix_request(
       :put,
       "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/m.tween.wallet.p2p.status/#{txn_id}",
       content
     )
+    response["event_id"]
   rescue => e
-    Rails.logger.error "[CommerceRelay] Failed to relay payment status for conversation #{conversation.conversation_id}: #{e.message}"
+    Rails.logger.error "[CommerceRelay] Failed to relay payment status to room #{room_id}: #{e.message}"
     raise Error, "Payment status relay failed: #{e.message}"
+  end
+
+  def self.relay_payment_event_to_room(room_id, payment)
+    transfer_id = payment.fetch(:transfer_id)
+    content = {
+      msgtype: "m.tween.money",
+      body: payment[:body].presence || "Payment request",
+      transfer_id: transfer_id,
+      amount: payment[:amount],
+      currency: payment[:currency],
+      status: payment[:status],
+      note: payment[:note],
+      sender: payment[:sender],
+      recipient: payment[:recipient],
+      recipient_acceptance_required: payment[:recipient_acceptance_required],
+      timestamp: Time.current.iso8601
+    }.compact
+
+    txn_id = "tween_pay_#{Digest::SHA256.hexdigest(transfer_id)[0, 32]}"
+    response = make_matrix_request(
+      :put,
+      "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/send/m.room.message/#{txn_id}",
+      content
+    )
+    response["event_id"]
+  rescue => e
+    Rails.logger.error "[CommerceRelay] Failed to relay payment event to room #{room_id}: #{e.message}"
+    raise Error, "Payment event relay failed: #{e.message}"
   end
 
   def self.message_or_payment_event?(event_type)

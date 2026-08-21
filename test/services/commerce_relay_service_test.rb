@@ -82,4 +82,45 @@ class CommerceRelayServiceTest < ActiveSupport::TestCase
     assert_equal "completed", content[:status]
     assert_equal "commerce_payment_status", content["m.tween.relay_type"]
   end
+
+  test "relay_payment_status_to_room uses a deterministic Matrix transaction id" do
+    paths = []
+    CommerceRelayService.define_singleton_method(:make_matrix_request) do |_method, path, _body|
+      paths << path
+      { "event_id" => "$status" }
+    end
+
+    2.times do
+      CommerceRelayService.relay_payment_status_to_room(
+        "!room:tween.im", "p2p_abc", "completed"
+      )
+    end
+
+    assert_equal paths.first, paths.last
+    assert_equal "$status", CommerceRelayService.relay_payment_status_to_room(
+      "!room:tween.im", "p2p_abc", "completed"
+    )
+  end
+
+  test "relay_payment_event_to_room uses a normal room message and deterministic transaction id" do
+    captured = []
+    CommerceRelayService.define_singleton_method(:make_matrix_request) do |method, path, body|
+      captured << [ method, path, body ]
+      { "event_id" => "$payment" }
+    end
+
+    payload = {
+      transfer_id: "p2p_abc",
+      amount: 25,
+      currency: "NGN",
+      sender: { user_id: "@mona:tween.im", display_name: "Mona" }
+    }
+    2.times { CommerceRelayService.relay_payment_event_to_room("!room:tween.im", payload) }
+
+    assert_equal :put, captured.first[0]
+    assert_includes captured.first[1], "/send/m.room.message/"
+    assert_equal captured.first[1], captured.last[1]
+    assert_equal "m.tween.money", captured.first[2][:msgtype]
+    assert_equal "Mona", captured.first[2][:sender][:display_name]
+  end
 end

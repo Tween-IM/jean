@@ -260,6 +260,8 @@ Rails.application.routes.draw do
        namespace :internal do
          post "matrix/invite_as_direct", to: "matrix#invite_as_direct"
          post "matrix/send_test_message", to: "matrix#send_test_message"
+         post "matrix/payment_status", to: "/matrix#payment_status"
+         post "matrix/payment_event", to: "/matrix#payment_event"
        end
      end
    end

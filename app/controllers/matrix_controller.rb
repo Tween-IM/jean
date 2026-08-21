@@ -2,6 +2,7 @@ class MatrixController < ApplicationController
   # TMCP Protocol Section 3.1.2: Matrix Application Service
 
   before_action :verify_as_token, only: [ :transactions, :ping, :thirdparty_location, :thirdparty_user, :thirdparty_location_protocol, :thirdparty_user_protocol ]
+  before_action :verify_tweenpay_internal_token, only: [ :payment_status, :payment_event ]
 
   # PUT/POST /_matrix/app/v1/transactions/:txn_id - Handle Matrix events
   # Note: Matrix spec requires PUT, but some homeservers use POST
@@ -184,7 +185,60 @@ class MatrixController < ApplicationController
     end
   end
 
+  # POST /api/v1/internal/matrix/payment_status
+  # Authoritative payment status publication requested by tween-pay after the
+  # wallet transaction commits. The deterministic transaction id makes retries
+  # idempotent at the Matrix homeserver.
+  def payment_status
+    room_id = params[:room_id].to_s
+    transfer_id = params[:transfer_id].to_s
+    status = params[:status].to_s
+
+    unless room_id.match?(/^![A-Za-z0-9]+:.+/) && transfer_id.present? && %w[completed rejected].include?(status)
+      return render json: { error: "invalid_request" }, status: :unprocessable_entity
+    end
+
+    event_id = CommerceRelayService.relay_payment_status_to_room(room_id, transfer_id, status)
+    render json: { status: "published", event_id: event_id }
+  rescue CommerceRelayService::Error => e
+    Rails.logger.error "[PaymentStatus] #{transfer_id}: #{e.message}"
+    render json: { error: "publication_failed" }, status: :service_unavailable
+  end
+
+  # POST /api/v1/internal/matrix/payment_event
+  # Uses m.room.message so standard Matrix unread ordering and push rules apply,
+  # while msgtype retains the structured Tween payment-card payload.
+  def payment_event
+    room_id = params[:room_id].to_s
+    transfer_id = params[:transfer_id].to_s
+    unless room_id.match?(/^![A-Za-z0-9]+:.+/) && transfer_id.present?
+      return render json: { error: "invalid_request" }, status: :unprocessable_entity
+    end
+
+    event_id = CommerceRelayService.relay_payment_event_to_room(
+      room_id,
+      params.permit(
+        :transfer_id, :amount, :currency, :status, :note, :body,
+        :recipient_acceptance_required,
+        sender: [ :user_id, :display_name ],
+        recipient: [ :user_id, :display_name ]
+      ).to_h.deep_symbolize_keys
+    )
+    render json: { status: "published", event_id: event_id }
+  rescue CommerceRelayService::Error => e
+    Rails.logger.error "[PaymentEvent] #{transfer_id}: #{e.message}"
+    render json: { error: "publication_failed" }, status: :service_unavailable
+  end
+
   private
+
+  def verify_tweenpay_internal_token
+    expected = ENV["TWEENPAY_INTERNAL_TOKEN"].to_s
+    provided = request.headers["X-TweenPay-Internal-Token"].to_s
+    valid = expected.present? && provided.bytesize == expected.bytesize &&
+      ActiveSupport::SecurityUtils.secure_compare(provided, expected)
+    render json: { error: "unauthorized" }, status: :unauthorized unless valid
+  end
 
   def verify_as_token
     # Verify AS token from Matrix homeserver

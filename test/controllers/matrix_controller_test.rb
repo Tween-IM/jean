@@ -6,6 +6,7 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
   setup do
     @headers = { "Authorization" => "Bearer test_matrix_token" }
     ENV["MATRIX_AS_TOKEN"] = "test_matrix_token"
+    ENV["TWEENPAY_INTERNAL_TOKEN"] = "test_internal_token"
 
     # Create test user for user query tests
     User.find_or_create_by(matrix_user_id: "@test_user:tween.example") do |user|
@@ -17,6 +18,62 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
 
   teardown do
     ENV.delete("MATRIX_AS_TOKEN")
+    ENV.delete("TWEENPAY_INTERNAL_TOKEN")
+  end
+
+  test "payment status publishes an authenticated event" do
+    original = CommerceRelayService.method(:relay_payment_status_to_room)
+    CommerceRelayService.define_singleton_method(:relay_payment_status_to_room) do |*|
+      "$status"
+    end
+    begin
+      post "/api/v1/internal/matrix/payment_status",
+           params: { room_id: "!room123:tween.example", transfer_id: "p2p_123", status: "completed" },
+           headers: { "X-TweenPay-Internal-Token" => "test_internal_token" },
+           as: :json
+    ensure
+      CommerceRelayService.define_singleton_method(:relay_payment_status_to_room, original)
+    end
+
+    assert_response :success
+    assert_equal "published", response.parsed_body["status"]
+    assert_equal "$status", response.parsed_body["event_id"]
+  end
+
+  test "payment status rejects callers without the internal token" do
+    post "/api/v1/internal/matrix/payment_status",
+         params: { room_id: "!room123:tween.example", transfer_id: "p2p_123", status: "completed" },
+         as: :json
+
+    assert_response :unauthorized
+  end
+
+  test "payment event publishes an authenticated room message" do
+    captured = nil
+    original = CommerceRelayService.method(:relay_payment_event_to_room)
+    CommerceRelayService.define_singleton_method(:relay_payment_event_to_room) do |room_id, payload|
+      captured = [ room_id, payload ]
+      "$payment"
+    end
+    begin
+      post "/api/v1/internal/matrix/payment_event",
+           params: {
+             room_id: "!room123:tween.example",
+             transfer_id: "p2p_123",
+             amount: 50,
+             currency: "NGN",
+             sender: { user_id: "@mona:tween.im", display_name: "Mona" }
+           },
+           headers: { "X-TweenPay-Internal-Token" => "test_internal_token" },
+           as: :json
+    ensure
+      CommerceRelayService.define_singleton_method(:relay_payment_event_to_room, original)
+    end
+
+    assert_response :success
+    assert_equal "$payment", response.parsed_body["event_id"]
+    assert_equal "!room123:tween.example", captured[0]
+    assert_equal "Mona", captured[1][:sender][:display_name]
   end
 
   test "should handle transactions endpoint" do
