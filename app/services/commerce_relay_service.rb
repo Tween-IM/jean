@@ -191,14 +191,14 @@ class CommerceRelayService
         info = content["info"] || {}
         if offer_event?(ev["type"])
           offer_message_json(ev, content)
-        elsif payment_event?(ev["type"], msgtype)
+        elsif payment_card_event?(ev, content)
           payment_message_json(ev, content)
         else
           {
             id: ev["event_id"],
             role: content["m.tween.relay_role"] || "system",
             label: content["m.tween.relay_sender"] || "Tween",
-            body: content["body"],
+            body: content["body"].presence || payment_status_body(content),
             sent_at: ev["origin_server_ts"],
             msgtype: content["msgtype"].to_s.delete_prefix("m."),
             media_url: content["url"],
@@ -326,6 +326,26 @@ class CommerceRelayService
   def self.payment_event?(event_type, msgtype)
     event_type.to_s.start_with?("m.tween.") ||
       msgtype.to_s.start_with?("m.tween.")
+  end
+
+  # A full in-chat PaymentCard needs a positive amount. Status-only updates
+  # (m.tween.money without an amount, and m.tween.commerce.* events) must not
+  # render as "₦0" money cards.
+  def self.payment_card_event?(event, content)
+    return false unless payment_event?(event["type"], content["msgtype"])
+    return false if offer_event?(event["type"])
+
+    amount = content["amount"]
+    amount.present? && amount.to_f.positive?
+  end
+
+  # Friendly one-liner when a payment/status event has no body and no amount,
+  # so it renders as a short system note instead of an empty bubble.
+  def self.payment_status_body(content)
+    status = content["status"].to_s
+    return "Payment #{status}" if status.present?
+
+    nil
   end
 
   def self.offer_message_json(event, content)

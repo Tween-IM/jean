@@ -123,4 +123,28 @@ class CommerceRelayServiceTest < ActiveSupport::TestCase
     assert_equal "m.tween.money", captured.first[2][:msgtype]
     assert_equal "Mona", captured.first[2][:sender][:display_name]
   end
+
+  test "payment_card_event? only accepts money events with a positive amount" do
+    assert CommerceRelayService.payment_card_event?(
+      { "type" => "m.tween.wallet.p2p" }, { "amount" => 25.0 }
+    )
+    assert CommerceRelayService.payment_card_event?(
+      { "type" => "m.tween.wallet.p2p" }, { "amount" => "25" }
+    )
+
+    # Status-only update — no amount — is not a payment card.
+    assert_not CommerceRelayService.payment_card_event?(
+      { "type" => "m.tween.wallet.p2p.status" }, { "status" => "completed" }
+    )
+    assert_not CommerceRelayService.payment_card_event?(
+      { "type" => "m.tween.commerce.payment" }, { "status" => "released" }
+    )
+    assert_not CommerceRelayService.payment_card_event?(
+      { "type" => "m.tween.money", "msgtype" => "m.tween.money" }, { "status" => "pending" }
+    )
+    # Zero amount is not a payment card.
+    assert_not CommerceRelayService.payment_card_event?(
+      { "type" => "m.tween.wallet.p2p" }, { "amount" => 0 }
+    )
+  end
 end
