@@ -56,11 +56,12 @@ class ProtectedCommerceE2ETest < ActionDispatch::IntegrationTest
         offer_type: "product", currency: "NGN",
         subtotal_cents: 100_000, delivery_fee_cents: 5_000, total_cents: 105_000,
         terms: { product_id: @product.product_id, quantity: 1, delivery_method: "shipment" }
-      } }.to_json,
+      } },
       headers: tep_headers(@seller, "commerce:write"),
       as: :json
     assert_response :created
     offer_id = JSON.parse(response.body).dig("offer", "offer_id")
+    assert_equal 105_000, JSON.parse(response.body).dig("offer", "total_cents")
 
     # 2. Buyer accepts → protected order + payment created
     stub_protected(:create_payment, {
@@ -92,7 +93,7 @@ class ProtectedCommerceE2ETest < ActionDispatch::IntegrationTest
 
     # 4. Seller ships with tracking
     post api_v1_commerce_order_fulfillment_url(order_id),
-      params: { fulfillment: { carrier: "GIG", tracking_number: "GIG-77" } }.to_json,
+      params: { fulfillment: { carrier: "GIG", tracking_number: "GIG-77" } },
       headers: tep_headers(@seller, "commerce:merchant"), as: :json
     assert_response :success
     fulfillment = order.reload.commerce_fulfillments.first

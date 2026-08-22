@@ -78,12 +78,25 @@ class Api::V1::Commerce::OffersController < Api::V1::Commerce::BaseController
   end
 
   def offer_params
-    params.require(:offer).permit(
+    permitted = params.require(:offer).permit(
       :offer_type, :currency, :subtotal_cents, :delivery_fee_cents, :buyer_fee_cents,
       :discount_cents, :total_cents, :commission_cents, :seller_proceeds_cents,
       :commission_rate, :expires_at, terms: {}
-    ).to_h
+    ).to_h.with_indifferent_access
+
+    # Money amounts are integer minor units. JSON can deliver a numeric literal
+    # such as 5000.0 which Rails parses as a Float — coerce to Integer so the
+    # only_integer validations pass regardless of client serialization.
+    INTEGER_CENT_FIELDS.each do |field|
+      permitted[field] = permitted[field].to_i if permitted[field].is_a?(Numeric)
+    end
+    permitted
   end
+
+  INTEGER_CENT_FIELDS = %w[
+    subtotal_cents delivery_fee_cents buyer_fee_cents discount_cents
+    total_cents commission_cents seller_proceeds_cents
+  ].freeze
 
   def publish_offer_event(offer, event_type)
     room_id = @conversation.matrix_room_id
