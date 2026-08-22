@@ -72,6 +72,25 @@ class Commerce::OfferServiceTest < ActiveSupport::TestCase
     assert_equal first.offer_id, counter.parent_offer_id
   end
 
+  test "proposing a new offer supersedes any pending open offer" do
+    service = Commerce::OfferService.new
+    first = service.create!(@conversation, "@seller-service:tween.im", offer_params)
+
+    second = service.create!(
+      @conversation,
+      "@seller-service:tween.im",
+      offer_params.merge(subtotal_cents: 80_000, total_cents: 85_000)
+    )
+
+    assert_equal "superseded", first.reload.status
+    assert_equal second.offer_id, first.reload.superseded_by_offer_id
+    assert_equal "proposed", second.status
+
+    # Only one open offer remains actionable.
+    open = @conversation.commerce_offers.where(status: "proposed")
+    assert_equal 1, open.count
+  end
+
   test "acceptance creates a protected order and requests a protected payment" do
     service = Commerce::OfferService.new
     offer = service.create!(@conversation, "@seller-service:tween.im", offer_params)

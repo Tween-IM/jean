@@ -23,8 +23,24 @@ module Commerce
       offer.status = "proposed"
       offer.expires_at = params[:expires_at].presence || 72.hours.from_now
       offer.save!
+      supersede_pending!(conversation, offer)
 
       offer
+    end
+
+    # A conversation negotiates one open offer at a time. Proposing a fresh
+    # offer supersedes any still-open offers so the latest terms are the only
+    # actionable ones (sending a deal again refines the previous one rather
+    # than stacking duplicates).
+    def supersede_pending!(conversation, offer)
+      conversation.commerce_offers
+                  .where(status: "proposed")
+                  .where.not(offer_id: offer.offer_id)
+                  .update_all(
+                    status: "superseded",
+                    superseded_by_offer_id: offer.offer_id,
+                    responded_at: Time.current
+                  )
     end
 
     def counter!(offer, proposer_user_id, params)
