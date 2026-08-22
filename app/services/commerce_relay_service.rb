@@ -189,7 +189,9 @@ class CommerceRelayService
         next if msgtype == "m.notice"
 
         info = content["info"] || {}
-        if payment_event?(ev["type"], msgtype)
+        if offer_event?(ev["type"])
+          offer_message_json(ev, content)
+        elsif payment_event?(ev["type"], msgtype)
           payment_message_json(ev, content)
         else
           {
@@ -314,12 +316,36 @@ class CommerceRelayService
 
   def self.message_or_payment_event?(event_type)
     return true if event_type == "m.room.message"
-    payment_event?(event_type, nil)
+    offer_event?(event_type) || payment_event?(event_type, nil)
+  end
+
+  def self.offer_event?(event_type)
+    event_type.to_s.start_with?("m.tween.commerce.offer")
   end
 
   def self.payment_event?(event_type, msgtype)
     event_type.to_s.start_with?("m.tween.") ||
       msgtype.to_s.start_with?("m.tween.")
+  end
+
+  def self.offer_message_json(event, content)
+    {
+      id: event["event_id"],
+      role: content["m.tween.relay_role"] || "system",
+      label: content["m.tween.relay_sender"] || "Tween",
+      body: content["body"],
+      sent_at: event["origin_server_ts"],
+      msgtype: "m.tween.commerce.offer",
+      is_offer: true,
+      offer_id: content["offer_id"],
+      offer_type: content["offer_type"],
+      offer_version: content["version"],
+      offer_status: content["status"],
+      currency: content["currency"],
+      total_cents: content["total_cents"],
+      seller_proceeds_cents: content["seller_proceeds_cents"],
+      offer_expires_at: content["expires_at"]
+    }.compact
   end
 
   def self.payment_message_json(event, content)

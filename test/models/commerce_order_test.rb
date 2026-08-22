@@ -3,6 +3,28 @@
 require "test_helper"
 
 class CommerceOrderTest < ActiveSupport::TestCase
+  test "protection lifecycle cannot skip activation" do
+    merchant = CommerceMerchant.create!(
+      merchant_id: "mer_protection_test",
+      miniapp_id: "ma_protection_test",
+      display_name: "Protection Test Store",
+      owner_user_id: "@seller-protection:tween.im",
+      wallet_id: "wallet_protection_test",
+      status: "active"
+    )
+    order = CommerceOrder.create!(
+      commerce_merchant: merchant,
+      buyer_user_id: "@buyer-protection:tween.im",
+      payment_id: "pay_protection_test",
+      currency: "NGN"
+    )
+
+    assert order.update(protection_status: "eligible")
+    assert_not order.update(protection_status: "completed")
+    assert order.update(protection_status: "active")
+    assert order.protected?
+    assert order.update(protection_status: "completed")
+  end
   test "valid status transitions" do
     merchant = CommerceMerchant.create!(owner_user_id: "@owner:example.com", miniapp_id: "ma.test", display_name: "Test", status: "active")
     order = CommerceOrder.create!(

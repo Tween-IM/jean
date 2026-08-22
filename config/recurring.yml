@@ -21,3 +21,11 @@ production:
     class: ExpireSocialStoriesJob
     queue: default
     schedule: every 1 day at 3am UTC
+  expire_pending_offers:
+    class: ExpirePendingOffersJob
+    queue: default
+    schedule: every 15 minutes
+  auto_cancel_stale_orders:
+    class: AutoCancelStaleOrdersJob
+    queue: default
+    schedule: every 10 minutes

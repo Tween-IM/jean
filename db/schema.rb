@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_22_090002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -104,6 +104,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
     t.index ["status"], name: "index_commerce_categories_on_status"
   end
 
+  create_table "commerce_change_orders", force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.string "accepted_by_user_id"
+    t.bigint "amount_delta_cents", default: 0, null: false
+    t.string "change_order_id", null: false
+    t.bigint "commerce_order_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "deadline_delta", default: {}, null: false
+    t.string "proposer_user_id", null: false
+    t.jsonb "scope_delta", default: {}, null: false
+    t.string "status", default: "proposed", null: false
+    t.datetime "updated_at", null: false
+    t.index ["change_order_id"], name: "index_commerce_change_orders_on_change_order_id", unique: true
+    t.index ["commerce_order_id", "status"], name: "index_commerce_change_orders_on_commerce_order_id_and_status"
+    t.index ["commerce_order_id"], name: "index_commerce_change_orders_on_commerce_order_id"
+  end
+
   create_table "commerce_checkouts", force: :cascade do |t|
     t.string "buyer_user_id", null: false
     t.string "checkout_id", null: false
@@ -150,6 +167,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
     t.index ["conversation_id"], name: "index_commerce_conversations_on_conversation_id", unique: true
   end
 
+  create_table "commerce_dispute_evidence", force: :cascade do |t|
+    t.text "caption"
+    t.bigint "commerce_dispute_id", null: false
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "evidence_id", null: false
+    t.string "media_type", null: false
+    t.bigint "size_bytes"
+    t.datetime "updated_at", null: false
+    t.datetime "uploaded_at", null: false
+    t.string "uploaded_by_user_id", null: false
+    t.string "url", null: false
+    t.index ["commerce_dispute_id", "uploaded_at"], name: "idx_on_commerce_dispute_id_uploaded_at_b154cbc632"
+    t.index ["commerce_dispute_id"], name: "index_commerce_dispute_evidence_on_commerce_dispute_id"
+    t.index ["evidence_id"], name: "index_commerce_dispute_evidence_on_evidence_id", unique: true
+  end
+
+  create_table "commerce_disputes", force: :cascade do |t|
+    t.bigint "commerce_order_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "dispute_id", null: false
+    t.datetime "opened_at", null: false
+    t.string "opened_by_user_id", null: false
+    t.string "protected_payment_id"
+    t.string "reason", null: false
+    t.jsonb "resolution", default: {}, null: false
+    t.datetime "resolved_at"
+    t.string "resolved_by_user_id"
+    t.jsonb "snapshots", default: {}, null: false
+    t.string "status", default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commerce_order_id", "status"], name: "index_commerce_disputes_on_commerce_order_id_and_status"
+    t.index ["commerce_order_id"], name: "index_commerce_disputes_on_commerce_order_id"
+    t.index ["dispute_id"], name: "index_commerce_disputes_on_dispute_id", unique: true
+  end
+
   create_table "commerce_dm_rooms", force: :cascade do |t|
     t.string "buyer_user_id", null: false
     t.datetime "created_at", null: false
@@ -160,6 +214,40 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
     t.index ["buyer_user_id", "seller_user_id"], name: "index_commerce_dm_rooms_on_buyer_and_seller", unique: true
     t.index ["matrix_room_id"], name: "index_commerce_dm_rooms_on_matrix_room_id", unique: true
     t.index ["seller_user_id"], name: "index_commerce_dm_rooms_on_seller_user_id"
+  end
+
+  create_table "commerce_fulfillment_events", force: :cascade do |t|
+    t.string "actor_user_id"
+    t.bigint "commerce_fulfillment_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "data", default: {}, null: false
+    t.string "event_id", null: false
+    t.string "event_type", null: false
+    t.datetime "occurred_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commerce_fulfillment_id", "occurred_at"], name: "idx_commerce_fulfillment_events_timeline"
+    t.index ["commerce_fulfillment_id"], name: "index_commerce_fulfillment_events_on_commerce_fulfillment_id"
+    t.index ["event_id"], name: "index_commerce_fulfillment_events_on_event_id", unique: true
+  end
+
+  create_table "commerce_fulfillments", force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.bigint "commerce_order_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "delivered_at"
+    t.string "fulfillment_id", null: false
+    t.string "kind", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "provider"
+    t.datetime "shipped_at"
+    t.string "status", default: "unfulfilled", null: false
+    t.string "tracking_number"
+    t.string "tracking_url"
+    t.datetime "updated_at", null: false
+    t.string "updated_by_user_id"
+    t.index ["commerce_order_id", "status"], name: "index_commerce_fulfillments_on_commerce_order_id_and_status"
+    t.index ["commerce_order_id"], name: "index_commerce_fulfillments_on_commerce_order_id"
+    t.index ["fulfillment_id"], name: "index_commerce_fulfillments_on_fulfillment_id", unique: true
   end
 
   create_table "commerce_merchants", force: :cascade do |t|
@@ -197,6 +285,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
     t.index ["verified_at"], name: "index_commerce_merchants_on_verified_at"
   end
 
+  create_table "commerce_offers", force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.string "accepted_by_user_id"
+    t.bigint "buyer_fee_cents", default: 0, null: false
+    t.bigint "commission_cents", default: 0, null: false
+    t.string "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "NGN", null: false
+    t.bigint "delivery_fee_cents", default: 0, null: false
+    t.bigint "discount_cents", default: 0, null: false
+    t.datetime "expires_at"
+    t.string "offer_id", null: false
+    t.string "offer_type", default: "product", null: false
+    t.string "parent_offer_id"
+    t.string "proposer_user_id", null: false
+    t.string "recipient_user_id", null: false
+    t.datetime "responded_at"
+    t.bigint "seller_proceeds_cents", default: 0, null: false
+    t.string "status", default: "draft", null: false
+    t.bigint "subtotal_cents", default: 0, null: false
+    t.string "superseded_by_offer_id"
+    t.jsonb "terms_json", default: {}, null: false
+    t.bigint "total_cents", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.integer "version", default: 1, null: false
+    t.index ["conversation_id", "version"], name: "index_commerce_offers_on_conversation_id_and_version"
+    t.index ["offer_id"], name: "index_commerce_offers_on_offer_id", unique: true
+    t.index ["parent_offer_id"], name: "index_commerce_offers_on_parent_offer_id"
+    t.index ["status"], name: "index_commerce_offers_on_status"
+  end
+
   create_table "commerce_order_items", force: :cascade do |t|
     t.bigint "commerce_order_id", null: false
     t.datetime "created_at", null: false
@@ -215,15 +334,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
   end
 
   create_table "commerce_orders", force: :cascade do |t|
+    t.string "accepted_offer_id"
     t.string "buyer_user_id", null: false
     t.bigint "commerce_merchant_id", null: false
     t.datetime "created_at", null: false
     t.string "currency", default: "NGN", null: false
     t.integer "discount_cents", default: 0, null: false
     t.string "fulfillment_status", default: "unfulfilled", null: false
+    t.string "fulfillment_type", default: "shipment", null: false
     t.jsonb "metadata", default: {}, null: false
     t.string "order_id", null: false
     t.string "payment_id", null: false
+    t.string "protected_payment_id"
+    t.string "protection_status", default: "not_eligible", null: false
     t.string "shipping_address_line1"
     t.string "shipping_address_line2"
     t.integer "shipping_cents", default: 0, null: false
@@ -232,15 +355,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
     t.string "shipping_phone"
     t.string "shipping_postal_code"
     t.string "shipping_state"
+    t.string "source", default: "storefront", null: false
     t.string "status", default: "pending_payment", null: false
     t.integer "subtotal_cents", default: 0, null: false
     t.integer "tax_cents", default: 0, null: false
+    t.integer "terms_version", default: 1, null: false
     t.integer "total_cents", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["buyer_user_id", "status"], name: "index_commerce_orders_on_buyer_user_id_and_status"
     t.index ["commerce_merchant_id"], name: "index_commerce_orders_on_commerce_merchant_id"
     t.index ["order_id"], name: "index_commerce_orders_on_order_id", unique: true
     t.index ["payment_id"], name: "index_commerce_orders_on_payment_id"
+    t.index ["protected_payment_id"], name: "index_commerce_orders_on_protected_payment_id", unique: true, where: "(protected_payment_id IS NOT NULL)"
+    t.index ["protection_status"], name: "index_commerce_orders_on_protection_status"
+    t.index ["source"], name: "index_commerce_orders_on_source"
   end
 
   create_table "commerce_payouts", force: :cascade do |t|
@@ -263,6 +391,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
     t.index ["commerce_merchant_id"], name: "index_commerce_payouts_on_commerce_merchant_id"
     t.index ["payout_id"], name: "index_commerce_payouts_on_payout_id", unique: true
     t.index ["reference_id"], name: "index_commerce_payouts_on_reference_id", unique: true
+  end
+
+  create_table "commerce_pickup_codes", force: :cascade do |t|
+    t.string "code_hash", null: false
+    t.bigint "commerce_fulfillment_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "used_at"
+    t.index ["code_hash"], name: "index_commerce_pickup_codes_on_code_hash", unique: true
+    t.index ["commerce_fulfillment_id", "status"], name: "idx_on_commerce_fulfillment_id_status_7f95e6ab90"
+    t.index ["commerce_fulfillment_id"], name: "index_commerce_pickup_codes_on_commerce_fulfillment_id"
   end
 
   create_table "commerce_product_shippings", force: :cascade do |t|
@@ -326,6 +467,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
     t.index ["promotion_id"], name: "index_commerce_promotions_on_promotion_id", unique: true
   end
 
+  create_table "commerce_protected_payment_callbacks", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "event_id", null: false
+    t.string "event_type", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.datetime "processed_at"
+    t.string "protected_payment_id"
+    t.string "status", default: "processed", null: false
+    t.datetime "updated_at", null: false
+    t.index ["event_id"], name: "index_commerce_protected_payment_callbacks_on_event_id", unique: true
+    t.index ["protected_payment_id"], name: "idx_on_protected_payment_id_20b28cb99c"
+  end
+
   create_table "commerce_reviews", force: :cascade do |t|
     t.text "body"
     t.string "buyer_user_id", null: false
@@ -348,6 +502,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
     t.index ["commerce_product_id"], name: "index_commerce_reviews_on_commerce_product_id"
     t.index ["helpful_voter_ids"], name: "index_commerce_reviews_on_helpful_voter_ids", using: :gin
     t.index ["review_id"], name: "index_commerce_reviews_on_review_id", unique: true
+  end
+
+  create_table "commerce_service_milestones", force: :cascade do |t|
+    t.bigint "amount_cents", default: 0, null: false
+    t.bigint "commerce_order_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.string "currency", default: "NGN", null: false
+    t.text "description"
+    t.jsonb "evidence", default: [], null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "milestone_id", null: false
+    t.datetime "released_at"
+    t.datetime "scheduled_at"
+    t.string "status", default: "pending", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["commerce_order_id", "status"], name: "idx_on_commerce_order_id_status_8480e0c225"
+    t.index ["commerce_order_id"], name: "index_commerce_service_milestones_on_commerce_order_id"
+    t.index ["milestone_id"], name: "index_commerce_service_milestones_on_milestone_id", unique: true
   end
 
   create_table "commerce_shipping_profiles", force: :cascade do |t|
@@ -845,11 +1019,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
   add_foreign_key "commerce_cart_items", "commerce_skus"
   add_foreign_key "commerce_carts", "commerce_merchants"
   add_foreign_key "commerce_categories", "commerce_categories", column: "parent_id"
+  add_foreign_key "commerce_change_orders", "commerce_orders"
   add_foreign_key "commerce_checkouts", "commerce_carts"
   add_foreign_key "commerce_checkouts", "commerce_merchants"
+  add_foreign_key "commerce_dispute_evidence", "commerce_disputes"
+  add_foreign_key "commerce_disputes", "commerce_orders"
+  add_foreign_key "commerce_fulfillment_events", "commerce_fulfillments"
+  add_foreign_key "commerce_fulfillments", "commerce_orders"
   add_foreign_key "commerce_order_items", "commerce_orders"
   add_foreign_key "commerce_orders", "commerce_merchants"
   add_foreign_key "commerce_payouts", "commerce_merchants"
+  add_foreign_key "commerce_pickup_codes", "commerce_fulfillments"
   add_foreign_key "commerce_product_shippings", "commerce_products"
   add_foreign_key "commerce_product_shippings", "commerce_shipping_profiles"
   add_foreign_key "commerce_products", "commerce_merchants"
@@ -858,6 +1038,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_09_120000) do
   add_foreign_key "commerce_reviews", "commerce_merchants"
   add_foreign_key "commerce_reviews", "commerce_orders"
   add_foreign_key "commerce_reviews", "commerce_products"
+  add_foreign_key "commerce_service_milestones", "commerce_orders"
   add_foreign_key "commerce_shipping_profiles", "commerce_merchants"
   add_foreign_key "commerce_skus", "commerce_products"
   add_foreign_key "commerce_storefronts", "commerce_merchants"

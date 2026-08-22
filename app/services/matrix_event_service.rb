@@ -516,6 +516,128 @@ class MatrixEventService
       publish_event(event)
     end
 
+    # ============================================================================
+    # Protected commerce (Tween Buyer Protection)
+    #
+    # Backend-owned events published as m.room.message so normal push, unread
+    # and room-ordering behavior apply. Clients reconcile against Jean/Tween
+    # Pay on open; Matrix is never the financial database.
+    # ============================================================================
+
+    def publish_offer_event(offer_data, event_type: "m.tween.commerce.offer")
+      event = {
+        type: event_type,
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          msgtype: "m.tween.commerce.offer",
+          offer_id: offer_data[:offer_id],
+          conversation_id: offer_data[:conversation_id],
+          offer_type: offer_data[:offer_type],
+          version: offer_data[:version],
+          status: offer_data[:status],
+          currency: offer_data[:currency],
+          total_cents: offer_data[:total_cents],
+          seller_proceeds_cents: offer_data[:seller_proceeds_cents],
+          expires_at: offer_data[:expires_at],
+          created_at: offer_data[:created_at] || Time.current.iso8601
+        },
+        room_id: offer_data[:room_id]
+      }
+
+      publish_event(event)
+    end
+
+    def publish_protected_payment_event(event_type, payment_data)
+      event = {
+        type: event_type,
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          msgtype: "m.tween.commerce.payment",
+          protected_payment_id: payment_data[:protected_payment_id],
+          order_id: payment_data[:order_id],
+          status: payment_data[:status],
+          currency: payment_data[:currency],
+          gross_amount_cents: payment_data[:gross_amount_cents],
+          released_amount_cents: payment_data[:released_amount_cents],
+          refunded_amount_cents: payment_data[:refunded_amount_cents],
+          updated_at: payment_data[:updated_at] || Time.current.iso8601
+        },
+        room_id: payment_data[:room_id]
+      }
+
+      publish_event(event)
+    end
+
+    def publish_fulfilment_updated(fulfilment_data)
+      event = {
+        type: "m.tween.commerce.fulfilment.updated",
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          msgtype: "m.tween.commerce.fulfilment",
+          fulfillment_id: fulfilment_data[:fulfillment_id],
+          order_id: fulfilment_data[:order_id],
+          kind: fulfilment_data[:kind],
+          status: fulfilment_data[:status],
+          tracking_number: fulfilment_data[:tracking_number],
+          updated_at: Time.current.iso8601
+        }.compact,
+        room_id: fulfilment_data[:room_id]
+      }
+
+      publish_event(event)
+    end
+
+    def publish_delivery_confirmed(delivery_data)
+      event = {
+        type: "m.tween.commerce.delivery.confirmed",
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          msgtype: "m.tween.commerce.fulfilment",
+          order_id: delivery_data[:order_id],
+          fulfillment_id: delivery_data[:fulfillment_id],
+          inspection_deadline: delivery_data[:inspection_deadline],
+          updated_at: Time.current.iso8601
+        }.compact,
+        room_id: delivery_data[:room_id]
+      }
+
+      publish_event(event)
+    end
+
+    def publish_inspection_started(inspection_data)
+      event = {
+        type: "m.tween.commerce.inspection.started",
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          msgtype: "m.tween.commerce.fulfilment",
+          order_id: inspection_data[:order_id],
+          inspection_deadline: inspection_data[:inspection_deadline],
+          updated_at: Time.current.iso8601
+        }.compact,
+        room_id: inspection_data[:room_id]
+      }
+
+      publish_event(event)
+    end
+
+    def publish_dispute_opened(dispute_data)
+      event = {
+        type: "m.tween.commerce.dispute.opened",
+        sender_id: COMMERCE_BOT_USER,
+        content: {
+          msgtype: "m.tween.commerce.dispute",
+          dispute_id: dispute_data[:dispute_id],
+          order_id: dispute_data[:order_id],
+          reason: dispute_data[:reason],
+          status: dispute_data[:status],
+          updated_at: Time.current.iso8601
+        }.compact,
+        room_id: dispute_data[:room_id]
+      }
+
+      publish_event(event)
+    end
+
     private
 
     # Publish event using Application Service identity assertion

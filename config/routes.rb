@@ -163,9 +163,39 @@ Rails.application.routes.draw do
           resources :orders, only: [ :index, :show ] do
             member do
               post :cancel
+              post :fund
+              post :confirm_delivery
+              post :service_submission
+              post :issue_pickup_code
+              post :confirm_pickup
+              post :change_orders, to: "change_orders#create"
+              post :disputes, to: "disputes#create"
             end
             resource :fulfillment, only: [ :create ], controller: :fulfillments
             resources :refunds, only: [ :create ]
+            resources :milestones, only: [ :index, :create ], controller: :milestones do
+              member do
+                post :submit
+                post :accept
+              end
+            end
+          end
+          resources :offers, only: [] do
+            member do
+              post :counter
+              post :accept
+              post :decline
+            end
+          end
+          resources :change_orders, only: [] do
+            member do
+              post :accept
+            end
+          end
+          resources :disputes, only: [ :show ] do
+            member do
+              post :evidence
+            end
           end
           resources :conversations, only: [ :index, :show, :update ] do
             member do
@@ -179,6 +209,7 @@ Rails.application.routes.draw do
               post "payments/relay", to: "conversations#payment_relay"
               post "payments/relay_status", to: "conversations#payment_relay_status"
             end
+            resources :offers, only: [ :index, :create ], controller: :offers
           end
           post "products/:product_id/contact", to: "conversations#create", as: :product_contact
           resources :payouts, only: [ :index, :create ]
@@ -195,6 +226,7 @@ Rails.application.routes.draw do
             end
           end
           get "discover", to: "discover#home"
+          post "callbacks/tween_pay", to: "protected_commerce_callbacks#tween_pay"
         end
 
         # Permission Revocation endpoints (TMCP Protocol Section 5.6)

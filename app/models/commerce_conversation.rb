@@ -8,6 +8,11 @@
 #
 # Dedup: one conversation per (buyer_user_id, product_id).
 class CommerceConversation < ApplicationRecord
+  has_many :commerce_offers, foreign_key: :conversation_id,
+                             primary_key: :conversation_id,
+                             inverse_of: :commerce_conversation,
+                             dependent: :restrict_with_error
+
   before_validation :assign_conversation_id
 
   validates :conversation_id, :buyer_user_id, :product_id, presence: true

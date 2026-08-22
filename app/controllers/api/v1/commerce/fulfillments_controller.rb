@@ -7,39 +7,19 @@ class Api::V1::Commerce::FulfillmentsController < Api::V1::Commerce::BaseControl
     order = find_order
     return if ensure_merchant_owner(order.commerce_merchant)
 
-    # Build tracking info
-    tracking = {
-      carrier: fulfillment_params[:carrier],
-      tracking_number: fulfillment_params[:tracking_number],
-      tracking_url: fulfillment_params[:tracking_url],
-      shipped_at: Time.current.iso8601,
-      updated_by: @current_user.matrix_user_id
-    }.compact
-
-    existing_fulfillments = order.metadata["fulfillments"] || []
-    existing_fulfillments << tracking
-
-    new_fulfillment_status = fulfillment_params[:fulfillment_status].presence || "fulfilled"
-    new_status = fulfillment_params[:status].presence || order.status
-
-    # If partial shipment, set partial status
-    if fulfillment_params[:line_items].present?
-      new_fulfillment_status = "partially_fulfilled" if new_fulfillment_status == "fulfilled" && existing_fulfillments.size > 1
-    end
-
-    order.update!(
-      fulfillment_status: new_fulfillment_status,
-      status: new_status,
-      metadata: order.metadata.merge(
-        "fulfillments" => existing_fulfillments,
-        "last_fulfillment" => tracking
-      )
+    fulfillment = ::Commerce::FulfillmentService.new.create_shipment!(
+      order, @current_user.matrix_user_id, fulfillment_params
     )
 
+    publish_fulfilment_event(fulfillment, order)
     deliver_order_webhook(order, "commerce.fulfillment.updated")
-    emit_order_updated(order)
 
-    render json: { order: order_json(order, detail: :full) }
+    render json: {
+      order: order_json(order.reload, detail: :full),
+      fulfillment: fulfillment_json(fulfillment)
+    }
+  rescue ::Commerce::FulfillmentService::Error => e
+    render json: { error: "fulfilment_failed", message: e.message }, status: :unprocessable_entity
   end
 
   private
@@ -48,8 +28,31 @@ class Api::V1::Commerce::FulfillmentsController < Api::V1::Commerce::BaseControl
     return {} if params[:fulfillment].blank?
 
     params.require(:fulfillment).permit(
-      :fulfillment_status, :status, :carrier, :tracking_number, :tracking_url,
-      line_items: [], metadata: {}
+      :kind, :carrier, :tracking_number, :tracking_url, :status, metadata: {}
+    )
+  end
+
+  def fulfillment_json(fulfillment)
+    {
+      fulfillment_id: fulfillment.fulfillment_id,
+      kind: fulfillment.kind,
+      status: fulfillment.status,
+      provider: fulfillment.provider,
+      tracking_number: fulfillment.tracking_number,
+      tracking_url: fulfillment.tracking_url,
+      shipped_at: fulfillment.shipped_at,
+      delivered_at: fulfillment.delivered_at,
+      accepted_at: fulfillment.accepted_at
+    }
+  end
+
+  def publish_fulfilment_event(fulfillment, order)
+    MatrixEventService.publish_fulfilment_updated(
+      fulfillment_id: fulfillment.fulfillment_id,
+      order_id: order.order_id,
+      kind: fulfillment.kind,
+      status: fulfillment.status,
+      tracking_number: fulfillment.tracking_number
     )
   end
 
@@ -61,22 +64,17 @@ class Api::V1::Commerce::FulfillmentsController < Api::V1::Commerce::BaseControl
       order_id: order.order_id,
       checkout_id: order.metadata["checkout_id"],
       payment_id: order.payment_id,
+      protected_payment_id: order.protected_payment_id,
       merchant_id: order.commerce_merchant.merchant_id,
       buyer_user_id: order.buyer_user_id,
       status: order.status,
+      protection_status: order.protection_status,
       fulfillment_status: order.fulfillment_status,
-      tracking: order.metadata["last_fulfillment"]
+      fulfillment: order.commerce_fulfillments.latest_first.first&.attributes&.slice(
+        "fulfillment_id", "kind", "status", "tracking_number", "tracking_url"
+      )
     }
 
     WebhookService.new.deliver(event_type: event_type, payload: payload, webhook_url: webhook_url)
-  end
-
-  def emit_order_updated(order)
-    MatrixEventService.publish_order_updated(
-      order_id: order.order_id,
-      buyer_user_id: order.buyer_user_id,
-      status: order.status,
-      fulfillment_status: order.fulfillment_status
-    )
   end
 end
