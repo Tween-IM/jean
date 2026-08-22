@@ -479,6 +479,30 @@ class CommerceRelayService
     })
   end
 
+  # Refresh the m.tween.commerce_dm state with the conversation's CURRENT
+  # labels. The client titles the DM room per viewer from these labels, so this
+  # propagates a business/customer re-name into the direct-chat title without
+  # recreating the room. Best-effort: never raises.
+  def self.refresh_dm_labels(conversation)
+    room_id = conversation.dm_room_id
+    return unless room_id.present?
+
+    make_matrix_request(
+      :put,
+      "/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/state/m.tween.commerce_dm",
+      {
+        conversation_id: conversation.conversation_id,
+        buyer_user_id: conversation.buyer_user_id,
+        seller_user_id: conversation.seller_user_id,
+        buyer_label: conversation.buyer_label,
+        seller_label: conversation.seller_label
+      }
+    )
+  rescue => e
+    Rails.logger.warn "[CommerceRelay] Failed to refresh DM labels for #{conversation.conversation_id}: #{e.message}"
+    nil
+  end
+
   private
 
   def self.create_matrix_room(params)

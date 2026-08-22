@@ -71,6 +71,10 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
     conversation = find_conversation
     return if ensure_participant(conversation)
 
+    # Keep the DM room's per-viewer labels current so a business/customer
+    # re-name propagates into the direct-chat title on next open.
+    CommerceRelayService.refresh_dm_labels(conversation) if conversation.dm_room_id.present?
+
     render json: { conversation: conversation_json(conversation, role: role_for(conversation)) }
   end
 
@@ -160,6 +164,7 @@ class Api::V1::Commerce::ConversationsController < Api::V1::Commerce::BaseContro
 
     conversation.update!(status: "dm_active")
     conversation.mark_read!(role)
+    CommerceRelayService.refresh_dm_labels(conversation)
 
     render json: {
       conversation: conversation_json(conversation, role: role),
