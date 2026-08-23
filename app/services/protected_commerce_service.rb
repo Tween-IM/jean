@@ -17,10 +17,11 @@ class ProtectedCommerceService
   end
 
   BASE_URL = ENV.fetch("WALLET_API_BASE_URL", "https://wallet.tween.im")
-  # Shared secret for Tween Pay internal endpoints. Pick whichever of the two
-  # names is actually populated — an env var that exists but is empty (e.g.
-  # INTERNAL_API_KEY= in a base .env) must NOT shadow the real
-  # WALLET_INTERNAL_API_KEY that prod has configured.
+  # Reuse the existing cross-service secret that Tween Pay → Jean already uses
+  # for the in-chat payment → Matrix relay. It is provisioned on both sides, so
+  # no new credential is required. Fall back to the (historically dormant)
+  # internal API key if the token isn't set.
+  TWEENPAY_INTERNAL_TOKEN = ENV.fetch("TWEENPAY_INTERNAL_TOKEN", "").freeze
   INTERNAL_API_KEY = (ENV["INTERNAL_API_KEY"].presence || ENV["WALLET_INTERNAL_API_KEY"].presence || "").freeze
 
   def self.create_payment(attrs, idempotency_key:)
@@ -85,6 +86,7 @@ class ProtectedCommerceService
       "Content-Type" => "application/json",
       "Accept" => "application/json",
       "X-Internal-API-Key" => INTERNAL_API_KEY,
+      "X-TweenPay-Internal-Token" => TWEENPAY_INTERNAL_TOKEN,
       "X-Trace-ID" => SecureRandom.hex(8)
     }
 
