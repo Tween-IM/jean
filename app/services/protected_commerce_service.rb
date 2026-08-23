@@ -89,6 +89,11 @@ class ProtectedCommerceService
       "X-TweenPay-Internal-Token" => TWEENPAY_INTERNAL_TOKEN,
       "X-Trace-ID" => SecureRandom.hex(8)
     }
+    Rails.logger.info(
+      "[ProtectedCommerce] → #{method.upcase} #{url} " \
+      "tweenpay_token=#{TWEENPAY_INTERNAL_TOKEN.present?} " \
+      "internal_key=#{INTERNAL_API_KEY.present?}"
+    )
 
     response = case method
     when :get
@@ -100,6 +105,7 @@ class ProtectedCommerceService
     parsed = response.body.present? ? JSON.parse(response.body) : {}
 
     unless response.success?
+      Rails.logger.error("[ProtectedCommerce] ← HTTP #{response.status} #{path}: #{response.body.to_s[0..300]}")
       code = parsed.dig("error", "code")
       message = parsed.dig("error", "message") || "Protected commerce service error (HTTP #{response.status})"
       raise Error.new(message, code)
