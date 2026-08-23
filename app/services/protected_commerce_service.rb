@@ -17,11 +17,11 @@ class ProtectedCommerceService
   end
 
   BASE_URL = ENV.fetch("WALLET_API_BASE_URL", "https://wallet.tween.im")
-  # Shared secret for Tween Pay internal endpoints. Prefer the consistent
-  # INTERNAL_API_KEY name, falling back to the legacy WALLET_INTERNAL_API_KEY
-  # name that the wallet service has used historically, so both sides agree
-  # regardless of which env var is configured.
-  INTERNAL_API_KEY = ENV.fetch("INTERNAL_API_KEY", ENV.fetch("WALLET_INTERNAL_API_KEY", ""))
+  # Shared secret for Tween Pay internal endpoints. Pick whichever of the two
+  # names is actually populated — an env var that exists but is empty (e.g.
+  # INTERNAL_API_KEY= in a base .env) must NOT shadow the real
+  # WALLET_INTERNAL_API_KEY that prod has configured.
+  INTERNAL_API_KEY = (ENV["INTERNAL_API_KEY"].presence || ENV["WALLET_INTERNAL_API_KEY"].presence || "").freeze
 
   def self.create_payment(attrs, idempotency_key:)
     post("/api/v1/internal/protected_payments", attrs.merge(idempotency_key: idempotency_key))
