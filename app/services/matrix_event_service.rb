@@ -174,7 +174,7 @@ class MatrixEventService
       return unless room_id
 
       publish_event(
-        type: "m.tween.commerce.inquiry",
+        type: "m.room.message",
         room_id: room_id,
         sender_id: "@_tmcp:tween.im",
         content: {
@@ -188,20 +188,23 @@ class MatrixEventService
     end
 
     # Push a structured deal notification into a user's private notification
-    # room, so Synapse → Sygnal delivers a real push. Used for protected-deal
+    # room, so Synapse → Sygnal delivers a real push. Published as m.room.message
+    # (not a custom event type) so it matches the default push rule; the
+    # structured content rides in the msgtype/body. Used for protected-deal
     # lifecycle events (offer, funding, shipped, dispute, release, refund).
     def publish_commerce_notification(user_id:, event_type:, title:, body:, deep_link:, order_id: nil, conversation_id: nil)
       room_id = get_user_room(user_id)
       return unless room_id
 
       publish_event(
-        type: event_type,
+        type: "m.room.message",
         room_id: room_id,
         sender_id: "@_tmcp:tween.im",
         content: {
-          msgtype: "m.tween.commerce.notice",
+          msgtype: event_type,
           body: body.to_s.truncate(200),
           title: title,
+          body_plain: body.to_s.truncate(200),
           order_id: order_id,
           conversation_id: conversation_id,
           deep_link: deep_link
