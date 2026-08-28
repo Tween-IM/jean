@@ -747,7 +747,13 @@ class MatrixEventService
       return nil unless as_token
 
       record = ::UserNotificationRoom.find_by(user_id: user_id)
-      return record.matrix_room_id if record&.matrix_room_id
+      if record&.matrix_room_id
+        # Existing notification rooms were created with trusted_private_chat
+        # (E2EE), which the push gateway can't decrypt — so pushes showed a
+        # generic "New message". Migrate them to a plaintext (private_chat)
+        # notification room so the real content is delivered.
+        return migrate_notification_room_if_encrypted(user_id, record, domain, as_token)
+      end
 
       room_id = create_notification_room(user_id, domain, as_token)
       return nil unless room_id
@@ -759,6 +765,39 @@ class MatrixEventService
       nil
     end
     public :find_or_create_user_room
+
+    # If the user's notification room is E2EE-encrypted, create a fresh
+    # unencrypted one (private_chat) and re-point the record. Returns the
+    # room id to use, or the existing id when it is already plaintext.
+    def migrate_notification_room_if_encrypted(user_id, record, domain, as_token)
+      return record.matrix_room_id unless room_encrypted?(record.matrix_room_id)
+
+      new_room_id = create_notification_room(user_id, domain, as_token)
+      return record.matrix_room_id unless new_room_id
+
+      record.update!(matrix_room_id: new_room_id)
+      Rails.logger.info "Migrated encrypted notification room for #{user_id} -> #{new_room_id}"
+      new_room_id
+    end
+
+    def room_encrypted?(room_id)
+      return false if room_id.blank?
+      return false unless ENV["MATRIX_AS_TOKEN"]
+
+      uri = URI("#{MATRIX_API_URL}/_matrix/client/v3/rooms/#{CGI.escape(room_id)}/state/m.room.encryption")
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == "https")
+      http.open_timeout = 10
+      http.read_timeout = 15
+
+      request = Net::HTTP::Get.new(uri)
+      request["Authorization"] = "Bearer #{ENV['MATRIX_AS_TOKEN']}"
+      response = http.request(request)
+      response.code.to_i == 200
+    rescue StandardError => e
+      Rails.logger.warn "Failed to check encryption state for #{room_id}: #{e.message}"
+      false
+    end
 
     # Create a private 1:1 between the AS bot and [user_id], inviting them so
     # the client auto-joins and the Matrix pusher can deliver real push.
@@ -775,7 +814,9 @@ class MatrixEventService
       request["Content-Type"] = "application/json"
       request.body = {
         name: "Tween Notification",
-        preset: "trusted_private_chat",
+        # private_chat (NOT trusted_private_chat) so the room is unencrypted and
+        # the push gateway can deliver the real notification content.
+        preset: "private_chat",
         is_direct: true,
         invite: [ user_id ],
         initial_state: [ { type: "m.tween.notifications", content: {} } ]
