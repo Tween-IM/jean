@@ -103,6 +103,17 @@ class CommerceNotifier
       )
     end
 
+    # Self-test: deliver a notification to the current viewer so the panel and
+    # push path can be validated without going through a full order lifecycle.
+    def test(user_id)
+      notify(
+        user_id: user_id,
+        title: "Test notification",
+        body: "This confirms notification delivery works.",
+        deep_link: "tween://orders/test"
+      )
+    end
+
     private
 
     def notify(user_id:, title:, body:, order_id: nil, conversation_id: nil, deep_link: nil)

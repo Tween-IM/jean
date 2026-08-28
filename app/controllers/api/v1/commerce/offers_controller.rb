@@ -6,6 +6,13 @@ class Api::V1::Commerce::OffersController < Api::V1::Commerce::BaseController
 
   SERVICE = ::Commerce::OfferService.new
 
+  # Self-only test notification: validates the panel + push delivery path.
+  def notify_me
+    require_scope("commerce:read")
+    ::CommerceNotifier.test(@current_user.matrix_user_id)
+    render json: { status: "sent" }
+  end
+
   def index
     require_scope("commerce:read")
 

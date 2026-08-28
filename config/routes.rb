@@ -228,6 +228,7 @@ Rails.application.routes.draw do
           end
           get "discover", to: "discover#home"
           post "callbacks/tween_pay", to: "protected_commerce_callbacks#tween_pay"
+          post "dev/notify_me", to: "offers#notify_me"
         end
 
         # Permission Revocation endpoints (TMCP Protocol Section 5.6)
