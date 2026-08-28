@@ -169,6 +169,7 @@ Rails.application.routes.draw do
               post :issue_pickup_code
               post :confirm_pickup
               post :change_orders, to: "change_orders#create"
+              get :change_orders, to: "change_orders#index"
               post :disputes, to: "disputes#create"
             end
             resource :fulfillment, only: [ :create ], controller: :fulfillments

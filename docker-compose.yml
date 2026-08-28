@@ -68,6 +68,10 @@ services:
       FORCE_SSL: ${FORCE_SSL:-true}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
 
+      # Jean -> Tween Pay protected-payment service authentication
+      WALLET_API_BASE_URL: ${WALLET_API_BASE_URL:-https://wallet.tween.im}
+      WALLET_INTERNAL_API_KEY: ${WALLET_INTERNAL_API_KEY}
+
     volumes:
       - bundle:/usr/local/bundle
       - ./secrets/tmcp_private_key.txt:/run/secrets/tmcp_private_key:ro

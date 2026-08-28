@@ -87,6 +87,7 @@ module Commerce
         offer.save!
         order = create_protected_order!(offer, conversation)
         request_protected_payment!(order, offer)
+        offer.update!(order_id: order.order_id)
       end
 
       order

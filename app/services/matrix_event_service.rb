@@ -187,6 +187,28 @@ class MatrixEventService
       )
     end
 
+    # Push a structured deal notification into a user's private notification
+    # room, so Synapse → Sygnal delivers a real push. Used for protected-deal
+    # lifecycle events (offer, funding, shipped, dispute, release, refund).
+    def publish_commerce_notification(user_id:, event_type:, title:, body:, deep_link:, order_id: nil, conversation_id: nil)
+      room_id = get_user_room(user_id)
+      return unless room_id
+
+      publish_event(
+        type: event_type,
+        room_id: room_id,
+        sender_id: "@_tmcp:tween.im",
+        content: {
+          msgtype: "m.tween.commerce.notice",
+          body: body.to_s.truncate(200),
+          title: title,
+          order_id: order_id,
+          conversation_id: conversation_id,
+          deep_link: deep_link
+        }.compact
+      )
+    end
+
     def publish_p2p_status_update(transfer_id, status, details = {})
       visual_details = case status
       when "completed"
@@ -538,6 +560,7 @@ class MatrixEventService
           currency: offer_data[:currency],
           total_cents: offer_data[:total_cents],
           seller_proceeds_cents: offer_data[:seller_proceeds_cents],
+          order_id: offer_data[:order_id],
           expires_at: offer_data[:expires_at],
           created_at: offer_data[:created_at] || Time.current.iso8601
         },

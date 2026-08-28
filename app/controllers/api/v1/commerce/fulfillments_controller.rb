@@ -11,6 +11,7 @@ class Api::V1::Commerce::FulfillmentsController < Api::V1::Commerce::BaseControl
       order, @current_user.matrix_user_id, fulfillment_params
     )
 
+    CommerceNotifier.fulfilment_shipped(fulfillment)
     publish_fulfilment_event(fulfillment, order)
     deliver_order_webhook(order, "commerce.fulfillment.updated")
 

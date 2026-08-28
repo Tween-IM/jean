@@ -100,6 +100,7 @@ class Api::V1::Commerce::OrdersController < Api::V1::Commerce::BaseController
       protection_status: "active",
       metadata: order.metadata.merge("funded_at" => Time.current.iso8601)
     )
+    CommerceNotifier.payment_funded(order)
     publish_payment_event(order, "m.tween.commerce.payment.funded")
 
     render json: { order: order_json(order.reload, detail: :full), protected_payment: response[:protected_payment] }
@@ -116,6 +117,7 @@ class Api::V1::Commerce::OrdersController < Api::V1::Commerce::BaseController
     result = ::Commerce::FulfillmentService.new.confirm_delivery!(order, @current_user.matrix_user_id)
 
     fulfillment = result[:fulfillment]
+    CommerceNotifier.inspection_started(order)
     publish_fulfilment_event(fulfillment, order)
     publish_delivery_confirmed(order, result[:inspection_deadline])
 

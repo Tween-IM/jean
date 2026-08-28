@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_22_090002) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_22_090003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -298,6 +298,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_22_090002) do
     t.datetime "expires_at"
     t.string "offer_id", null: false
     t.string "offer_type", default: "product", null: false
+    t.string "order_id"
     t.string "parent_offer_id"
     t.string "proposer_user_id", null: false
     t.string "recipient_user_id", null: false
@@ -312,6 +313,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_22_090002) do
     t.integer "version", default: 1, null: false
     t.index ["conversation_id", "version"], name: "index_commerce_offers_on_conversation_id_and_version"
     t.index ["offer_id"], name: "index_commerce_offers_on_offer_id", unique: true
+    t.index ["order_id"], name: "index_commerce_offers_on_order_id"
     t.index ["parent_offer_id"], name: "index_commerce_offers_on_parent_offer_id"
     t.index ["status"], name: "index_commerce_offers_on_status"
   end

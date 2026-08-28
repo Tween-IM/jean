@@ -29,3 +29,7 @@ production:
     class: AutoCancelStaleOrdersJob
     queue: default
     schedule: every 10 minutes
+  auto_release_delivered_orders:
+    class: AutoReleaseDeliveredOrdersJob
+    queue: default
+    schedule: every 10 minutes

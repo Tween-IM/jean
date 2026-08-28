@@ -38,6 +38,8 @@ env:
     # AWS S3 — uploads + HLS (same bucket, HLS uses hls/ prefix)
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
+    # Must equal Tween Pay's INTERNAL_API_KEY.
+    - WALLET_INTERNAL_API_KEY
   clear:
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.

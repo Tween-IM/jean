@@ -364,6 +364,7 @@ class CommerceRelayService
       currency: content["currency"],
       total_cents: content["total_cents"],
       seller_proceeds_cents: content["seller_proceeds_cents"],
+      order_id: content["order_id"],
       offer_expires_at: content["expires_at"]
     }.compact
   end

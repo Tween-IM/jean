@@ -16,13 +16,9 @@ class ProtectedCommerceService
     end
   end
 
+  class ConfigurationError < Error; end
+
   BASE_URL = ENV.fetch("WALLET_API_BASE_URL", "https://wallet.tween.im")
-  # Reuse the existing cross-service secret that Tween Pay → Jean already uses
-  # for the in-chat payment → Matrix relay. It is provisioned on both sides, so
-  # no new credential is required. Fall back to the (historically dormant)
-  # internal API key if the token isn't set.
-  TWEENPAY_INTERNAL_TOKEN = ENV.fetch("TWEENPAY_INTERNAL_TOKEN", "").freeze
-  INTERNAL_API_KEY = (ENV["INTERNAL_API_KEY"].presence || ENV["WALLET_INTERNAL_API_KEY"].presence || "").freeze
 
   def self.create_payment(attrs, idempotency_key:)
     post("/api/v1/internal/protected_payments", attrs.merge(idempotency_key: idempotency_key))
@@ -34,6 +30,15 @@ class ProtectedCommerceService
 
   def self.fund(protected_payment_id, actor: "jean")
     post("/api/v1/internal/protected_payments/#{protected_payment_id}/fund", { actor: actor })
+  end
+
+  def self.top_up(protected_payment_id, amount_cents:, commission_cents:, seller_proceeds_cents:, actor: "jean")
+    post("/api/v1/internal/protected_payments/#{protected_payment_id}/top_up", {
+           amount_cents: amount_cents,
+           commission_cents: commission_cents,
+           seller_proceeds_cents: seller_proceeds_cents,
+           actor: actor
+         })
   end
 
   def self.schedule_release(protected_payment_id, release_at:, actor: "system")
@@ -85,15 +90,9 @@ class ProtectedCommerceService
     headers = {
       "Content-Type" => "application/json",
       "Accept" => "application/json",
-      "X-Internal-API-Key" => INTERNAL_API_KEY,
-      "X-TweenPay-Internal-Token" => TWEENPAY_INTERNAL_TOKEN,
       "X-Trace-ID" => SecureRandom.hex(8)
     }
-    Rails.logger.info(
-      "[ProtectedCommerce] → #{method.upcase} #{url} " \
-      "tweenpay_token=#{TWEENPAY_INTERNAL_TOKEN.present?} " \
-      "internal_key=#{INTERNAL_API_KEY.present?}"
-    )
+    apply_internal_auth!(headers)
 
     response = case method
     when :get
@@ -117,4 +116,23 @@ class ProtectedCommerceService
   rescue JSON::ParserError
     raise Error, "Invalid protected commerce service response"
   end
+
+
+  def self.apply_internal_auth!(headers)
+    # Read at request time so development reloads and rotated credentials do
+    # not remain stuck at the value present when Rails booted.
+    api_key = ENV["WALLET_INTERNAL_API_KEY"].presence || ENV["INTERNAL_API_KEY"].presence
+    relay_token = ENV["TWEENPAY_INTERNAL_TOKEN"].presence
+
+    headers["X-Internal-API-Key"] = api_key if api_key
+    headers["X-TweenPay-Internal-Token"] = relay_token if relay_token
+    return headers if api_key || relay_token
+
+    raise ConfigurationError.new(
+      "Protected payments are not configured: set WALLET_INTERNAL_API_KEY to the same value as Tween Pay INTERNAL_API_KEY",
+      "SERVICE_AUTH_NOT_CONFIGURED"
+    )
+  end
+
+  private_class_method :apply_internal_auth!
 end

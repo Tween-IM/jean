@@ -18,6 +18,7 @@ class Api::V1::Commerce::OffersController < Api::V1::Commerce::BaseController
 
     offer = SERVICE.create!(@conversation, @current_user.matrix_user_id, offer_params)
     publish_offer_event(offer, "m.tween.commerce.offer")
+    CommerceNotifier.offer_received(offer)
     render json: { offer: offer.offer_json(detail: :full) }, status: :created
   rescue ::Commerce::OfferService::Error => e
     render json: { error: "offer_failed", message: e.message }, status: :unprocessable_entity
@@ -42,6 +43,7 @@ class Api::V1::Commerce::OffersController < Api::V1::Commerce::BaseController
 
     order = SERVICE.accept!(@offer, @current_user.matrix_user_id)
     publish_order_created(order)
+    CommerceNotifier.offer_accepted(@offer)
     render json: { offer: @offer.reload.offer_json(detail: :full), order: order_json(order, detail: :full) }
   rescue ::Commerce::OfferService::NotRecipientError => e
     render json: { error: "forbidden", message: e.message }, status: :forbidden
@@ -60,6 +62,7 @@ class Api::V1::Commerce::OffersController < Api::V1::Commerce::BaseController
 
     offer = SERVICE.decline!(@offer, @current_user.matrix_user_id)
     publish_offer_event(offer, "m.tween.commerce.offer.updated")
+    CommerceNotifier.offer_declined(offer)
     render json: { offer: offer.offer_json(detail: :full) }
   rescue ::Commerce::OfferService::NotRecipientError => e
     render json: { error: "forbidden", message: e.message }, status: :forbidden

@@ -59,6 +59,7 @@ class CommerceOffer < ApplicationRecord
       superseded_by_offer_id: superseded_by_offer_id,
       accepted_at: accepted_at,
       accepted_by_user_id: accepted_by_user_id,
+      order_id: order_id,
       created_at: created_at
     }.tap do |base|
       base.merge!(responded_at: responded_at) if responded_at.present?

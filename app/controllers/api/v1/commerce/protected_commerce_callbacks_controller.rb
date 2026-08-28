@@ -38,9 +38,16 @@ class Api::V1::Commerce::ProtectedCommerceCallbacksController < Api::V1::Commerc
       publish_payment_event(order, "m.tween.commerce.payment.funded", data)
     when "protected_payment.release_scheduled"
       order.update!(metadata: order.metadata.merge("release_at" => data[:release_at]))
+    when "protected_payment.top_up"
+      order.update!(metadata: order.metadata.merge("last_top_up_at" => Time.current.iso8601))
+    when "protected_payment.cancelled"
+      order.update!(status: "cancelled", protection_status: "void",
+                    metadata: order.metadata.merge("cancelled_reason" => "unfunded_expiry"))
+      publish_payment_event(order, "m.tween.commerce.payment.cancelled", data)
     when "protected_payment.released"
       order.update!(status: "fulfilled", protection_status: "completed",
                     metadata: order.metadata.merge("released_at" => Time.current.iso8601))
+      CommerceNotifier.payment_releasing(order)
       publish_payment_event(order, "m.tween.commerce.payment.released", data)
     when "protected_payment.refunded"
       if data[:total_refunded_cents].to_i >= order.total_cents
@@ -48,9 +55,11 @@ class Api::V1::Commerce::ProtectedCommerceCallbacksController < Api::V1::Commerc
       else
         order.update!(status: "partially_refunded")
       end
+      CommerceNotifier.payment_refunded(order)
       publish_payment_event(order, "m.tween.commerce.payment.refunded", data)
     when "protected_payment.disputed"
       order.update!(metadata: order.metadata.merge("disputed_at" => Time.current.iso8601))
+      CommerceNotifier.dispute_opened(order)
       publish_payment_event(order, "m.tween.commerce.dispute.opened", data)
     when "protected_payment.resolved"
       order.update!(protection_status: "completed")
