@@ -165,6 +165,7 @@ Rails.application.routes.draw do
               post :cancel
               post :fund
               post :confirm_delivery
+              post :mark_delivered
               post :service_submission
               post :issue_pickup_code
               post :confirm_pickup

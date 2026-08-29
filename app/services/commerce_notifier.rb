@@ -93,6 +93,16 @@ class CommerceNotifier
       )
     end
 
+    def delivery_declared(order)
+      notify(
+        user_id: order.buyer_user_id,
+        title: "Item delivered",
+        body: "The seller marked order #{order.order_id} as delivered. Confirm you received it to complete the purchase.",
+        order_id: order.order_id,
+        deep_link: "tween://orders/#{order.order_id}"
+      )
+    end
+
     def dispute_opened(order)
       notify(
         user_id: order.commerce_merchant.owner_user_id,

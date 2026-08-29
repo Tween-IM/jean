@@ -40,6 +40,41 @@ module Commerce
       fulfillment
     end
 
+    # Simplified completion confirmation for conversation-led deals (products and
+    # services). The seller/artisan marks the work delivered/done; the buyer
+    # confirms. No logistics (carrier/tracking/pickup codes) is required — the
+    # deal happens in the chat, so we only need a medium to confirm completion.
+    # Buyer confirmation (or the inspection timeout) is what releases funds.
+    def mark_delivered!(order, actor, note: nil)
+      merchant_owner!(order, actor)
+
+      if order.is_service_order?
+        fulfillment = order.commerce_fulfillments.create!(
+          kind: "service",
+          status: "submitted",
+          delivered_at: Time.current,
+          updated_by_user_id: actor,
+          metadata: note.present? ? { note: note } : {}
+        )
+        record_event!(fulfillment, "service.submitted", actor, { note: note }.compact)
+      else
+        fulfillment = order.commerce_fulfillments.create!(
+          kind: "shipment",
+          status: "delivered",
+          delivered_at: Time.current,
+          updated_by_user_id: actor,
+          metadata: note.present? ? { note: note } : {}
+        )
+        record_event!(fulfillment, "fulfilment.delivered", actor, { note: note }.compact)
+      end
+
+      order.update!(
+        fulfillment_status: "partially_fulfilled",
+        metadata: order.metadata.merge("seller_delivered_at" => Time.current.iso8601)
+      )
+      fulfillment
+    end
+
     # Seller marks a pickup order ready for handover.
     def ready_for_pickup!(order, actor)
       merchant_owner!(order, actor)

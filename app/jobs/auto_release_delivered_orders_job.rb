@@ -11,7 +11,7 @@ class AutoReleaseDeliveredOrdersJob < ApplicationJob
   def perform
     cutoff = Time.current - INSPECTION_HOURS.hours
 
-    CommerceFulfillment.where(status: %w[delivered handed_over])
+    CommerceFulfillment.where(status: %w[delivered handed_over submitted])
                        .where('delivered_at <= ?', cutoff)
                        .find_each(batch_size: 100) do |fulfillment|
       order = fulfillment.commerce_order

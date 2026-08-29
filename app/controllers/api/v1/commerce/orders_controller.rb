@@ -110,6 +110,25 @@ class Api::V1::Commerce::OrdersController < Api::V1::Commerce::BaseController
     render json: { error: error_code || "payment_failed", message: message }, status: :payment_required
   end
 
+  def mark_delivered
+    require_scope("commerce:orders")
+
+    order = find_order
+    fulfillment = ::Commerce::FulfillmentService.new.mark_delivered!(
+      order,
+      @current_user.matrix_user_id,
+      note: params[:note]
+    )
+
+    CommerceNotifier.delivery_declared(order)
+    publish_fulfilment_event(fulfillment, order)
+    render json: { order: order_json(order.reload, detail: :full), fulfillment: fulfillment_json(fulfillment) }
+  rescue ::Commerce::FulfillmentService::NotAuthorizedError => e
+    render json: { error: "forbidden", message: e.message }, status: :forbidden
+  rescue ::Commerce::FulfillmentService::Error => e
+    render json: { error: "fulfilment_failed", message: e.message }, status: :unprocessable_entity
+  end
+
   def confirm_delivery
     require_scope("commerce:orders")
 
