@@ -8,14 +8,29 @@ class Api::V1::Commerce::RefundsController < Api::V1::Commerce::BaseController
     return if ensure_merchant_owner(order.commerce_merchant)
 
     refund_data = refund_params.to_h
-    is_full_refund = refund_data["amount_cents"].to_i >= order.total_cents
+    amount_cents = refund_data["amount_cents"].to_i
+    is_full_refund = amount_cents >= order.total_cents
 
-    # Attempt wallet refund before updating local state
-    if order.payment_id.present? && order.status == "paid"
+    # Protected orders route through the protected-payment refund flow, which
+    # credits the buyer's wallet and updates the ledger. Non-protected orders
+    # use the legacy wallet refund.
+    if order.protected_payment_id.present?
+      begin
+        ProtectedCommerceService.refund(
+          order.protected_payment_id,
+          amount_cents: amount_cents,
+          reason: refund_data["reason"] || "merchant_refund",
+          actor: @current_user.matrix_user_id
+        )
+      rescue ProtectedCommerceService::Error => e
+        Rails.logger.error "[RefundsController] Protected refund failed for order #{order.order_id}: #{e.message}"
+        return render json: { error: "refund_failed", message: "Refund could not be processed: #{e.message}" }, status: :unprocessable_entity
+      end
+    elsif order.payment_id.present? && order.status == "paid"
       begin
         refund_response = WalletService.refund_payment(
           order.payment_id,
-          refund_data["amount_cents"] / 100.0,
+          amount_cents / 100.0,
           order.currency,
           refund_data["reason"] || "merchant_refund",
           @tep_token
