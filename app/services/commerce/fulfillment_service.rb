@@ -70,6 +70,7 @@ module Commerce
 
       order.update!(
         fulfillment_status: "partially_fulfilled",
+        status: "processing",
         metadata: order.metadata.merge("seller_delivered_at" => Time.current.iso8601)
       )
       fulfillment
