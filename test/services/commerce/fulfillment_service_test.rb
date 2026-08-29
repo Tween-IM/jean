@@ -37,7 +37,7 @@ class Commerce::FulfillmentServiceTest < ActiveSupport::TestCase
     assert_equal "partially_fulfilled", @order.reload.fulfillment_status
   end
 
-  test "buyer confirming delivery starts inspection and schedules release" do
+  test "buyer confirming delivery triggers immediate release" do
     service = Commerce::FulfillmentService.new
     fulfillment = service.create_shipment!(@order, "@seller-ful:tween.im", tracking_number: "GIG-456")
     fulfillment.update!(status: "delivered", delivered_at: Time.current)
@@ -46,8 +46,8 @@ class Commerce::FulfillmentServiceTest < ActiveSupport::TestCase
       result = service.confirm_delivery!(@order, "@buyer-ful:tween.im")
 
       assert_equal "accepted", fulfillment.reload.status
-      assert_equal "processing", @order.reload.status
-      assert result[:inspection_deadline] > Time.current
+      assert_equal "fulfilled", @order.reload.status
+      assert_not_nil result[:inspection_deadline]
     end
   end
 

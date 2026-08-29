@@ -110,9 +110,9 @@ class ProtectedCommerceE2ETest < ActionDispatch::IntegrationTest
         headers: tep_headers(@buyer, "commerce:orders"), as: :json
     end
     assert_response :success
-    assert_equal "processing", order.reload.status
+    assert_equal "fulfilled", order.reload.status
     assert_equal "accepted", fulfillment.reload.status
-    assert order.reload.metadata["inspection_started_at"].present?
+    assert order.reload.metadata["confirmed_at"].present?
 
     # 7. Tween Pay release worker posts outbox event; Jean callback consumer applies it
     replay_tween_pay_callback(

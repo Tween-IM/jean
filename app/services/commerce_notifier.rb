@@ -103,6 +103,16 @@ class CommerceNotifier
       )
     end
 
+    def confirmed(order)
+      notify(
+        user_id: order.commerce_merchant.owner_user_id,
+        title: "Order confirmed",
+        body: "The buyer confirmed delivery on order #{order.order_id}. Your payment is being released.",
+        order_id: order.order_id,
+        deep_link: "tween://orders/#{order.order_id}"
+      )
+    end
+
     def dispute_opened(order)
       notify(
         user_id: order.commerce_merchant.owner_user_id,

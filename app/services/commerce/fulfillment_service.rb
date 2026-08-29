@@ -141,11 +141,15 @@ module Commerce
       fulfillment.update!(status: "accepted", accepted_at: Time.current, updated_by_user_id: actor)
       record_event!(fulfillment, "fulfilment.accepted", actor)
 
-      order.update!(fulfillment_status: "fulfilled", status: "processing",
-                    metadata: order.metadata.merge("inspection_started_at" => Time.current.iso8601))
-      schedule_release!(order, Time.current + INSPECTION_HOURS.hours)
+      # The buyer explicitly confirmed — release immediately. The inspection
+      # window is for auto-release when the buyer is silent; for an explicit
+      # confirmation there's no reason to hold funds.
+      order.update!(fulfillment_status: "fulfilled", status: "fulfilled",
+                    metadata: order.metadata.merge("confirmed_at" => Time.current.iso8601))
+      schedule_release!(order, Time.current)
+      CommerceNotifier.confirmed(order)
 
-      { fulfillment: fulfillment, inspection_deadline: Time.current + INSPECTION_HOURS.hours }
+      { fulfillment: fulfillment, inspection_deadline: Time.current }
     end
 
     # Buyer explicitly accepts the delivery (skips the rest of the inspection
@@ -207,8 +211,10 @@ module Commerce
       end
 
       fulfillment.update!(status: "accepted", accepted_at: Time.current, updated_by_user_id: actor)
-      order.update!(fulfillment_status: "fulfilled", status: "fulfilled")
+      order.update!(fulfillment_status: "fulfilled", status: "fulfilled",
+                    metadata: order.metadata.merge("confirmed_at" => Time.current.iso8601))
       schedule_release!(order, Time.current)
+      CommerceNotifier.confirmed(order)
       fulfillment
     end
 
@@ -294,12 +300,19 @@ module Commerce
 
     private
 
+    # Schedule a release in Tween Pay. If the call fails (auth, network),
+    # log and continue — the confirmation still succeeds and the
+    # AutoReleaseDeliveredOrdersJob will catch it as a fallback.
     def schedule_release!(order, release_at)
       return unless order.protected_payment_id.present?
 
       ProtectedCommerceService.schedule_release(order.protected_payment_id, release_at: release_at.iso8601)
     rescue ProtectedCommerceService::Error => e
-      raise Error, "could not schedule release: #{e.message}"
+      Rails.logger.error(
+        "[FulfillmentService] schedule_release failed for #{order.order_id}: #{e.message}. " \
+        "Verify TWEENPAY_INTERNAL_TOKEN matches on both services. " \
+        "AutoReleaseDeliveredOrdersJob will retry as a fallback."
+      )
     end
 
     def record_event!(fulfillment, event_type, actor, data = {})

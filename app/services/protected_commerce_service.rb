@@ -20,6 +20,17 @@ class ProtectedCommerceService
 
   BASE_URL = ENV.fetch("WALLET_API_BASE_URL", "https://wallet.tween.im")
 
+  # Startup diagnostic: warn if no auth credential is configured.
+  _tweenpay_token = ENV.fetch("TWEENPAY_INTERNAL_TOKEN", "")
+  _internal_key = ENV["INTERNAL_API_KEY"].presence || ENV["WALLET_INTERNAL_API_KEY"].presence
+  if _tweenpay_token.blank? && _internal_key.blank?
+    Rails.logger.warn(
+      "[ProtectedCommerceService] No TWEENPAY_INTERNAL_TOKEN or INTERNAL_API_KEY/WALLET_INTERNAL_API_KEY " \
+      "is set. Protected-payment calls to Tween Pay will fail with401. " \
+      "Set TWEENPAY_INTERNAL_TOKEN to the same value as Tween Pay's TWEENPAY_INTERNAL_TOKEN."
+    )
+  end
+
   def self.create_payment(attrs, idempotency_key:)
     post("/api/v1/internal/protected_payments", attrs.merge(idempotency_key: idempotency_key))
   end

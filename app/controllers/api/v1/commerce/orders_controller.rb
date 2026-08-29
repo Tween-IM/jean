@@ -136,7 +136,6 @@ class Api::V1::Commerce::OrdersController < Api::V1::Commerce::BaseController
     result = ::Commerce::FulfillmentService.new.confirm_delivery!(order, @current_user.matrix_user_id)
 
     fulfillment = result[:fulfillment]
-    CommerceNotifier.inspection_started(order)
     publish_fulfilment_event(fulfillment, order)
     publish_delivery_confirmed(order, result[:inspection_deadline])
 
