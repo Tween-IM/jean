@@ -21,13 +21,12 @@ class ProtectedCommerceService
   BASE_URL = ENV.fetch("WALLET_API_BASE_URL", "https://wallet.tween.im")
 
   # Startup diagnostic: warn if no auth credential is configured.
-  _tweenpay_token = ENV.fetch("TWEENPAY_INTERNAL_TOKEN", "")
   _internal_key = ENV["INTERNAL_API_KEY"].presence || ENV["WALLET_INTERNAL_API_KEY"].presence
-  if _tweenpay_token.blank? && _internal_key.blank?
+  if _internal_key.blank?
     Rails.logger.warn(
-      "[ProtectedCommerceService] No TWEENPAY_INTERNAL_TOKEN or INTERNAL_API_KEY/WALLET_INTERNAL_API_KEY " \
+      "[ProtectedCommerceService] Neither INTERNAL_API_KEY nor WALLET_INTERNAL_API_KEY " \
       "is set. Protected-payment calls to Tween Pay will fail with401. " \
-      "Set TWEENPAY_INTERNAL_TOKEN to the same value as Tween Pay's TWEENPAY_INTERNAL_TOKEN."
+      "Set INTERNAL_API_KEY to the same value as Tween Pay's INTERNAL_API_KEY."
     )
   end
 
@@ -132,15 +131,15 @@ class ProtectedCommerceService
   def self.apply_internal_auth!(headers)
     # Read at request time so development reloads and rotated credentials do
     # not remain stuck at the value present when Rails booted.
-    api_key = ENV["WALLET_INTERNAL_API_KEY"].presence || ENV["INTERNAL_API_KEY"].presence
-    relay_token = ENV["TWEENPAY_INTERNAL_TOKEN"].presence
+    # INTERNAL_API_KEY is the standard cross-service secret used by both
+    # Jean and Tween Pay for server-to-server internal calls.
+    api_key = ENV["INTERNAL_API_KEY"].presence || ENV["WALLET_INTERNAL_API_KEY"].presence
 
     headers["X-Internal-API-Key"] = api_key if api_key
-    headers["X-TweenPay-Internal-Token"] = relay_token if relay_token
-    return headers if api_key || relay_token
+    return headers if api_key
 
     raise ConfigurationError.new(
-      "Protected payments are not configured: set WALLET_INTERNAL_API_KEY to the same value as Tween Pay INTERNAL_API_KEY",
+      "Protected payments are not configured: set INTERNAL_API_KEY to the same value as Tween Pay's INTERNAL_API_KEY",
       "SERVICE_AUTH_NOT_CONFIGURED"
     )
   end

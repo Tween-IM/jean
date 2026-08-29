@@ -71,7 +71,7 @@ services:
       # Jean -> Tween Pay protected-payment service authentication
       WALLET_API_BASE_URL: ${WALLET_API_BASE_URL:-https://wallet.tween.im}
       WALLET_INTERNAL_API_KEY: ${WALLET_INTERNAL_API_KEY}
-      TWEENPAY_INTERNAL_TOKEN: ${TWEENPAY_INTERNAL_TOKEN}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
 
     volumes:
       - bundle:/usr/local/bundle
