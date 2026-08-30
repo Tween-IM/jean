@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_22_090003) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_30_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -383,6 +383,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_22_090003) do
     t.string "destination_bank_code"
     t.string "destination_bank_name"
     t.jsonb "metadata", default: {}
+    t.string "order_id"
     t.string "payout_id", null: false
     t.string "payout_method"
     t.datetime "processed_at"
@@ -391,6 +392,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_22_090003) do
     t.datetime "updated_at", null: false
     t.index ["commerce_merchant_id", "status"], name: "index_commerce_payouts_on_commerce_merchant_id_and_status"
     t.index ["commerce_merchant_id"], name: "index_commerce_payouts_on_commerce_merchant_id"
+    t.index ["order_id"], name: "index_commerce_payouts_on_order_id"
     t.index ["payout_id"], name: "index_commerce_payouts_on_payout_id", unique: true
     t.index ["reference_id"], name: "index_commerce_payouts_on_reference_id", unique: true
   end

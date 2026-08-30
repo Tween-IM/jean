@@ -71,6 +71,24 @@ class Api::V1::Commerce::CheckoutsController < Api::V1::Commerce::BaseController
     order = ::CommerceOrder.find_by!(order_id: checkout.order_id)
     checkout.update!(status: "completed", metadata: checkout.metadata.merge("authorization" => result))
     order.update!(status: "paid", metadata: order.metadata.merge("authorization" => result))
+
+    # Record the direct wallet credit as a payout for history tracking.
+    # Ecommerce payments credit the merchant wallet immediately at authorization.
+    merchant = order.commerce_merchant
+    commission_cents = order.total_cents - order.subtotal_cents
+    merchant.commerce_payouts.create!(
+      amount_cents: order.subtotal_cents,
+      currency: order.currency,
+      payout_method: "direct_payment",
+      status: "completed",
+      order_id: order.order_id,
+      completed_at: Time.current,
+      metadata: {
+        gross_amount_cents: order.total_cents,
+        commission_cents: commission_cents
+      }
+    )
+
     increment_sales_count!(order)
     emit_order_created(order)
     emit_checkout_created(checkout)

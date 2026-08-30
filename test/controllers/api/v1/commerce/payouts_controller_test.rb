@@ -1,19 +1,79 @@
 require "test_helper"
 
 class Api::V1::Commerce::PayoutsControllerTest < ActionDispatch::IntegrationTest
-  test "merchant can list payouts" do
+  test "merchant can list payouts with wallet balance" do
     owner = create_user("payout_owner")
     merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "ma.payout.test", display_name: "Payout Shop", status: "active")
-    merchant.commerce_payouts.create!(amount_cents: 5000, currency: "NGN", status: "completed")
-    merchant.commerce_payouts.create!(amount_cents: 3000, currency: "NGN", status: "pending")
+    merchant.commerce_payouts.create!(
+      amount_cents: 5000, currency: "NGN", status: "completed",
+      payout_method: "protected_release", order_id: "ord_test_1"
+    )
+    merchant.commerce_payouts.create!(
+      amount_cents: 3000, currency: "NGN", status: "completed",
+      payout_method: "direct_payment", order_id: "ord_test_2"
+    )
 
-    get api_v1_commerce_payouts_url,
-      headers: tep_headers(owner, "commerce:merchant"),
-      as: :json
+    with_wallet_stub(:get_balance, { balance: { available: 150.0, currency: "NGN" } }) do
+      get api_v1_commerce_payouts_url,
+        headers: tep_headers(owner, "commerce:merchant"),
+        as: :json
+    end
 
     assert_response :success
-    assert_equal 2, response.parsed_body["payouts"].size
-    assert_equal 2, response.parsed_body["meta"]["total"]
+    body = response.parsed_body
+    assert_equal 2, body["payouts"].size
+    assert_equal 2, body["meta"]["total"]
+    assert_equal 150.0, body["wallet_balance"]
+    assert_equal "NGN", body["wallet_currency"]
+  end
+
+  test "payouts include order_id for wallet credits" do
+    owner = create_user("payout_order_id")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "ma.payoutoid.test", display_name: "Payout OID Shop", status: "active")
+    merchant.commerce_payouts.create!(
+      amount_cents: 8000, currency: "NGN", status: "completed",
+      payout_method: "protected_release", order_id: "ord_protected_123",
+      metadata: { "gross_amount_cents" => 10000, "commission_cents" => 2000 }
+    )
+
+    with_wallet_stub(:get_balance, { balance: { available: 80.0, currency: "NGN" } }) do
+      get api_v1_commerce_payouts_url,
+        headers: tep_headers(owner, "commerce:merchant"),
+        as: :json
+    end
+
+    assert_response :success
+    payout = response.parsed_body["payouts"].first
+    assert_equal "ord_protected_123", payout["order_id"]
+    assert_equal "protected_release", payout["payout_method"]
+    assert_equal 10000, payout["metadata"]["gross_amount_cents"]
+    assert_equal 2000, payout["metadata"]["commission_cents"]
+    assert_nil payout["destination"]
+  end
+
+  test "payouts include destination for bank transfers" do
+    owner = create_user("payout_bank")
+    merchant = CommerceMerchant.create!(owner_user_id: owner.matrix_user_id, miniapp_id: "ma.payoutbank.test", display_name: "Payout Bank Shop", status: "active")
+    merchant.commerce_payouts.create!(
+      amount_cents: 5000, currency: "NGN", status: "processing",
+      payout_method: "bank_transfer",
+      destination_account_number: "1234567890",
+      destination_bank_code: "011",
+      destination_bank_name: "First Bank"
+    )
+
+    with_wallet_stub(:get_balance, { balance: { available: 50.0, currency: "NGN" } }) do
+      get api_v1_commerce_payouts_url,
+        headers: tep_headers(owner, "commerce:merchant"),
+        as: :json
+    end
+
+    assert_response :success
+    payout = response.parsed_body["payouts"].first
+    assert_equal "bank_transfer", payout["payout_method"]
+    assert_equal "******7890", payout["destination"]["account_number"]
+    assert_equal "011", payout["destination"]["bank_code"]
+    assert_nil payout["order_id"]
   end
 
   test "merchant can create payout" do

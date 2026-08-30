@@ -58,6 +58,18 @@ class Api::V1::Commerce::OrdersController < Api::V1::Commerce::BaseController
             "processed_by" => @current_user.matrix_user_id
           }
           order.update!(status: "refunded")
+
+          # Record refund as a reversal payout
+          merchant = order.commerce_merchant
+          merchant.commerce_payouts.create!(
+            amount_cents: order.total_cents,
+            currency: order.currency,
+            payout_method: "refund",
+            status: "completed",
+            order_id: order.order_id,
+            completed_at: Time.current,
+            metadata: { reason: "buyer_cancelled" }
+          )
         else
           Rails.logger.warn "[OrdersController] Refund failed for order #{order.order_id}: #{refund_response.inspect}"
           return render json: { error: "refund_failed", message: "Refund could not be processed. Please contact support." }, status: :unprocessable_entity

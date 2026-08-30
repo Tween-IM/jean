@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 class CommercePayout < ApplicationRecord
   belongs_to :commerce_merchant
 
@@ -9,11 +10,18 @@ class CommercePayout < ApplicationRecord
   validates :payout_id, uniqueness: true
   validates :reference_id, uniqueness: true, allow_nil: true
   validates :amount_cents, numericality: { greater_than: 0 }
-  validates :status, inclusion: { in: %w[pending processing completed failed cancelled] }
+  validates :status, inclusion: { in: %w[pending processing completed failed cancelled reversed] }
+  validates :payout_method, inclusion: {
+    in: %w[protected_release direct_payment bank_transfer refund],
+    allow_nil: true
+  }
 
   scope :pending, -> { where(status: %w[pending processing]) }
   scope :completed, -> { where(status: "completed") }
   scope :failed, -> { where(status: "failed") }
+  scope :wallet_credits, -> { where(payout_method: %w[protected_release direct_payment]) }
+  scope :reversals, -> { where(payout_method: "refund") }
+  scope :for_order, ->(order_id) { where(order_id: order_id) }
 
   def completed?
     status == "completed"
@@ -25,6 +33,14 @@ class CommercePayout < ApplicationRecord
 
   def pending?
     status.in?(%w[pending processing])
+  end
+
+  def wallet_credit?
+    payout_method.in?(%w[protected_release direct_payment])
+  end
+
+  def reversal?
+    payout_method == "refund"
   end
 
   private

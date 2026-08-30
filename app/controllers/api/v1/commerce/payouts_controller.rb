@@ -7,14 +7,32 @@ class Api::V1::Commerce::PayoutsController < Api::V1::Commerce::BaseController
     merchant = current_merchant
     return render json: { error: "not_found", message: "Merchant not found" }, status: :not_found unless merchant
 
-    payouts = merchant.commerce_payouts.order(created_at: :desc).limit(limit_param(default: 20, max: 100))
+    payouts = merchant.commerce_payouts
+      .order(created_at: :desc)
+      .limit(limit_param(default: 20, max: 100))
+
+    # Fetch wallet balance for the seller
+    wallet_balance = nil
+    wallet_currency = "NGN"
+    begin
+      balance_info = WalletService.get_balance(@current_user.matrix_user_id, @tep_token)
+      wallet_balance = balance_info.dig(:balance, :available)
+      wallet_currency = balance_info.dig(:balance, :currency) || "NGN"
+    rescue WalletService::WalletError => e
+      Rails.logger.warn "[PayoutsController] Balance fetch failed: #{e.message}"
+    end
 
     render json: {
       payouts: payouts.map { |p| payout_json(p) },
+      wallet_balance: wallet_balance,
+      wallet_currency: wallet_currency,
       meta: { total: merchant.commerce_payouts.count }
     }
   end
 
+  # Deprecated: Payouts to the seller's Tween wallet are now recorded
+  # automatically on payment/release. This endpoint remains for backward
+  # compatibility with manual bank-transfer payouts.
   def create
     require_scope("commerce:merchant")
 
@@ -102,23 +120,40 @@ class Api::V1::Commerce::PayoutsController < Api::V1::Commerce::BaseController
   end
 
   def payout_json(payout)
-    {
+    base = {
       payout_id: payout.payout_id,
-      merchant_id: payout.commerce_merchant.merchant_id,
       amount_cents: payout.amount_cents,
       currency: payout.currency,
       status: payout.status,
       payout_method: payout.payout_method,
-      destination: {
-        account_number: mask_account(payout.destination_account_number),
-        bank_code: payout.destination_bank_code,
-        bank_name: payout.destination_bank_name
-      },
       reference_id: payout.reference_id,
       processed_at: payout.processed_at&.iso8601,
       completed_at: payout.completed_at&.iso8601,
       created_at: payout.created_at.iso8601
     }
+
+    # Wallet credit payouts (from deals) include order context
+    if payout.wallet_credit?
+      base[:order_id] = payout.order_id
+      base[:metadata] = payout.metadata&.slice("gross_amount_cents", "commission_cents")
+    end
+
+    # Bank transfer payouts include destination details
+    if payout.payout_method == "bank_transfer"
+      base[:destination] = {
+        account_number: mask_account(payout.destination_account_number),
+        bank_code: payout.destination_bank_code,
+        bank_name: payout.destination_bank_name
+      }
+    end
+
+    # Refund payouts include reason
+    if payout.payout_method == "refund"
+      base[:order_id] = payout.order_id
+      base[:metadata] = payout.metadata&.slice("reason", "protected_payment_id")
+    end
+
+    base
   end
 
   def mask_account(account_number)
