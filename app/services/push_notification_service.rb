@@ -15,7 +15,8 @@ class PushNotificationService
   PROJECT_ID = ENV.fetch("FCM_PROJECT_ID", "tween-b222a")
   SYNAPSE_DB_HOST = ENV.fetch("SYNAPSE_DB_HOST", "matrix-postgres")
   SYNAPSE_DB_NAME = ENV.fetch("SYNAPSE_DB_NAME", "synapse")
-  SYNAPSE_DB_USER = ENV.fetch("SYNAPSE_DB_USER", "matrix")
+  SYNAPSE_DB_USER = ENV.fetch("SYNAPSE_DB_USER", "synapse")
+  SYNAPSE_DB_PASSWORD = ENV.fetch("SYNAPSE_DB_PASSWORD", nil)
 
   class << self
     # Send a push notification directly to a user's FCM token(s).
@@ -53,9 +54,7 @@ class PushNotificationService
       require "pg"
 
       conn = PG.connect(
-        host: SYNAPSE_DB_HOST,
-        dbname: SYNAPSE_DB_NAME,
-        user: SYNAPSE_DB_USER
+        "host=#{SYNAPSE_DB_HOST} dbname=#{SYNAPSE_DB_NAME} user=#{SYNAPSE_DB_USER} password=#{SYNAPSE_DB_PASSWORD}"
       )
 
       result = conn.exec_params(
