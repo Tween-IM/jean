@@ -7,9 +7,15 @@
 #
 # FCM credentials are read from the FCM_SERVICE_ACCOUNT_JSON env var
 # (a JSON string containing the Google service account key).
+#
+# FCM tokens are fetched from the Synapse database (pushers table)
+# via a direct PG connection (not through ActiveRecord).
 class PushNotificationService
   FCM_URL = "https://fcm.googleapis.com/v1/projects/%{project_id}/messages:send"
   PROJECT_ID = ENV.fetch("FCM_PROJECT_ID", "tween-b222a")
+  SYNAPSE_DB_HOST = ENV.fetch("SYNAPSE_DB_HOST", "matrix-postgres")
+  SYNAPSE_DB_NAME = ENV.fetch("SYNAPSE_DB_NAME", "synapse")
+  SYNAPSE_DB_USER = ENV.fetch("SYNAPSE_DB_USER", "matrix")
 
   class << self
     # Send a push notification directly to a user's FCM token(s).
@@ -41,22 +47,28 @@ class PushNotificationService
     private
 
     # Fetch FCM tokens for a user from the Synapse pushers table.
+    # Uses a direct PG connection to the Synapse database.
     # Returns an array of FCM pushkey strings.
     def fetch_fcm_tokens(user_id)
-      # Query the Synapse database for FCM pushers registered for this user.
-      # The pushers table stores FCM tokens as pushkey with app_id matching
-      # the Tween app bundle ID.
-      synapse_connection = ActiveRecord::Base.establish_connection(:synapse).connection
-      result = synapse_connection.execute(
-        "SELECT pushkey FROM pushers WHERE user_name = #{synapse_connection.quote(user_id)} AND app_id LIKE 'com.ruut.tweenchat%'"
+      require "pg"
+
+      conn = PG.connect(
+        host: SYNAPSE_DB_HOST,
+        dbname: SYNAPSE_DB_NAME,
+        user: SYNAPSE_DB_USER
       )
+
+      result = conn.exec_params(
+        "SELECT pushkey FROM pushers WHERE user_name = $1 AND app_id LIKE 'com.ruut.tweenchat%'",
+        [user_id]
+      )
+
       result.map { |row| row["pushkey"] }.compact
     rescue StandardError => e
       Rails.logger.error "[PushNotificationService] Failed to fetch FCM tokens for #{user_id}: #{e.message}"
       []
     ensure
-      # Reconnect to the primary database
-      ActiveRecord::Base.establish_connection(:primary)
+      conn&.close
     end
 
     # Send an FCM v1 notification message using Faraday.

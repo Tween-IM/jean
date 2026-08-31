@@ -76,9 +76,3 @@ production:
     database: tmcp_server_production_cable
     url: <%= ENV.fetch("CABLE_DATABASE_URL") { URI.parse(ENV["DATABASE_URL"]).tap { |u| u.path = "/tmcp_server_production_cable" }.to_s if ENV["DATABASE_URL"] } %>
     migrations_paths: db/cable_migrate
-  synapse:
-    <<: *default
-    database: synapse
-    host: matrix-postgres
-    username: matrix
-    migrations_paths: db/synapse_migrate
