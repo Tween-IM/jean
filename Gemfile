@@ -39,6 +39,9 @@ gem "redis", "~> 5.0"
 # HTTP client for external API calls
 gem "faraday"
 
+# Google Auth for FCM push notifications
+gem "googleauth"
+
 # Request validation (TMCP Protocol Section 12.2)
 gem "dry-validation"
 

@@ -139,6 +139,7 @@ class CommerceNotifier
     def notify(user_id:, title:, body:, order_id: nil, conversation_id: nil, deep_link: nil)
       return if user_id.blank?
 
+      # Create in-app notification record
       NotificationService.create_from_external(
         source: :commerce,
         user_id: user_id,
@@ -149,14 +150,18 @@ class CommerceNotifier
         target_id: order_id,
         metadata: { conversation_id: conversation_id, deep_link: deep_link }.compact
       )
-      MatrixEventService.publish_commerce_notification(
+
+      # Send direct FCM push notification (bypasses Matrix/Sygnal)
+      PushNotificationService.send_push(
         user_id: user_id,
-        event_type: "m.tween.commerce.notification",
         title: title,
         body: body,
-        order_id: order_id,
-        conversation_id: conversation_id,
-        deep_link: deep_link
+        deep_link: deep_link,
+        data: {
+          order_id: order_id,
+          conversation_id: conversation_id,
+          source: "commerce"
+        }.compact
       )
     rescue StandardError => e
       Rails.logger.warn "[CommerceNotifier] failed to notify #{user_id}: #{e.message}"
