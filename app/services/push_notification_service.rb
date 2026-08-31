@@ -58,7 +58,7 @@ class PushNotificationService
       )
 
       result = conn.exec_params(
-        "SELECT pushkey FROM pushers WHERE user_name = $1 AND app_id LIKE 'com.ruut.tweenchat%'",
+        "SELECT pushkey FROM pushers WHERE user_name = $1 AND app_id = 'com.ruut.tweenchat'",
         [user_id]
       )
 
