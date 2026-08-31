@@ -46,13 +46,17 @@ class PushNotificationService
       # Query the Synapse database for FCM pushers registered for this user.
       # The pushers table stores FCM tokens as pushkey with app_id matching
       # the Tween app bundle ID.
-      result = ActiveRecord::Base.connection.execute(
-        "SELECT pushkey FROM pushers WHERE user_name = #{ActiveRecord::Base.connection.quote(user_id)} AND app_id LIKE 'com.ruut.tweenchat%'"
+      synapse_connection = ActiveRecord::Base.establish_connection(:synapse).connection
+      result = synapse_connection.execute(
+        "SELECT pushkey FROM pushers WHERE user_name = #{synapse_connection.quote(user_id)} AND app_id LIKE 'com.ruut.tweenchat%'"
       )
       result.map { |row| row["pushkey"] }.compact
     rescue StandardError => e
       Rails.logger.error "[PushNotificationService] Failed to fetch FCM tokens for #{user_id}: #{e.message}"
       []
+    ensure
+      # Reconnect to the primary database
+      ActiveRecord::Base.establish_connection(:primary)
     end
 
     # Send an FCM v1 notification message using Faraday.
