@@ -47,9 +47,12 @@ class Api::V1::Commerce::PayoutsController < Api::V1::Commerce::BaseController
     # Validate merchant has sufficient balance
     begin
       balance_info = WalletService.get_balance(@current_user.matrix_user_id, @tep_token)
-      available_balance = (balance_info.dig(:balance, :available) || 0) * 100
+      # Use balance_cents if available to avoid float precision loss;
+      # fall back to available * 100 with BigDecimal for safety.
+      available_cents = balance_info.dig(:balance, :balance_cents) ||
+        (BigDecimal(balance_info.dig(:balance, :available).to_s) * 100).to_i
 
-      if available_balance < amount_cents
+      if available_cents < amount_cents
         return render json: { error: "insufficient_balance", message: "Insufficient wallet balance for payout" }, status: :unprocessable_entity
       end
     rescue WalletService::WalletError => e

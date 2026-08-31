@@ -50,20 +50,22 @@ class Api::V1::Commerce::ProtectedCommerceCallbacksController < Api::V1::Commerc
 
       # Record the wallet credit as a payout for history tracking.
       seller_proceeds = data[:seller_proceeds_cents] || order.subtotal_cents
-      merchant = order.commerce_merchant
-      merchant.commerce_payouts.create!(
-        amount_cents: seller_proceeds,
-        currency: order.currency,
-        payout_method: "protected_release",
-        status: "completed",
-        order_id: order.order_id,
-        completed_at: Time.current,
-        metadata: {
-          protected_payment_id: order.protected_payment_id,
-          gross_amount_cents: order.total_cents,
-          commission_cents: order.total_cents - seller_proceeds
-        }
-      )
+      if seller_proceeds > 0
+        merchant = order.commerce_merchant
+        merchant.commerce_payouts.create!(
+          amount_cents: seller_proceeds,
+          currency: order.currency,
+          payout_method: "protected_release",
+          status: "completed",
+          order_id: order.order_id,
+          completed_at: Time.current,
+          metadata: {
+            protected_payment_id: order.protected_payment_id,
+            gross_amount_cents: order.total_cents,
+            commission_cents: order.total_cents - seller_proceeds
+          }
+        )
+      end
 
       CommerceNotifier.payment_releasing(order)
       publish_payment_event(order, "m.tween.commerce.payment.released", data)
@@ -74,21 +76,23 @@ class Api::V1::Commerce::ProtectedCommerceCallbacksController < Api::V1::Commerc
         order.update!(status: "partially_refunded")
       end
 
-      # Record refund as a reversal payout
-      refunded_amount = data[:total_refunded_cents] || order.total_cents
-      merchant = order.commerce_merchant
-      merchant.commerce_payouts.create!(
-        amount_cents: refunded_amount,
-        currency: order.currency,
-        payout_method: "refund",
-        status: "completed",
-        order_id: order.order_id,
-        completed_at: Time.current,
-        metadata: {
-          protected_payment_id: order.protected_payment_id,
-          reason: data[:reason] || "buyer_refund"
-        }
-      )
+      # Record refund as a reversal payout — use actual refunded amount, not order total
+      refunded_amount = data[:total_refunded_cents].to_i
+      if refunded_amount > 0
+        merchant = order.commerce_merchant
+        merchant.commerce_payouts.create!(
+          amount_cents: refunded_amount,
+          currency: order.currency,
+          payout_method: "refund",
+          status: "completed",
+          order_id: order.order_id,
+          completed_at: Time.current,
+          metadata: {
+            protected_payment_id: order.protected_payment_id,
+            reason: data[:reason] || "buyer_refund"
+          }
+        )
+      end
 
       CommerceNotifier.payment_refunded(order)
       publish_payment_event(order, "m.tween.commerce.payment.refunded", data)
