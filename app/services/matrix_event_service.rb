@@ -8,9 +8,10 @@ class MatrixEventService
   MATRIX_ACCESS_TOKEN = ENV["MATRIX_ACCESS_TOKEN"]
 
   # Default sender for bot-initiated events (when no user sender is specified)
-  DEFAULT_SENDER = "@_tmcp_payments:tween.example".freeze
-  SOCIAL_BOT_USER = "@_tmcp_social:tween.example".freeze
-  COMMERCE_BOT_USER = "@_tmcp_commerce:tween.example".freeze
+  # Domain must match Synapse server_name (tween.im) or AS registration users regex.
+  DEFAULT_SENDER = "@_tmcp_payments:tween.im".freeze
+  SOCIAL_BOT_USER = "@_tmcp_social:tween.im".freeze
+  COMMERCE_BOT_USER = "@_tmcp_commerce:tween.im".freeze
 
   class << self
     def payment_bot
