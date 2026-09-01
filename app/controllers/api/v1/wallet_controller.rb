@@ -124,9 +124,16 @@ class Api::V1::WalletController < Api::BaseController
       return render json: { error: "forbidden", message: "Users do not share a room" }, status: :forbidden
     end
 
-    # NOTE: We don't invite the AS bot to the room.
-    # Application Services can send events using the AS token + user_id query param
-    # without being room members. This keeps the bot invisible in room names.
+    # Invite the payments bot to the room so it can publish events
+    # via AS identity assertion. Matrix requires the sender to be a room member.
+    if room_id
+      tep_payload = TepTokenService.decode(@tep_token)
+      matrix_token = tep_payload["matrix_access_token"]
+      if matrix_token
+        invite_result = MatrixService.ensure_as_in_room(room_id, matrix_token, "@_tmcp_payments:tween.im")
+        Rails.logger.info "[INITIATE_P2P] Payments bot room invitation: room=#{room_id}, success=#{invite_result[:success]}"
+      end
+    end
 
     transfer_data = WalletService.initiate_p2p_transfer(
       recipient_id,
@@ -229,6 +236,30 @@ class Api::V1::WalletController < Api::BaseController
       rescue => e
         Rails.logger.error "[CONFIRM_P2P] Failed to publish in-chat event for #{transfer_id}: #{e.message}"
       end
+
+      # Notify recipient they have a pending transfer to accept
+      if result[:status] == "pending_recipient_acceptance"
+        recipient_id = recipient["user_id"] || recipient[:user_id]
+        if recipient_id.present?
+          sender_name = sender["display_name"] || sender[:display_name] || sender["user_id"] || sender[:user_id] || "Someone"
+          NotificationDispatcher.notify(
+            user_id: recipient_id,
+            source: :tweenpay,
+            notification_type: :payment,
+            title: "Transfer received",
+            body: "#{sender_name} sent you #{result[:amount]} #{result[:currency]}. Tap to accept or decline.",
+            deep_link: "tween://chat",
+            metadata: {
+              transfer_id: result[:transfer_id],
+              amount: result[:amount],
+              currency: result[:currency],
+              sender_name: sender_name,
+              direction: "incoming",
+              requires_action: true
+            }
+          )
+        end
+      end
     end
 
     render json: result
@@ -240,8 +271,28 @@ class Api::V1::WalletController < Api::BaseController
     result = WalletService.accept_p2p_transfer(transfer_id, @tep_token)
 
     if result[:status] == "completed"
+      # Notify the sender that their transfer was accepted
+      sender_id = result[:sender] || result[:sender_user_id]
+      if sender_id.present?
+        NotificationDispatcher.notify(
+          user_id: sender_id,
+          source: :tweenpay,
+          notification_type: :payment,
+          title: "Transfer accepted",
+          body: "#{@current_user.display_name || @current_user.matrix_user_id} accepted your transfer of #{result[:amount]} #{result[:currency]}.",
+          deep_link: "tween://chat",
+          metadata: {
+            transfer_id: transfer_id,
+            amount: result[:amount],
+            currency: result[:currency],
+            direction: "outgoing"
+          }
+        )
+      end
+
       # Publish the status update into the transfer's room so the normal
       # chat's PaymentCard updates in realtime via sync.
+      # Use the recipient's user_id as sender since they performed the action.
       room_id = result[:room_id] || Rails.cache.read("#{Rails.env}:p2p_room:#{transfer_id}")
       MatrixEventService.publish_p2p_status_update(
         transfer_id,
@@ -263,6 +314,27 @@ class Api::V1::WalletController < Api::BaseController
     transfer_id = params[:transfer_id]
     result = WalletService.reject_p2p_transfer(transfer_id, @tep_token, params[:reason])
 
+    # Notify the sender that their transfer was rejected
+    sender_id = result[:sender] || result[:sender_user_id]
+    if sender_id.present?
+      NotificationDispatcher.notify(
+        user_id: sender_id,
+        source: :tweenpay,
+        notification_type: :payment,
+        title: "Transfer rejected",
+        body: "#{@current_user.display_name || @current_user.matrix_user_id} rejected your transfer of #{result[:amount]} #{result[:currency]}.",
+        deep_link: "tween://chat",
+        metadata: {
+          transfer_id: transfer_id,
+          amount: result[:amount],
+          currency: result[:currency],
+          reason: params[:reason],
+          direction: "outgoing"
+        }
+      )
+    end
+
+    # Use recipient's user_id as sender since they performed the action
     room_id = result[:room_id] || Rails.cache.read("#{Rails.env}:p2p_room:#{transfer_id}")
     MatrixEventService.publish_p2p_status_update(
       transfer_id,

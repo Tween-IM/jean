@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
-# Maps a user to their private Matrix "notification room".
+# DEPRECATED: This model and the notification room flow are superseded by
+# direct FCM push via PushNotificationService. Kept for backward compat
+# with existing database records. New notifications use NotificationDispatcher
+# which sends FCM push directly — no Matrix room intermediary needed.
 #
-# This room is push infrastructure, not a UI surface: the user is a member
-# so the Matrix pusher delivers real push for every event published there,
-# but the client hides it (m.tween.notifications state) from the chat list.
+# Previously: AS created a private room per user, published events there,
+# and Synapse routed push via the user's pusher config.
+# Now: NotificationDispatcher sends FCM push directly to device tokens
+# fetched from the Synapse pushers table.
 class UserNotificationRoom < ApplicationRecord
   validates :user_id, :matrix_room_id, presence: true
   validates :user_id, uniqueness: true

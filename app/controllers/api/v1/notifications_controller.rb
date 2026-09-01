@@ -27,11 +27,12 @@ class Api::V1::NotificationsController < Api::V1::Social::BaseController
     render json: { success: true, unread_count: count }
   end
 
-  # The user's private push/notification Matrix room. The client joins it on
-  # login so Synapse routes real push for every event published there.
+  # DEPRECATED: The notification room flow is superseded by direct FCM push.
+  # Kept for backward compat with clients that still call this endpoint.
   def room
     require_scope("social:read")
 
+    Rails.logger.warn "[NotificationsController] DEPRECATED: /notifications/room called — use FCM push via NotificationDispatcher instead"
     room_id = MatrixEventService.find_or_create_user_room(
       @current_user.matrix_user_id,
       ENV.fetch("MATRIX_DOMAIN", "tween.im")

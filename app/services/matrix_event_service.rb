@@ -744,6 +744,8 @@ class MatrixEventService
     end
 
     def find_or_create_user_room(user_id, domain)
+      # DEPRECATED: Notification rooms are superseded by direct FCM push.
+      Rails.logger.warn "[MatrixEventService] DEPRECATED: find_or_create_user_room called for #{user_id}"
       as_token = ENV["MATRIX_AS_TOKEN"]
       return nil unless as_token
 
