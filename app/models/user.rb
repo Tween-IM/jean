@@ -27,6 +27,9 @@ class User < ApplicationRecord
   # MFA methods
   has_many :mfa_methods
 
+  # Notification preferences
+  has_many :notification_preferences, dependent: :destroy
+
   # Validations
   validates :matrix_user_id, presence: true, uniqueness: true
   validates :mas_user_id, uniqueness: true, allow_nil: true

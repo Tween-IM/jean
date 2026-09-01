@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_30_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -696,6 +696,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_100000) do
     t.string "version"
     t.index ["mini_app_id"], name: "index_miniapp_installations_on_mini_app_id"
     t.index ["user_id"], name: "index_miniapp_installations_on_user_id"
+  end
+
+  create_table "notification_preferences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "channel", null: false, comment: "in_app, push, email"
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.string "notification_type", default: "all", null: false, comment: "all, social, commerce, payment, system"
+    t.datetime "updated_at", null: false
+    t.string "user_id", null: false, comment: "Matrix user ID"
+    t.index ["user_id", "channel", "notification_type"], name: "idx_notif_prefs_unique", unique: true
+    t.index ["user_id"], name: "index_notification_preferences_on_user_id"
   end
 
   create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

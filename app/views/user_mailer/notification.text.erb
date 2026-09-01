@@ -1,0 +1,11 @@
+<%= @title %>
+<%= "=" * @title.length %>
+
+<%= @body %>
+
+<% if @deep_link.present? %>
+View details: <%= @deep_link %>
+<% end %>
+
+---
+This email was sent by Tween.
