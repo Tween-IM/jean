@@ -17,6 +17,12 @@ class Api::V1::Commerce::ProtectedCommerceCallbacksController < Api::V1::Commerc
     data = params[:data].is_a?(ActionController::Parameters) ? params[:data].to_unsafe_h : {}
     data = (data || {}).deep_symbolize_keys
 
+    # notification.dispatch doesn't need an order — handle immediately
+    if event_type == "notification.dispatch"
+      handle_notification_dispatch(data)
+      return head :ok
+    end
+
     payment_id = data[:protected_payment_id] || params[:protected_payment_id]
     order = ::CommerceOrder.find_by(protected_payment_id: payment_id)
 
