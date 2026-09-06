@@ -33,6 +33,8 @@ class Api::V1::Commerce::ProtectedCommerceCallbacksController < Api::V1::Commerc
 
   def apply_event!(order, event_type, data)
     case event_type
+    when "notification.dispatch"
+      handle_notification_dispatch(data)
     when "protected_payment.funded"
       order.update!(status: "paid", protection_status: "active")
       publish_payment_event(order, "m.tween.commerce.payment.funded", data)
@@ -120,6 +122,27 @@ class Api::V1::Commerce::ProtectedCommerceCallbacksController < Api::V1::Commerc
       refunded_amount_cents: data[:refunded_amount_cents] || 0,
       room_id: conversation&.matrix_room_id
     )
+  end
+
+  def handle_notification_dispatch(data)
+    user_id = data[:user_id]
+    return head :ok if user_id.blank?
+
+    NotificationDispatcher.notify(
+      user_id: user_id,
+      source: (data[:source] || 'tweenpay').to_sym,
+      notification_type: data[:notification_type] || 'system',
+      title: data[:title] || 'Notification',
+      body: data[:body] || '',
+      deep_link: data[:deep_link],
+      metadata: (data[:metadata] || {}).deep_symbolize_keys
+    )
+
+    Rails.logger.info "[ProtectedCommerceCallback] Notification dispatched to #{user_id}"
+    head :ok
+  rescue StandardError => e
+    Rails.logger.error "[ProtectedCommerceCallback] Notification dispatch failed: #{e.message}"
+    head :ok
   end
 
   def verify_signature
