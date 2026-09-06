@@ -102,7 +102,10 @@ class NotificationDispatcher
 
   def send_email
     user = User.find_by(matrix_user_id: @user_id)
-    return if user.blank? || user.email.blank?
+    return if user.blank?
+
+    # Jean's User model may not have email — skip gracefully
+    return unless user.respond_to?(:email) && user.email.present?
 
     UserMailer.notification(user, @title, @body, metadata: @metadata).deliver_later
   end
