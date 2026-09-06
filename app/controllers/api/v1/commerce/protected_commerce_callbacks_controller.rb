@@ -145,10 +145,8 @@ class Api::V1::Commerce::ProtectedCommerceCallbacksController < Api::V1::Commerc
     )
 
     Rails.logger.info "[ProtectedCommerceCallback] Notification dispatched to #{user_id}"
-    head :ok
   rescue StandardError => e
     Rails.logger.error "[ProtectedCommerceCallback] Notification dispatch failed: #{e.message}"
-    head :ok
   end
 
   def verify_signature
