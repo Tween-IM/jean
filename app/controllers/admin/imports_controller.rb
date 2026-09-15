@@ -23,7 +23,7 @@ module Admin
 
     before_action :require_view_imports!
     before_action :require_manage_imports!,
-      only: [ :update_storefront, :update_product, :update_review ]
+      only: [ :update_storefront, :update_product, :update_review, :create_system_merchant ]
     before_action :set_storefront, only: [ :show_storefront, :update_storefront ]
     before_action :set_product, only: [ :show_product, :update_product ]
     before_action :set_review, only: [ :update_review ]
@@ -35,6 +35,8 @@ module Admin
       imported_storefronts = CommerceStorefront.imported
       imported_reviews = CommerceReview.imported
 
+      # Everything an import creates hangs off the platform-owned merchant.
+      @system_merchant = CommerceMerchant.system_owned.order(:id).first
       @stats = {
         storefronts: imported_storefronts.count,
         products: imported_products.count,
@@ -70,6 +72,15 @@ module Admin
         .where(source_synced_at: ...STALE_AFTER.ago)
         .order(:source_synced_at)
         .limit(5)
+    end
+
+    # The platform-owned merchant that holds every imported catalog. Creating
+    # it is a one-off ops step; it lives here so it does not need a shell.
+    def create_system_merchant
+      merchant = CommerceMerchant.system_merchant
+      log_admin_action("system_merchant_ensured", merchant, { merchant_id: merchant.merchant_id })
+      redirect_to admin_imports_path,
+        notice: "Platform merchant #{merchant.display_name} (#{merchant.merchant_id}) is ready to own imported stores."
     end
 
     # ── Imported source stores ───────────────────────────────────────────

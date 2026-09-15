@@ -341,6 +341,30 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "jumia", storefront.source_platform
   end
 
+  test "a crawl with no merchant of its own writes to the platform merchant" do
+    post api_v1_commerce_imports_url,
+      params: { products: [ product_entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(product_id: response.parsed_body.dig("results", 0, "product_id"))
+
+    assert product.commerce_merchant.system_owned?
+    assert_equal CommerceMerchant::SYSTEM_MERCHANT_ID, product.commerce_merchant.merchant_id
+  end
+
+  test "the import scope may write to the platform merchant without owning it" do
+    system_merchant = CommerceMerchant.system_merchant
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: system_merchant.merchant_id, products: [ product_entry ] },
+      headers: tep_headers(@stranger, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+  end
+
   private
 
   def seller_storefront

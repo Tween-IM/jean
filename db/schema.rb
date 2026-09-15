@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -273,6 +273,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_140000) do
     t.jsonb "social_links", default: {}
     t.string "state"
     t.string "status", default: "pending_review", null: false
+    t.boolean "system_owned", default: false, null: false
     t.datetime "updated_at", null: false
     t.datetime "verified_at"
     t.string "wallet_id", null: false
@@ -282,6 +283,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_140000) do
     t.index ["merchant_id"], name: "index_commerce_merchants_on_merchant_id", unique: true
     t.index ["miniapp_id"], name: "index_commerce_merchants_on_miniapp_id"
     t.index ["status"], name: "index_commerce_merchants_on_status"
+    t.index ["system_owned"], name: "index_commerce_merchants_on_system_owned", where: "system_owned"
     t.index ["verified_at"], name: "index_commerce_merchants_on_verified_at"
   end
 

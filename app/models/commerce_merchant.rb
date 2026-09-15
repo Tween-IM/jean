@@ -25,6 +25,41 @@ class CommerceMerchant < ApplicationRecord
 
   scope :active, -> { where(status: "active") }
   scope :verified, -> { where.not(verified_at: nil) }
+  # The platform-owned merchant that holds catalogs mirrored from external
+  # marketplaces (Jumia, Konga, ...). It has no human owner.
+  scope :system_owned, -> { where(system_owned: true) }
+
+  #: Imported storefronts ("Bella's Couture", "Samsung", ...) hang off this
+  #: merchant. The public id is fixed so deploys, the scraper config and
+  #: runbooks can all refer to the same merchant.
+  SYSTEM_MERCHANT_ID = "mch_tween_imports"
+  SYSTEM_MERCHANT_NAME = "Tween Imports"
+
+  #: Find (or create) the platform merchant that owns imported catalogs.
+  #: Idempotent: concurrent callers converge on the same row.
+  def self.system_merchant
+    existing = system_owned.order(:id).first
+    return existing if existing
+
+    create!(
+      merchant_id: SYSTEM_MERCHANT_ID,
+      display_name: SYSTEM_MERCHANT_NAME,
+      miniapp_id: "ma_tweencommerce",
+      system_owned: true,
+      status: "active",
+      business_type: "registered_business",
+      country: "NG",
+      about: "Platform-owned catalogs mirrored from Jumia, Konga and other marketplaces.",
+      verified_at: Time.current
+    )
+  rescue ActiveRecord::RecordNotUnique
+    # Another request created it first — that row is the system merchant.
+    system_owned.order(:id).first
+  end
+
+  def system_owned?
+    system_owned
+  end
 
   def verified?
     verified_at.present?

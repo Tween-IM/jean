@@ -340,6 +340,7 @@ Rails.application.routes.draw do
 
     # Externally-imported catalogs (Jumia/Konga scraper)
     get "imports", to: "imports#index", as: :imports
+    post "imports/system-merchant", to: "imports#create_system_merchant", as: :import_system_merchant
     get "imports/storefronts", to: "imports#storefronts", as: :import_storefronts
     get "imports/storefronts/:id", to: "imports#show_storefront", as: :import_storefront
     patch "imports/storefronts/:id", to: "imports#update_storefront"

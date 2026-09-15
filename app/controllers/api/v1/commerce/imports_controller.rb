@@ -11,7 +11,7 @@ class Api::V1::Commerce::ImportsController < Api::V1::Commerce::BaseController
   def create
     require_scope("commerce:merchant")
 
-    merchant = find_merchant
+    merchant = find_import_merchant
     return if ensure_merchant_owner(merchant)
 
     entries = Array(params[:products])
@@ -49,7 +49,7 @@ class Api::V1::Commerce::ImportsController < Api::V1::Commerce::BaseController
   def lookup
     require_scope("commerce:read")
 
-    merchant = find_merchant
+    merchant = find_import_merchant
     return if ensure_merchant_owner(merchant)
 
     pairs = Array(params[:items]).map do |item|
@@ -75,5 +75,16 @@ class Api::V1::Commerce::ImportsController < Api::V1::Commerce::BaseController
         }
       end
     }
+  end
+
+  private
+
+  # A merchant importing its own products names itself; a marketplace crawl
+  # that has no merchant of its own writes to the platform-owned merchant.
+  def find_import_merchant
+    merchant_id = params[:merchant_id].presence
+    return CommerceMerchant.system_merchant if merchant_id.nil?
+
+    CommerceMerchant.find_by!(merchant_id: merchant_id)
   end
 end

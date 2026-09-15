@@ -64,6 +64,9 @@ class Api::V1::Commerce::BaseController < Api::BaseController
   end
 
   def ensure_merchant_owner(merchant)
+    # Imported catalogs live under the platform-owned merchant, which has no
+    # user owner; a token carrying the commerce:merchant scope may write to it.
+    return false if merchant.system_owned?
     return false if merchant.owner_user_id == @current_user.matrix_user_id
 
     render json: { error: "forbidden", message: "Merchant belongs to another owner" }, status: :forbidden

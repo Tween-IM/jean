@@ -310,6 +310,39 @@ class Admin::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_match "Coutures", response.body
   end
 
+  # ── Platform merchant that owns imported catalogs ─────────────────────
+
+  test "an operator can create the platform merchant that owns imported stores" do
+    sign_in_as(@ops_manager)
+
+    post admin_import_system_merchant_path
+
+    assert_redirected_to admin_imports_path
+    merchant = CommerceMerchant.system_owned.first
+    assert_not_nil merchant
+    assert_equal CommerceMerchant::SYSTEM_MERCHANT_ID, merchant.merchant_id
+  end
+
+  test "support cannot create the platform merchant" do
+    sign_in_as(@support)
+
+    post admin_import_system_merchant_path
+
+    assert_redirected_to admin_dashboard_path
+    assert_nil CommerceMerchant.system_owned.first
+  end
+
+  test "the imports dashboard names the platform merchant when it exists" do
+    CommerceMerchant.system_merchant
+    sign_in_as(@ops_manager)
+
+    get admin_imports_path
+
+    assert_response :success
+    assert_match CommerceMerchant::SYSTEM_MERCHANT_NAME, response.body
+    assert_match CommerceMerchant::SYSTEM_MERCHANT_ID, response.body
+  end
+
   private
 
   def sign_in_as(user)
