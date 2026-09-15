@@ -79,8 +79,10 @@ RUN bundle exec bootsnap precompile app/ lib/
 # Build Tailwind CSS for production admin dashboard
 RUN SECRET_KEY_BASE=dummy RAILS_ENV=production bundle exec rails tailwindcss:build
 
-# Precompiling assets for development (no assets needed)
-# RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
+# Precompile assets. Propshaft serves /assets/* from public/assets in
+# production, so a container without this step ships an admin UI whose
+# stylesheet 404s (the layout links a digest that nothing publishes).
+RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 
 
 
