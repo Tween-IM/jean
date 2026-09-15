@@ -467,6 +467,78 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
     }
   end
 
+  test "too many imports get a 429, not a crash" do
+    # The import action allows 10 writes a minute. The limiter used to halt
+    # the chain by throwing :abort from a block callback, which Rails does not
+    # catch — so a catalog import that outran the limit saw a 500 and could
+    # not tell throttling from an outage.
+    limiter = create_user("import-limiter-#{SecureRandom.hex(4)}")
+    headers = tep_headers(limiter, "commerce:merchant")
+
+    11.times do
+      post api_v1_commerce_imports_url,
+        params: { merchant_id: @merchant.merchant_id, products: [ product_entry ] },
+        headers: headers,
+        as: :json
+    end
+
+    assert_response :too_many_requests
+    body = response.parsed_body
+    assert_equal "rate_limit_exceeded", body.fetch("error")
+    assert_equal 60, body.fetch("retry_after")
+  end
+
+  test "a throttled import does not write anything" do
+    limiter = create_user("import-throttled-#{SecureRandom.hex(4)}")
+    headers = tep_headers(limiter, "commerce:merchant")
+
+    10.times do
+      post api_v1_commerce_imports_url,
+        params: { merchant_id: @merchant.merchant_id, products: [ product_entry ] },
+        headers: headers,
+        as: :json
+    end
+
+    before = CommerceProduct.where(commerce_merchant: @merchant).count
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ product_entry ] },
+      headers: headers,
+      as: :json
+
+    assert_response :too_many_requests
+    assert_equal before, CommerceProduct.where(commerce_merchant: @merchant).count
+  end
+
+  test "each product carries its own storefront branding" do
+    # The scraper imports a marketplace catalog in batches; one batch can span
+    # dozens of source stores, and each listing has to land in its own.
+    post api_v1_commerce_imports_url,
+      params: {
+        merchant_id: @merchant.merchant_id,
+        products: [
+          product_entry.merge(
+            storefront: { display_name: "Samsung", slug: "samsung", store_type: "ecommerce" }
+          ),
+          product_entry.merge(
+            source: product_entry.fetch(:source).merge(source_id: "SP-5678"),
+            storefront: {
+              display_name: "Chimaco Stores",
+              slug: "chimaco-stores-konga",
+              store_type: "marketplace"
+            }
+          )
+        ]
+      },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    slugs = CommerceProduct.where(commerce_merchant: @merchant).map { |p| p.commerce_storefront.slug }
+    assert_equal [ "samsung", "chimaco-stores-konga" ].sort, slugs.sort
+    assert_equal "Chimaco Stores",
+      CommerceProduct.find_by!(source_id: "SP-5678").commerce_storefront.display_name
+  end
+
   def create_user(username)
     User.create!(
       matrix_user_id: "@#{username}:example.com",

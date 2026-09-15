@@ -13,12 +13,15 @@ module Api::RateLimitable
         current = rate_limit_count(limit_key, window)
 
         if current >= limit
+          # Rendering a response already halts the callback chain: the action
+          # never runs. Throwing :abort from a block callback is not caught by
+          # the callback terminator, so it surfaced as a 500
+          # (UncaughtThrowError) instead of the 429 the caller needs to see.
           render json: {
             error: "rate_limit_exceeded",
             message: "Too many requests. Please try again in #{window} seconds.",
             retry_after: window
           }, status: :too_many_requests
-          throw :abort
         end
 
         increment_rate_limit(limit_key, window)
