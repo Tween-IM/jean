@@ -192,6 +192,7 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       storefront_id: product.commerce_storefront&.storefront_id,
       title: product.title,
       description: product.description,
+      short_description: product.short_description,
       status: product.status,
       media_urls: product.media_urls,
       condition: product.condition,
@@ -203,8 +204,10 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       view_count: product.view_count,
       in_stock: product.commerce_skus.any? { |s| s.inventory_status != "out_of_stock" },
       tags: product.tags,
+      badges: product.badges,
       price_range: product.price_range,
       category: product.commerce_category ? category_json(product.commerce_category) : nil,
+      subcategory: subcategory_json(product),
       created_at: product.created_at
     }
 
@@ -212,6 +215,13 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       base.merge!(
         weight_grams: product.weight_grams,
         dimensions: product.dimensions,
+        specifications: product.specifications,
+        warranty: product.warranty,
+        stock: product.stock,
+        shipping: product.shipping,
+        identifiers: product.identifiers,
+        variants: product.variants,
+        source_category_path: product.source_category_path,
         seo_title: product.seo_title,
         seo_description: product.seo_description,
         skus: product.commerce_skus.map { |sku| sku_json(sku) },
@@ -220,6 +230,16 @@ class Api::V1::Commerce::BaseController < Api::BaseController
     end
 
     base
+  end
+
+  # The leaf of an imported listing's category chain. Products carry both the
+  # top-level category (what browsing filters on) and the leaf, so a product
+  # page can show where in the tree the listing actually sits.
+  def subcategory_json(product)
+    return nil if product.subcategory_id.blank?
+
+    category = ::CommerceCategory.find_by(id: product.subcategory_id)
+    category ? category_json(category) : nil
   end
 
   # ============================================================================
@@ -234,6 +254,7 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       currency: sku.currency,
       inventory_status: sku.inventory_status,
       quantity_available: sku.quantity_available,
+      image_url: sku.image_url,
       properties: sku.properties
     }
   end

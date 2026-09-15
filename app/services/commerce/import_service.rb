@@ -11,13 +11,24 @@ module Commerce
   # (`source_platform` + `source_review_id`).
   class ImportService
     PRODUCT_ATTRIBUTES = %w[
-      title description media_urls tags dimensions condition featured
-      weight_grams seo_title seo_description status
+      title description short_description media_urls tags badges dimensions
+      specifications warranty stock shipping identifiers variants
+      source_category_path condition featured weight_grams seo_title
+      seo_description status
     ].freeze
 
     SKU_ATTRIBUTES = %w[
-      title price_cents currency inventory_status quantity_available
+      title price_cents currency inventory_status quantity_available image_url
     ].freeze
+
+    #: Attributes that must land as JSONB objects (the storefront renders
+    #: them directly, so a scalar or null in the payload must not corrupt them).
+    JSON_ATTRIBUTES = %w[
+      dimensions specifications warranty stock shipping identifiers variants
+    ].freeze
+
+    #: Attributes that are Postgres arrays.
+    ARRAY_ATTRIBUTES = %w[tags badges source_category_path].freeze
 
     STOREFRONT_ATTRIBUTES = %w[
       display_name about description logo_url banner_url accent_color
@@ -91,6 +102,7 @@ module Commerce
         product.assign_attributes(permitted_product_attributes(product_attrs))
         product.source_url = source["source_url"]
         product.source_payload = source
+        product.source_category_path = source_category_path(entry)
         product.source_synced_at = Time.current
         product.store_type = product_attrs["store_type"] || product.commerce_storefront&.store_type
         product.save!
@@ -124,7 +136,43 @@ module Commerce
       attrs.slice(*PRODUCT_ATTRIBUTES).except("status").tap do |permitted|
         permitted["title"] = attrs["title"].to_s.strip if attrs["title"].present?
         permitted["status"] = attrs["status"] if attrs["status"].present?
+        coerce_container_attributes(permitted)
       end
+    end
+
+    # JSONB columns and Postgres arrays are only ever written with the shape
+    # they are declared as. A scraper that sends null, a string or a list
+    # where an object is expected would otherwise persist something the
+    # storefront then renders as a broken spec table.
+    def coerce_container_attributes(attributes)
+      JSON_ATTRIBUTES.each do |key|
+        next unless attributes.key?(key)
+
+        value = attributes[key]
+        attributes[key] = value.is_a?(Hash) ? value.to_h : {}
+      end
+
+      ARRAY_ATTRIBUTES.each do |key|
+        next unless attributes.key?(key)
+
+        value = attributes[key]
+        attributes[key] = Array(value).filter_map { |item| item.to_s.strip.presence }.uniq
+      end
+    end
+
+    # The source's own taxonomy chain, kept on the listing as well as in the
+    # payload: it is what an operator needs to re-map a branch later, and what
+    # proves which marketplace branch a Tween category was derived from.
+    # Read from the same place `category_path_for` reads, so provenance and
+    # placement can never disagree about which chain the listing arrived with.
+    def source_category_path(entry)
+      path = Array(as_hash(entry["category"])["path"]).filter_map { |name| name.to_s.strip.presence }
+      return path if path.present?
+
+      source = as_hash(entry["source"])
+      legacy = Array(source["category_path"]).filter_map { |name| name.to_s.strip.presence }
+      legacy.presence ||
+        Array(source["category_slugs"]).filter_map { |slug| slug.to_s.strip.presence }
     end
 
     def assign_storefront(product, entry)
@@ -200,9 +248,28 @@ module Commerce
 
     def assign_category(product, entry)
       category_ref = entry["category_id"].presence || @category_id.presence
-      return if category_ref.blank?
+      if category_ref.present?
+        product.commerce_category = ::CommerceCategory.find_by!(category_id: category_ref)
+        return
+      end
 
-      product.commerce_category = ::CommerceCategory.find_by!(category_id: category_ref)
+      # An imported marketplace listing arrives with a chain of category
+      # names rather than one of our ids. Resolving it is what makes the
+      # listing browsable: the storefront filters products by category_id.
+      hierarchy = Commerce::CategoryResolver.new(category_path_for(entry)).resolve
+      return if hierarchy.empty?
+
+      product.commerce_category = hierarchy.first
+      product.subcategory_id = hierarchy.last.id if hierarchy.size > 1
+    end
+
+    # The category chain the scraper published, or the flat name pair older
+    # payloads carried.
+    def category_path_for(entry)
+      path = as_hash(entry["category"])["path"]
+      return Array(path) if path.present?
+
+      [ entry["parent_category_name"], entry["category_name"] ].compact
     end
 
     def sync_skus(product, skus)
@@ -219,6 +286,7 @@ module Commerce
         sku ||= product.commerce_skus.build
 
         sku.assign_attributes(sku_attrs.slice(*SKU_ATTRIBUTES))
+        sku.image_url = sku_attrs["image"].presence || sku_attrs["image_url"].presence
         sku.currency = sku_attrs["currency"].presence || "NGN"
         sku.inventory_status = sku_attrs["inventory_status"].presence || "in_stock"
         sku.properties = as_hash(sku_attrs["properties"]).merge("source_sku_id" => source_sku_id)

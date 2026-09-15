@@ -539,6 +539,210 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
       CommerceProduct.find_by!(source_id: "SP-5678").commerce_storefront.display_name
   end
 
+  # ── Category sync ───────────────────────────────────────────────────
+
+  test "an imported listing lands in Tween's own category tree" do
+    # The scraper sends the marketplace's chain of category names. Without a
+    # resolution the listing has no category_id, and every category browse on
+    # the storefront filters on exactly that — so the listing exists but is
+    # invisible.
+    suffix = SecureRandom.hex(3)
+    entry = product_entry.merge(
+      category: {
+        path: [ "Test Computers #{suffix}", "Test Laptops #{suffix}" ],
+        slugs: [ "computers-#{suffix}", "laptops-#{suffix}" ],
+        source_ids: [ "5227", "5230" ]
+      }
+    )
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(source_id: entry.dig(:source, :source_id))
+
+    assert_not_nil product.commerce_category, "listing must be browsable"
+    assert_equal "Test Computers #{suffix}".downcase, product.commerce_category.name.downcase
+    assert_not_nil product.subcategory_id
+    assert_equal "Test Laptops #{suffix}".downcase,
+      CommerceCategory.find(product.subcategory_id).name.downcase
+    assert_equal [ "Test Computers #{suffix}", "Test Laptops #{suffix}" ],
+      product.source_category_path
+  end
+
+  test "re-importing a listing keeps one category branch, not a duplicate" do
+    suffix = SecureRandom.hex(3)
+    entry = product_entry.merge(
+      category: { path: [ "Test Phones #{suffix}", "Test Smartphones #{suffix}" ] }
+    )
+    headers = tep_headers(@owner, "commerce:merchant")
+
+    2.times do
+      post api_v1_commerce_imports_url,
+        params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+        headers: headers,
+        as: :json
+      assert_response :success
+    end
+
+    assert_equal 1, CommerceCategory.where("lower(name) = ?", "test phones #{suffix}").count
+    assert_equal 1, CommerceProduct.find_by!(source_id: entry.dig(:source, :source_id))
+      .then { |product| CommerceCategory.where(id: product.subcategory_id) }.count
+  end
+
+  test "an explicit category_id still wins over the source chain" do
+    category = CommerceCategory.create!(
+      name: "Test Chosen #{SecureRandom.hex(3)}", slug: "test-chosen-#{SecureRandom.hex(3)}"
+    )
+    entry = product_entry.merge(
+      category_id: category.category_id,
+      category: { path: [ "Test Ignored #{SecureRandom.hex(3)}" ] }
+    )
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(source_id: entry.dig(:source, :source_id))
+    assert_equal category.id, product.category_id
+  end
+
+  # ── Rich source detail ──────────────────────────────────────────────
+
+  test "every field the marketplace published is mirrored onto the listing" do
+    entry = product_entry.merge(
+      product: product_entry.fetch(:product).merge(
+        short_description: "The best phone in the range.",
+        condition: "refurbished",
+        weight_grams: 500,
+        badges: [ "Official Store", "Free Shipping" ],
+        specifications: {
+          attributes: { "OS" => "iOS", "RAM" => "8 GB" },
+          groups: [ { name: "General Features", attributes: { "OS" => "iOS" } } ]
+        },
+        warranty: { has_warranty: true, period: "1 Year", text: "Apple Warranty" },
+        stock: { in_stock: true, quantity: 15, quantity_sold: 1 },
+        shipping: { delivery_days: 6, pickup: true, return_policy: { return_days: 7 } },
+        identifiers: { sku: "6703587", url_key: "iphone-16-pro-max" },
+        variants: { attributes: [ { code: "color" } ] }
+      )
+    )
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(source_id: entry.dig(:source, :source_id))
+
+    assert_equal "The best phone in the range.", product.short_description
+    assert_equal "refurbished", product.condition
+    assert_equal 500, product.weight_grams
+    assert_equal [ "Official Store", "Free Shipping" ], product.badges
+    assert_equal "iOS", product.specifications.dig("attributes", "OS")
+    assert_equal "General Features", product.specifications.dig("groups", 0, "name")
+    assert_equal "1 Year", product.warranty["period"]
+    assert_equal 15, product.stock["quantity"]
+    assert_equal 6, product.shipping["delivery_days"]
+    assert_equal 7, product.shipping.dig("return_policy", "return_days")
+    assert_equal "6703587", product.identifiers["sku"]
+    assert_equal [ { "code" => "color" } ], product.variants["attributes"]
+  end
+
+  test "the source's own attribute vocabulary and shipping regions are mirrored" do
+    # The scraper reads these from the marketplace's catalog index, which is
+    # the only place they exist for categories whose product page publishes no
+    # spec table — so they must survive the import, not just the scrape.
+    entry = product_entry.merge(
+      product: product_entry.fetch(:product).merge(
+        specifications: {
+          attributes: { "Ram Gb" => "16 GB" },
+          index_attributes: { "brand" => [ "HP" ], "ram_gb" => [ "16 GB" ] }
+        },
+        shipping: {
+          delivery_days: 4,
+          availability_locations: %w[Lagos Abuja],
+          return_policy: { return_days: 7 }
+        },
+        identifiers: {
+          sku: "7037287",
+          seller_id: "118566",
+          seller_storefront: "konga-store",
+          listed_at: "2026-08-24T09:09:51+00:00"
+        }
+      )
+    )
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(source_id: entry.dig(:source, :source_id))
+
+    assert_equal [ "HP" ], product.specifications.dig("index_attributes", "brand")
+    assert_equal "16 GB", product.specifications.dig("attributes", "Ram Gb")
+    assert_equal %w[Lagos Abuja], product.shipping["availability_locations"]
+    assert_equal "konga-store", product.identifiers["seller_storefront"]
+    assert_equal "2026-08-24T09:09:51+00:00", product.identifiers["listed_at"]
+  end
+
+  test "a payload with the wrong shapes for jsonb columns is stored safely" do
+    # A scraper that sends null or a list where an object belongs must not be
+    # able to persist something the storefront renders as a broken spec table.
+    entry = product_entry.merge(
+      product: product_entry.fetch(:product).merge(
+        specifications: nil,
+        warranty: "warranty text",
+        stock: [ 1, 2, 3 ],
+        tags: [ "ok", "", nil, "ok" ]
+      )
+    )
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(source_id: entry.dig(:source, :source_id))
+
+    assert_equal({}, product.specifications)
+    assert_equal({}, product.warranty)
+    assert_equal({}, product.stock)
+    assert_equal [ "ok" ], product.tags
+  end
+
+  test "a variant image is mirrored onto the sku" do
+    entry = product_entry.merge(
+      skus: [
+        product_entry.fetch(:skus).first.merge(
+          source_sku_id: "SP-1234-BLK",
+          image: "https://cdn.tween.im/commerce/konga/1.jpg",
+          quantity_available: 4
+        )
+      ]
+    )
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(source_id: entry.dig(:source, :source_id))
+    sku = product.commerce_skus.find_by!(title: "Black")
+
+    assert_equal "https://cdn.tween.im/commerce/konga/1.jpg", sku.image_url
+    assert_equal 4, sku.quantity_available
+  end
+
   def create_user(username)
     User.create!(
       matrix_user_id: "@#{username}:example.com",

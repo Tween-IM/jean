@@ -37,8 +37,20 @@
       <% end %>
     </select>
   </div>
+  <div>
+    <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tween category</label>
+    <select name="category" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="">All</option>
+      <option value="none" <%= "selected" if params[:category] == "none" %>>
+        Uncategorised (<%= number_with_delimiter(@uncategorised_count) %>)
+      </option>
+      <% @categories.each do |category| %>
+        <option value="<%= category.id %>" <%= "selected" if params[:category] == category.id.to_s %>><%= category.name %></option>
+      <% end %>
+    </select>
+  </div>
   <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">Filter</button>
-  <% if params[:query].present? || params[:platform].present? || params[:status].present? %>
+  <% if params[:query].present? || params[:platform].present? || params[:status].present? || params[:category].present? %>
     <%= link_to "Clear", admin_import_products_path, class: "px-3 py-2 text-sm text-gray-600 hover:text-gray-900" %>
   <% end %>
 <% end %>
@@ -52,6 +64,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Listing</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Store</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKUs</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -74,6 +87,14 @@
                       class: "text-indigo-600 hover:text-indigo-900" %>
                 <% else %>
                   <span class="text-gray-400">—</span>
+                <% end %>
+              </td>
+              <td class="px-6 py-4 text-sm">
+                <% if product.commerce_category %>
+                  <div class="text-gray-900"><%= truncate(product.commerce_category.name, length: 26) %></div>
+                  <div class="text-xs text-gray-500 font-mono"><%= product.commerce_category.slug %></div>
+                <% else %>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Uncategorised</span>
                 <% end %>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><%= import_price(product) %></td>

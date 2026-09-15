@@ -299,6 +299,114 @@ class Admin::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_no_match "Ankara Print Dress", response.body
   end
 
+  test "the listings list shows which Tween category each mirror landed in" do
+    category = CommerceCategory.create!(
+      name: "Test Laptops #{SecureRandom.hex(3)}", slug: "test-laptops-#{SecureRandom.hex(3)}"
+    )
+    categorised = @merchant.commerce_products.create!(
+      title: "Categorised Mirror",
+      commerce_storefront: @storefront,
+      status: "active",
+      source_platform: "konga",
+      source_id: "SP-CAT",
+      commerce_category: category,
+      source_synced_at: 1.hour.ago
+    )
+
+    sign_in_as(@ops_manager)
+    get admin_import_products_path
+
+    assert_response :success
+    assert_match category.name, response.body
+    assert_match "Uncategorised", response.body, "an unplaced listing must be visible as such"
+    assert_match categorised.title, response.body
+  end
+
+  test "listings can be filtered down to the ones an import could not place" do
+    category = CommerceCategory.create!(
+      name: "Test Televisions #{SecureRandom.hex(3)}", slug: "test-tv-#{SecureRandom.hex(3)}"
+    )
+    @merchant.commerce_products.create!(
+      title: "Placed Mirror",
+      commerce_storefront: @storefront,
+      status: "active",
+      source_platform: "konga",
+      source_id: "SP-PLACED",
+      commerce_category: category,
+      source_synced_at: 1.hour.ago
+    )
+
+    sign_in_as(@ops_manager)
+
+    get admin_import_products_path(category: "none")
+    assert_response :success
+    assert_match "Ankara Print Dress", response.body
+    assert_no_match "Placed Mirror", response.body
+
+    get admin_import_products_path(category: category.id)
+    assert_response :success
+    assert_match "Placed Mirror", response.body
+    assert_no_match "Ankara Print Dress", response.body
+  end
+
+  test "the listing detail page shows the mirrored source detail" do
+    category = CommerceCategory.create!(
+      name: "Test Phones #{SecureRandom.hex(3)}", slug: "test-phones-#{SecureRandom.hex(3)}"
+    )
+    @product.update!(
+      commerce_category: category,
+      short_description: "The best phone in the range.",
+      specifications: {
+        groups: [ { "name" => "General Features", "attributes" => { "OS" => "iOS" } } ],
+        attributes: { "OS" => "iOS" }
+      },
+      warranty: { "period" => "1 Year", "text" => "Apple Warranty" },
+      stock: { "in_stock" => true, "quantity" => 15, "quantity_sold" => 3 },
+      shipping: { "delivery_days" => 6, "pickup" => true, "return_policy" => { "return_days" => 7 } },
+      identifiers: { "sku" => "6703587" },
+      weight_grams: 500,
+      badges: [ "Free Shipping" ]
+    )
+
+    sign_in_as(@ops_manager)
+    get admin_import_product_path(@product)
+
+    assert_response :success
+    assert_match "Mirrored source detail", response.body
+    assert_match "General Features", response.body
+    assert_match "Apple Warranty", response.body
+    assert_match "15 on hand", response.body
+    assert_match "7 days", response.body
+    assert_match category.name, response.body
+  end
+
+  test "the listing detail page shows where the source ships from and when it listed it" do
+    @product.update!(
+      shipping: { "availability_locations" => %w[Lagos Abuja] },
+      identifiers: { "sku" => "7037287", "listed_at" => "2026-08-24T09:09:51+00:00" }
+    )
+
+    sign_in_as(@ops_manager)
+    get admin_import_product_path(@product)
+
+    assert_response :success
+    assert_match "Ships from", response.body
+    assert_match "Lagos and Abuja", response.body
+    assert_match "Listed by source", response.body
+    assert_match "2026-08-24", response.body
+  end
+
+  test "a listing whose source published neither is still rendered" do
+    @product.update!(shipping: {}, identifiers: {})
+
+    sign_in_as(@ops_manager)
+    get admin_import_product_path(@product)
+
+    assert_response :success
+    assert_no_match "Ships from", response.body
+    assert_no_match "Listed by source", response.body
+  end
+
   test "stores can be filtered by kind" do
     sign_in_as(@ops_manager)
 

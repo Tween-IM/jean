@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -423,6 +423,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_160000) do
   end
 
   create_table "commerce_products", force: :cascade do |t|
+    t.string "badges", default: [], null: false, array: true
     t.bigint "category_id"
     t.bigint "commerce_merchant_id", null: false
     t.bigint "commerce_storefront_id"
@@ -431,6 +432,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_160000) do
     t.text "description"
     t.jsonb "dimensions", default: {}
     t.boolean "featured", default: false
+    t.jsonb "identifiers", default: {}, null: false
     t.jsonb "media_urls", default: [], null: false
     t.string "product_id", null: false
     t.decimal "rating_average", precision: 3, scale: 2
@@ -438,18 +440,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_160000) do
     t.integer "sales_count", default: 0
     t.text "seo_description"
     t.string "seo_title"
+    t.jsonb "shipping", default: {}, null: false
+    t.text "short_description"
+    t.string "source_category_path", default: [], null: false, array: true
     t.string "source_id"
     t.jsonb "source_payload", default: {}, null: false
     t.string "source_platform"
     t.datetime "source_synced_at"
     t.text "source_url"
+    t.jsonb "specifications", default: {}, null: false
     t.string "status", default: "draft", null: false
+    t.jsonb "stock", default: {}, null: false
     t.string "store_type", default: "marketplace", null: false
     t.bigint "subcategory_id"
     t.string "tags", default: [], array: true
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "variants", default: {}, null: false
     t.integer "view_count", default: 0
+    t.jsonb "warranty", default: {}, null: false
     t.integer "weight_grams"
     t.index ["category_id"], name: "index_commerce_products_on_category_id"
     t.index ["commerce_merchant_id", "status"], name: "index_commerce_products_on_commerce_merchant_id_and_status"
@@ -565,6 +574,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_160000) do
     t.bigint "commerce_product_id", null: false
     t.datetime "created_at", null: false
     t.string "currency", null: false
+    t.string "image_url"
     t.string "inventory_status", default: "in_stock", null: false
     t.integer "price_cents", null: false
     t.json "properties", default: {}, null: false

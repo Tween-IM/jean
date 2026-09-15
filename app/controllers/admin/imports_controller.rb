@@ -125,13 +125,16 @@ module Admin
     def products
       @products = paginate(imported_products_scope)
       @platforms = source_platforms
+      @categories = imported_categories
       @imported_count = CommerceProduct.imported.count
+      @uncategorised_count = CommerceProduct.imported.where(category_id: nil).count
     end
 
     def show_product
       @skus = @product.commerce_skus.order(:created_at)
       @reviews = @product.commerce_reviews.order(created_at: :desc).limit(50)
       @source = @product.source_payload.is_a?(Hash) ? @product.source_payload : {}
+      @subcategory = ::CommerceCategory.find_by(id: @product.subcategory_id)
     end
 
     def update_product
@@ -172,12 +175,30 @@ module Admin
 
     def imported_products_scope
       scope = CommerceProduct.imported
-        .includes(:commerce_storefront, :commerce_merchant, :commerce_skus)
+        .includes(:commerce_storefront, :commerce_merchant, :commerce_skus, :commerce_category)
         .order(source_synced_at: :desc, created_at: :desc)
       scope = scope.where(source_platform: params[:platform]) if params[:platform].present?
       scope = scope.where(status: params[:status]) if params[:status].present?
+      scope = filter_by_category(scope)
       scope = filter_by_query(scope, params[:query], %w[title source_id])
       scope
+    end
+
+    # Imported listings land in Tween's own taxonomy (see
+    # Commerce::CategoryResolver). "Uncategorised" is the operator's way of
+    # finding whatever an import could not place — those listings are
+    # invisible to category browsing, so they are worth a look.
+    def filter_by_category(scope)
+      return scope if params[:category].blank?
+      return scope.where(category_id: nil) if params[:category] == "none"
+
+      scope.where(category_id: params[:category])
+    end
+
+    def imported_categories
+      ::CommerceCategory
+        .where(id: CommerceProduct.imported.where.not(category_id: nil).select(:category_id))
+        .order(:name)
     end
 
     # Case-insensitive search across the given columns. Bound parameters only —
