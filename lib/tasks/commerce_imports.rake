@@ -13,4 +13,38 @@ namespace :commerce do
     puts "storefronts:  #{merchant.commerce_storefronts.count} (#{merchant.commerce_storefronts.imported.count} imported)"
     puts "products:     #{merchant.commerce_products.count} (#{merchant.commerce_products.imported.count} imported)"
   end
+
+  desc "File imported listings under the categories their source published"
+  # Usage: bin/rails commerce:resolve_categories [BATCH=500]
+  #
+  # A listing whose category never resolved sits outside our taxonomy, which
+  # makes it invisible to every category browse even though the source's own
+  # chain was imported alongside it. This re-runs the resolution the import
+  # runs, over listings that are missing it, and is safe to run twice.
+  task resolve_categories: :environment do
+    batch = (ENV["BATCH"] || 500).to_i
+    scope = CommerceProduct.imported.where(category_id: nil)
+    puts "listings with no category: #{scope.count}"
+
+    resolved = 0
+    skipped = 0
+    last_id = 0
+    loop do
+      products = scope.where("commerce_products.id > ?", last_id).order(:id).limit(batch).to_a
+      break if products.empty?
+
+      last_id = products.last.id
+      products.each do |product|
+        if Commerce::CategoryResolver.apply_to(product, Array(product.source_category_path))
+          product.save!
+          resolved += 1
+        else
+          skipped += 1
+        end
+      end
+      puts "  resolved #{resolved}, no usable path in #{skipped}"
+    end
+
+    puts "done: #{resolved} listed, #{skipped} left without a category"
+  end
 end

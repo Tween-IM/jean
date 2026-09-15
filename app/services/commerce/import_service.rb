@@ -256,11 +256,7 @@ module Commerce
       # An imported marketplace listing arrives with a chain of category
       # names rather than one of our ids. Resolving it is what makes the
       # listing browsable: the storefront filters products by category_id.
-      hierarchy = Commerce::CategoryResolver.new(category_path_for(entry)).resolve
-      return if hierarchy.empty?
-
-      product.commerce_category = hierarchy.first
-      product.subcategory_id = hierarchy.last.id if hierarchy.size > 1
+      Commerce::CategoryResolver.apply_to(product, category_path_for(entry))
     end
 
     # The category chain the scraper published, or the flat name pair older

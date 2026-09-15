@@ -86,4 +86,74 @@ class Commerce::CategoryResolverTest < ActiveSupport::TestCase
 
     assert_equal "active", hierarchy.first.status
   end
+
+  # `apply_to` is the same resolution, written onto a listing: it is what the
+  # import runs and what the backfill over older listings re-runs.
+  test "apply_to files a listing under its source's chain" do
+    suffix = SecureRandom.hex(3)
+    product = imported_product
+
+    applied = Commerce::CategoryResolver.apply_to(
+      product, [ "Test Outdoors #{suffix}", "Test Tents #{suffix}" ]
+    )
+
+    assert applied
+    assert_equal "Test Outdoors #{suffix}".titleize, product.commerce_category.name
+    assert_equal product.category_id, product.commerce_category.id
+    assert_nil product.commerce_category.parent_id
+    assert_not_nil product.subcategory_id
+    assert_not_equal product.subcategory_id, product.category_id
+  end
+
+  test "apply_to keeps the leaf beside the browsed category" do
+    suffix = SecureRandom.hex(3)
+    product = imported_product
+
+    Commerce::CategoryResolver.apply_to(product, [ "Test Garden #{suffix}", "Test Tools #{suffix}" ])
+
+    leaf = CommerceCategory.find(product.subcategory_id)
+    assert_equal "Test Tools #{suffix}".titleize, leaf.name
+    assert_equal product.category_id, leaf.parent_id
+  end
+
+  test "apply_to leaves a listing alone when the source published nothing" do
+    product = imported_product
+
+    assert_equal false, Commerce::CategoryResolver.apply_to(product, [])
+    assert_nil product.commerce_category
+    assert_nil product.subcategory_id
+  end
+
+  test "apply_to reuses the branch when it is run twice" do
+    suffix = SecureRandom.hex(3)
+    path = [ "Test Pets #{suffix}", "Test Dog Food #{suffix}" ]
+    first = imported_product
+    Commerce::CategoryResolver.apply_to(first, path)
+    first.save!
+
+    second = imported_product
+    Commerce::CategoryResolver.apply_to(second, path)
+
+    assert_equal first.category_id, second.category_id
+    assert_equal first.subcategory_id, second.subcategory_id
+    assert_equal 2, CommerceCategory.where(id: [ first.category_id, first.subcategory_id ]).count
+  end
+
+  private
+
+  def imported_product
+    merchant = CommerceMerchant.create!(
+      owner_user_id: "@resolver-#{SecureRandom.hex(4)}:test",
+      miniapp_id: "ma.test",
+      display_name: "Test Imports",
+      status: "active"
+    )
+    CommerceProduct.create!(
+      commerce_merchant: merchant,
+      title: "Imported Listing #{SecureRandom.hex(4)}",
+      status: "active",
+      source_platform: "konga",
+      source_id: "konga-#{SecureRandom.hex(4)}"
+    )
+  end
 end

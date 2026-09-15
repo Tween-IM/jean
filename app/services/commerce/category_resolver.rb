@@ -21,6 +21,22 @@ module Commerce
       @platform = platform
     end
 
+    # Files an imported listing under the branch its source published.
+    #
+    # The listing's own category is the top of the chain (that is what the
+    # storefront browses on) and the leaf is kept beside it, so a listing can
+    # be found either way. Answers whether the chain gave it anything: a
+    # source that publishes no usable path leaves the listing uncategorised
+    # rather than guessing.
+    def self.apply_to(product, path)
+      hierarchy = new(path).resolve
+      return false if hierarchy.empty?
+
+      product.commerce_category = hierarchy.first
+      product.subcategory_id = hierarchy.size > 1 ? hierarchy.last.id : nil
+      true
+    end
+
     # Returns the hierarchy, outermost first, or [] when there is nothing
     # usable in the path.
     def resolve
