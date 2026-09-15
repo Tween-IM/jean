@@ -611,6 +611,48 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal category.id, product.category_id
   end
 
+  test "a chain nested inside the product still files the listing" do
+    # One version of the scraper sent the chain inside `product` instead of at
+    # the top of the entry. Every listing it imported carried its chain and
+    # still had no category, because the reader only looked at the top of the
+    # entry — so a whole catalog arrived invisible to category browse.
+    suffix = SecureRandom.hex(3)
+    entry = product_entry.deep_merge(
+      source: { source_id: "SP-NEST-#{suffix}" },
+      product: { category: { path: [ "Test Nested #{suffix}", "Test Branch #{suffix}" ] } }
+    )
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(source_id: "SP-NEST-#{suffix}")
+
+    assert_not_nil product.commerce_category, "listing must be browsable"
+    assert_equal "Test Nested #{suffix}".downcase, product.commerce_category.name.downcase
+    assert_equal [ "Test Nested #{suffix}", "Test Branch #{suffix}" ], product.source_category_path
+  end
+
+  test "a listing whose source published no chain is left without a category" do
+    suffix = SecureRandom.hex(3)
+    entry = product_entry.deep_merge(
+      source: { source_id: "SP-NONE-#{suffix}", category_path: nil }
+    )
+
+    post api_v1_commerce_imports_url,
+      params: { merchant_id: @merchant.merchant_id, products: [ entry ] },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(source_id: "SP-NONE-#{suffix}")
+
+    assert_nil product.category_id
+    assert_equal [], product.source_category_path
+  end
+
   # ── Rich source detail ──────────────────────────────────────────────
 
   test "every field the marketplace published is mirrored onto the listing" do

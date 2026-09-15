@@ -166,13 +166,11 @@ module Commerce
     # Read from the same place `category_path_for` reads, so provenance and
     # placement can never disagree about which chain the listing arrived with.
     def source_category_path(entry)
-      path = Array(as_hash(entry["category"])["path"]).filter_map { |name| name.to_s.strip.presence }
-      return path if path.present?
+      names = category_path_for(entry)
+      return names if names.present?
 
       source = as_hash(entry["source"])
-      legacy = Array(source["category_path"]).filter_map { |name| name.to_s.strip.presence }
-      legacy.presence ||
-        Array(source["category_slugs"]).filter_map { |slug| slug.to_s.strip.presence }
+      Array(source["category_slugs"]).filter_map { |slug| slug.to_s.strip.presence }
     end
 
     def assign_storefront(product, entry)
@@ -259,13 +257,24 @@ module Commerce
       Commerce::CategoryResolver.apply_to(product, category_path_for(entry))
     end
 
-    # The category chain the scraper published, or the flat name pair older
-    # payloads carried.
+    # The category chain the scraper published, read from wherever the payload
+    # actually carries it.
+    #
+    # The contract puts it at the top of the entry; one version of the scraper
+    # sent it inside `product` instead, and the very first payloads carried
+    # only the flat name pair. All four shapes are accepted, because reading
+    # just one of them is how a whole catalog arrives with no category at all —
+    # imported, and invisible to every category browse.
     def category_path_for(entry)
-      path = as_hash(entry["category"])["path"]
-      return Array(path) if path.present?
+      candidates = [
+        as_hash(entry["category"])["path"],
+        as_hash(as_hash(entry["product"])["category"])["path"],
+        as_hash(entry["source"])["category_path"],
+        [ entry["parent_category_name"], entry["category_name"] ]
+      ]
+      found = candidates.find { |path| Array(path).compact_blank.present? }
 
-      [ entry["parent_category_name"], entry["category_name"] ].compact
+      Array(found).compact_blank.map { |name| name.to_s.strip }.reject(&:empty?)
     end
 
     def sync_skus(product, skus)
