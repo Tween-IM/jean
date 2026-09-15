@@ -42,6 +42,40 @@
     </div>
   </div>
 
+  <!-- Imported catalog -->
+  <div class="bg-white rounded-xl border border-gray-200 mb-8">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <div>
+        <h2 class="text-sm font-semibold text-gray-900">Imported catalog</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Jumia and Konga catalogs mirrored by the scraper</p>
+      </div>
+      <%= link_to admin_imports_path, class: "text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1" do %>
+        Monitor imports <%= fluent_icon "chevron_right", class: "w-3 h-3" %>
+      <% end %>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4">
+      <div class="px-5 py-4 border-b lg:border-b-0 border-gray-100 lg:border-r">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Source stores</p>
+        <p class="mt-1 text-2xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@stats[:total_imported_stores]) %></p>
+      </div>
+      <div class="px-5 py-4 border-b lg:border-b-0 border-gray-100 lg:border-r">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Imported listings</p>
+        <p class="mt-1 text-2xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@stats[:total_imported_products]) %></p>
+      </div>
+      <div class="px-5 py-4 border-b lg:border-b-0 border-gray-100 lg:border-r">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Awaiting contact</p>
+        <p class="mt-1 text-2xl font-semibold tracking-tight <%= @stats[:imported_stores_without_contact].positive? ? 'text-amber-600' : 'text-gray-900' %>"><%= number_with_delimiter(@stats[:imported_stores_without_contact]) %></p>
+        <p class="mt-0.5 text-xs text-gray-500">Stores with no reachable seller</p>
+      </div>
+      <div class="px-5 py-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last import sync</p>
+        <p class="mt-1 text-sm font-medium text-gray-900">
+          <%= @stats[:last_import_sync_at] ? "#{time_ago_in_words(@stats[:last_import_sync_at])} ago" : "never" %>
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- Two Column: Recent Users + Recent Mini Apps -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Recent Users -->

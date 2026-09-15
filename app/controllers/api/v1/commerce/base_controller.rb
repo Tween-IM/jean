@@ -59,6 +59,10 @@ class Api::V1::Commerce::BaseController < Api::BaseController
     true
   end
 
+  def merchant_owner?(merchant)
+    @current_user.present? && merchant.owner_user_id == @current_user.matrix_user_id
+  end
+
   def ensure_merchant_owner(merchant)
     return false if merchant.owner_user_id == @current_user.matrix_user_id
 
@@ -124,6 +128,10 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       store_url_slug: storefront.store_url_slug,
       display_name: storefront.display_name,
       description: storefront.description,
+      # The store's bio is shopper-facing: the storefront page renders it, and
+      # imported (scraped) stores carry their marketplace blurb here. Mirrors
+      # merchant_json, where `about` is public too.
+      about: storefront.about,
       status: storefront.status,
       store_type: storefront.store_type,
       logo_url: storefront.logo_url,
@@ -137,17 +145,31 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       product_count: storefront.product_count,
       order_count: storefront.order_count,
       view_count: storefront.view_count,
+      imported: storefront.source_platform.present?,
+      source_platform: storefront.source_platform,
+      source_kind: storefront.source_kind,
+      source_url: storefront.source_url,
+      source_synced_at: storefront.source_synced_at,
       created_at: storefront.created_at,
       updated_at: storefront.updated_at
     }
 
+    # Contact details come from the source marketplace and exist so the
+    # platform team can reach the seller — never expose them publicly.
     if detail == :full
       base.merge!(
-        about: storefront.about,
         policies: storefront.policies,
         social_share_enabled: storefront.social_share_enabled,
         seo_title: storefront.seo_title,
         seo_description: storefront.seo_description,
+        contact: {
+          phone: storefront.contact_phone,
+          email: storefront.contact_email,
+          website: storefront.contact_website,
+          address: storefront.contact_address
+        },
+        social_links: storefront.social_links,
+        source_payload: storefront.source_payload,
         merchant: merchant_json(storefront.commerce_merchant, detail: :public)
       )
     end
@@ -342,17 +364,36 @@ class Api::V1::Commerce::BaseController < Api::BaseController
   # ============================================================================
 
   def review_json(review)
-    reviewer = SocialCreatorProfile.find_by(user_id: review.buyer_user_id)
+    identity =
+      if review.imported?
+        # Reviews imported from Jumia/Konga have no Tween user behind them.
+        # Show the canonical reviewer name captured at scrape time, or the
+        # neutral "Anonymous Buyer" label when the source hid the reviewer.
+        {
+          reviewer_handle: review.reviewer_handle.presence || "Anonymous",
+          reviewer_display_name: review.reviewer_display_name.presence || "Anonymous Buyer",
+          reviewer_avatar_url: nil
+        }
+      else
+        reviewer = SocialCreatorProfile.find_by(user_id: review.buyer_user_id)
+        {
+          reviewer_handle: reviewer&.handle,
+          reviewer_display_name: reviewer&.display_name,
+          reviewer_avatar_url: reviewer&.avatar_url
+        }
+      end
+
     {
       review_id: review.review_id,
-      reviewer_handle: reviewer&.handle,
-      reviewer_display_name: reviewer&.display_name,
-      reviewer_avatar_url: reviewer&.avatar_url,
+      **identity,
       rating: review.rating,
       title: review.title,
       body: review.body,
       helpful_count: review.helpful_count,
       status: review.status,
+      is_anonymous: review.is_anonymous?,
+      imported: review.imported?,
+      source_platform: review.source_platform,
       created_at: review.created_at
     }
   end

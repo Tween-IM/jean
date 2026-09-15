@@ -1,0 +1,97 @@
+<% content_for :title, "Imported stores — TMCP Admin" %>
+<% content_for :page_title, "Imports" %>
+
+<div class="mb-6 flex flex-wrap items-start justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-semibold text-gray-900">Source stores</h1>
+    <p class="mt-1 text-sm text-gray-500">
+      Seller and brand stores mirrored from the marketplaces —
+      <%= number_with_delimiter(@imported_count) %> imported.
+    </p>
+  </div>
+  <%= link_to "← Import overview", admin_imports_path,
+      class: "text-sm font-medium text-indigo-600 hover:text-indigo-800" %>
+</div>
+
+<%= form_with url: admin_import_storefronts_path, method: :get, class: "mb-4 flex flex-wrap items-end gap-3" do %>
+  <div>
+    <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Search</label>
+    <input type="text" name="query" value="<%= params[:query] %>" placeholder="Store, slug or source id"
+      class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64 placeholder-gray-400">
+  </div>
+  <div>
+    <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Platform</label>
+    <select name="platform" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="">All</option>
+      <% @platforms.each do |platform| %>
+        <option value="<%= platform %>" <%= "selected" if params[:platform] == platform %>><%= platform %></option>
+      <% end %>
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Kind</label>
+    <select name="kind" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="">All</option>
+      <% @kinds.each do |kind| %>
+        <option value="<%= kind %>" <%= "selected" if params[:kind] == kind %>><%= kind %></option>
+      <% end %>
+    </select>
+  </div>
+  <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors">Filter</button>
+  <% if params[:query].present? || params[:platform].present? || params[:kind].present? %>
+    <%= link_to "Clear", admin_import_storefronts_path, class: "px-3 py-2 text-sm text-gray-600 hover:text-gray-900" %>
+  <% end %>
+<% end %>
+
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+  <% if @storefronts.records.any? %>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Store</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Listings</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last sync</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <% @storefronts.records.each do |store| %>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4">
+                <div class="text-sm font-medium text-gray-900"><%= store.display_name %></div>
+                <div class="text-xs text-gray-500 font-mono"><%= store.slug %></div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <%= platform_badge(store.source_platform) %>
+                <div class="mt-1">
+                  <%= source_kind_badge(store.source_kind) %>
+                  <span class="ml-1 text-xs text-gray-400 font-mono"><%= store.source_id %></span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><%= number_with_delimiter(store.product_count) %></td>
+              <td class="px-6 py-4 whitespace-nowrap"><%= contact_badge(store) %></td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-2 py-1 text-xs font-medium rounded-full <%= store.status == "published" ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700' %>">
+                  <%= store.status %>
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= sync_label(store.source_synced_at) %></td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <%= link_to "Manage", admin_import_storefront_path(store), class: "text-indigo-600 hover:text-indigo-900" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <%= render "admin/shared/pagination", collection: @storefronts %>
+  <% else %>
+    <div class="p-12 text-center">
+      <p class="text-sm text-gray-500">No imported stores match this filter.</p>
+    </div>
+  <% end %>
+</div>

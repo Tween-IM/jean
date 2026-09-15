@@ -60,6 +60,8 @@ class User < ApplicationRecord
     when :manage_approvals then admin_compliance_manager? || admin_operations_manager? || admin_super_admin?
     when :view_audit then admin_compliance_manager? || admin_super_admin?
     when :view_settings, :manage_settings then admin_super_admin?
+    when :view_imports then admin_support? || admin_operations_analyst? || admin_operations_manager?
+    when :manage_imports then admin_operations_manager?
     else false
     end
   end

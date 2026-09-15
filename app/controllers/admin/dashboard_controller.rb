@@ -11,7 +11,11 @@ module Admin
         total_storage_entries: safe_count(StorageEntry),
         total_gifts: safe_count(GroupGift),
         total_oauth_apps: safe_count(Doorkeeper::Application),
-        total_oauth_tokens: safe_count(Doorkeeper::AccessToken)
+        total_oauth_tokens: safe_count(Doorkeeper::AccessToken),
+        total_imported_products: safe_count(CommerceProduct.imported),
+        total_imported_stores: safe_count(CommerceStorefront.imported),
+        imported_stores_without_contact: safe_count(CommerceStorefront.imported.without_contact),
+        last_import_sync_at: safe_maximum(CommerceProduct.imported, :source_synced_at)
       }
 
       @recent_users = safe_relation(User)
@@ -33,6 +37,13 @@ module Admin
     rescue ActiveRecord::StatementInvalid => e
       Rails.logger.error "safe_count_for #{model}.#{scope} failed: #{e.message}"
       0
+    end
+
+    def safe_maximum(relation, column)
+      relation.maximum(column)
+    rescue ActiveRecord::StatementInvalid => e
+      Rails.logger.error "safe_maximum for #{relation}.#{column} failed: #{e.message}"
+      nil
     end
 
     def safe_relation(model)

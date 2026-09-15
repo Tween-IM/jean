@@ -21,6 +21,10 @@ class CommerceProduct < ApplicationRecord
   scope :active, -> { where(status: "active") }
   scope :featured, -> { where(featured: true) }
   scope :trending, -> { order(sales_count: :desc, view_count: :desc) }
+
+  # Listings mirrored from an external marketplace (Jumia, Konga, ...) by the
+  # scraper/importer. Provenance lives in the source_* columns.
+  scope :imported, -> { where.not(source_platform: nil) }
   scope :with_available_stock, -> {
     joins(:commerce_skus)
       .where.not(commerce_skus: { inventory_status: "out_of_stock" })

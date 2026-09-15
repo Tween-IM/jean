@@ -50,7 +50,7 @@ class Api::V1::Commerce::StorefrontsController < Api::V1::Commerce::BaseControll
     storefront.increment!(:view_count)
 
     render json: {
-      storefront: storefront_json(storefront, detail: :public),
+      storefront: storefront_json(storefront, detail: storefront_detail(storefront)),
       products: storefront.commerce_products.active.limit(20).map { |p| product_json(p, detail: :public) }
     }
   end
@@ -62,7 +62,7 @@ class Api::V1::Commerce::StorefrontsController < Api::V1::Commerce::BaseControll
     storefront.increment!(:view_count)
 
     render json: {
-      storefront: storefront_json(storefront, detail: :public),
+      storefront: storefront_json(storefront, detail: storefront_detail(storefront)),
       products: storefront.commerce_products.active.limit(20).map { |p| product_json(p, detail: :public) }
     }
   end
@@ -88,6 +88,11 @@ class Api::V1::Commerce::StorefrontsController < Api::V1::Commerce::BaseControll
 
     storefront.archive!
     render json: { storefront: storefront_json(storefront, detail: :public) }
+  end
+
+  # The owner sees imported contact details; everyone else gets the public view.
+  def storefront_detail(storefront)
+    merchant_owner?(storefront.commerce_merchant) ? :full : :public
   end
 
   def stats

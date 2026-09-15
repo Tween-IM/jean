@@ -15,6 +15,10 @@ class CommerceReview < ApplicationRecord
   scope :for_product, ->(product_id) { where(commerce_product_id: product_id) }
   scope :for_merchant, ->(merchant_id) { where(commerce_merchant_id: merchant_id) }
 
+  # Reviews mirrored from an external marketplace, with reviewer identity
+  # captured canonically at scrape time (named buyer or anonymous).
+  scope :imported, -> { where(imported: true) }
+
   after_save :recache_product_stats, if: -> { saved_change_to_status? && status == "approved" }
   after_save :recache_merchant_stats, if: -> { saved_change_to_status? && status == "approved" }
 

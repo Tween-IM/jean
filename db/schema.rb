@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -436,6 +436,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
     t.integer "sales_count", default: 0
     t.text "seo_description"
     t.string "seo_title"
+    t.string "source_id"
+    t.jsonb "source_payload", default: {}, null: false
+    t.string "source_platform"
+    t.datetime "source_synced_at"
+    t.text "source_url"
     t.string "status", default: "draft", null: false
     t.string "store_type", default: "marketplace", null: false
     t.bigint "subcategory_id"
@@ -450,6 +455,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
     t.index ["commerce_storefront_id"], name: "index_commerce_products_on_commerce_storefront_id"
     t.index ["featured"], name: "index_commerce_products_on_featured"
     t.index ["product_id"], name: "index_commerce_products_on_product_id", unique: true
+    t.index ["source_platform", "source_id"], name: "index_commerce_products_on_source_identity", unique: true, where: "((source_platform IS NOT NULL) AND (source_id IS NOT NULL))"
     t.index ["tags"], name: "index_commerce_products_on_tags", using: :gin
   end
 
@@ -493,8 +499,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
     t.datetime "created_at", null: false
     t.integer "helpful_count", default: 0
     t.text "helpful_voter_ids", default: [], array: true
+    t.boolean "imported", default: false, null: false
+    t.boolean "is_anonymous", default: false, null: false
     t.integer "rating", null: false
+    t.datetime "review_date"
     t.string "review_id", null: false
+    t.string "reviewer_display_name"
+    t.string "reviewer_handle"
+    t.jsonb "source_payload", default: {}, null: false
+    t.string "source_platform"
+    t.string "source_review_id"
     t.string "status", default: "pending", null: false
     t.string "title"
     t.datetime "updated_at", null: false
@@ -506,6 +520,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
     t.index ["commerce_product_id"], name: "index_commerce_reviews_on_commerce_product_id"
     t.index ["helpful_voter_ids"], name: "index_commerce_reviews_on_helpful_voter_ids", using: :gin
     t.index ["review_id"], name: "index_commerce_reviews_on_review_id", unique: true
+    t.index ["source_platform", "source_review_id"], name: "index_commerce_reviews_on_source_identity", unique: true, where: "((source_platform IS NOT NULL) AND (source_review_id IS NOT NULL))"
   end
 
   create_table "commerce_service_milestones", force: :cascade do |t|
@@ -566,6 +581,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
     t.boolean "allow_promotion", default: true, null: false
     t.string "banner_url"
     t.bigint "commerce_merchant_id", null: false
+    t.text "contact_address"
+    t.string "contact_email"
+    t.string "contact_phone"
+    t.string "contact_website"
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
     t.text "description"
@@ -581,7 +600,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
     t.text "seo_description"
     t.string "seo_title"
     t.string "slug", null: false
+    t.jsonb "social_links", default: {}, null: false
     t.boolean "social_share_enabled", default: true
+    t.string "source_id"
+    t.string "source_kind"
+    t.jsonb "source_payload", default: {}, null: false
+    t.string "source_platform"
+    t.datetime "source_synced_at"
+    t.text "source_url"
     t.string "status", default: "draft", null: false
     t.string "store_type", default: "marketplace", null: false
     t.string "store_url_slug"
@@ -592,6 +618,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
     t.index ["commerce_merchant_id"], name: "index_commerce_storefronts_on_commerce_merchant_id"
     t.index ["deleted_at"], name: "index_commerce_storefronts_on_deleted_at"
     t.index ["featured"], name: "index_commerce_storefronts_on_featured"
+    t.index ["source_platform", "source_kind", "source_id"], name: "index_commerce_storefronts_on_source_identity"
     t.index ["status"], name: "index_commerce_storefronts_on_status"
     t.index ["store_url_slug"], name: "index_commerce_storefronts_on_store_url_slug", unique: true
     t.index ["storefront_id"], name: "index_commerce_storefronts_on_storefront_id", unique: true

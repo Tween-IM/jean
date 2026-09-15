@@ -147,6 +147,11 @@ Rails.application.routes.draw do
             end
             resources :reviews, only: [ :create ], controller: "reviews"
           end
+          resources :imports, only: [ :create ] do
+            collection do
+              post :lookup
+            end
+          end
           resources :carts, only: [ :create, :show ] do
             post :shipping_quotes, on: :member
             resources :items, only: [ :update, :destroy ], controller: :cart_items, param: :sku_id
@@ -332,6 +337,16 @@ Rails.application.routes.draw do
     end
     resources :users, only: [ :index, :show, :edit, :update ]
     resources :oauth_applications, only: [ :index, :show, :destroy ], path: "oauth-apps"
+
+    # Externally-imported catalogs (Jumia/Konga scraper)
+    get "imports", to: "imports#index", as: :imports
+    get "imports/storefronts", to: "imports#storefronts", as: :import_storefronts
+    get "imports/storefronts/:id", to: "imports#show_storefront", as: :import_storefront
+    patch "imports/storefronts/:id", to: "imports#update_storefront"
+    get "imports/products", to: "imports#products", as: :import_products
+    get "imports/products/:id", to: "imports#show_product", as: :import_product
+    patch "imports/products/:id", to: "imports#update_product"
+    patch "imports/reviews/:id", to: "imports#update_review", as: :import_review
 
     # Mini-app review workflow
     get "mini-app-reviews", to: "mini_app_reviews#index", as: :mini_app_reviews

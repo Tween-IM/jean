@@ -15,6 +15,7 @@ class CommerceStorefront < ApplicationRecord
   validates :store_url_slug, uniqueness: true, allow_blank: true
   validates :status, inclusion: { in: %w[draft published suspended closed] }
   validates :store_type, inclusion: { in: %w[marketplace ecommerce] }
+  validates :source_kind, inclusion: { in: %w[seller brand] }, allow_nil: true
   validates :accent_color, format: { with: /\A#[0-9A-Fa-f]{6}\z/, message: "must be a valid hex color" }, allow_blank: true
 
   # `featured` is an admin/platform control (which stores Tween surfaces in
@@ -30,6 +31,20 @@ class CommerceStorefront < ApplicationRecord
   scope :active, -> { where(deleted_at: nil) }
   scope :published, -> { where(status: "published") }
   scope :featured, -> { where(featured: true) }
+
+  # Stores mirrored from an external marketplace (Jumia, Konga, ...) by the
+  # scraper/importer. Provenance lives in the source_* columns.
+  scope :imported, -> { where.not(source_platform: nil) }
+  # Imported stores where the source published no way to reach the seller —
+  # the platform team's outreach queue.
+  scope :without_contact, -> {
+    where(
+      contact_phone: [ nil, "" ],
+      contact_email: [ nil, "" ],
+      contact_website: [ nil, "" ],
+      contact_address: [ nil, "" ]
+    )
+  }
 
   def recache_stats!
     update!(
