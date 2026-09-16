@@ -189,21 +189,29 @@ module Commerce
       branding = as_hash(entry["storefront"]).presence || @storefront_branding
       storefront_ref = entry["storefront_id"].presence || @storefront_id.presence
 
-      product.commerce_storefront ||=
-        if storefront_ref.present?
-          @merchant.commerce_storefronts.find_by!(storefront_id: storefront_ref)
-        else
-          find_or_create_storefront(branding)
-        end
-
-      apply_storefront_branding(product.commerce_storefront, branding)
+      if storefront_ref.present?
+        product.commerce_storefront ||= @merchant.commerce_storefronts.find_by!(storefront_id: storefront_ref)
+        apply_storefront_branding(product.commerce_storefront, branding)
+      elsif as_hash(branding)["display_name"].blank?
+        # Branding that names nothing goes to the merchant's default store.
+        product.commerce_storefront ||= default_storefront
+      else
+        product.commerce_storefront ||= find_or_create_storefront(branding)
+        apply_storefront_branding(product.commerce_storefront, branding)
+      end
     end
 
     # Marketplaces get their own store so branding and browsing stay coherent
     # ("Jumia on Tween" vs "Konga on Tween") instead of every imported catalog
     # collapsing into the merchant's first store.
     def find_or_create_storefront(branding)
-      slug = branding["slug"].presence
+      # A store is keyed by slug, and a payload that names a store without
+      # slugging it still names *a* store: derive the slug from the name rather
+      # than letting the branding fall through onto the merchant's first store.
+      # That fallthrough is how a seller's name and blurb once landed on the
+      # platform's "Konga on Tween", and because a product keeps whichever
+      # storefront it already has, every later import inherited the mistake.
+      slug = branding["slug"].presence || branding["display_name"].to_s.parameterize.presence
       return default_storefront if slug.blank?
 
       @merchant.commerce_storefronts.find_or_create_by!(slug: slug) do |sf|

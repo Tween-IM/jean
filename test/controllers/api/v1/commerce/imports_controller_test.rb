@@ -99,6 +99,28 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "ecommerce", classified.reload.store_type
   end
 
+  test "branding that names no store never relabels the platform store" do
+    platform = @merchant.commerce_storefronts.create!(
+      display_name: "Konga on Tween", slug: "konga-on-tween", status: "published"
+    )
+
+    entry = product_entry
+    # A source store whose slug never reached us. The name still names a store,
+    # so it gets one of its own instead of renaming the platform's.
+    entry[:storefront] = { display_name: "ZITAS SUPERMART", about: "Honey and oats." }
+
+    import_entry(entry)
+
+    assert_equal "Konga on Tween", platform.reload.display_name
+    assert_nil platform.about, "the seller's blurb must not become the platform's"
+
+    product = CommerceProduct.find_by!(source_id: "SP-1234")
+    seller_store = product.commerce_storefront
+    assert_equal "ZITAS SUPERMART", seller_store.display_name
+    assert_equal "zitas-supermart", seller_store.slug
+    refute_equal platform.id, seller_store.id
+  end
+
   test "re-importing the same source record updates instead of duplicating" do
     2.times do
       post api_v1_commerce_imports_url,
