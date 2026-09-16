@@ -1,22 +1,89 @@
 # frozen_string_literal: true
 
 class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
+  #: What a listing costs — its cheapest SKU. Read as a correlated subquery
+  #: rather than a join so a listing with several SKUs stays one row instead of
+  #: being duplicated by the join (which is also what forced the old price sort
+  #: into a DISTINCT that PostgreSQL rejects alongside ORDER BY).
+  MIN_PRICE_SQL = "(SELECT MIN(commerce_skus.price_cents) FROM commerce_skus " \
+                  "WHERE commerce_skus.commerce_product_id = commerce_products.id)".freeze
+
+  #: How each sort is ordered and paged. `key` is both the ordering expression
+  #: and what the cursor is built from, so the two can never disagree.
+  #: `cursor_value` reads the same value back off a loaded record.
+  #: `computed` marks a sort whose key is an expression rather than a plain
+  #: column. `with_available_stock` is a SELECT DISTINCT (the SKU join
+  #: duplicates rows) and PostgreSQL requires every ORDER BY expression of a
+  #: DISTINCT query to be in the select list, so those keys are aliased in as
+  #: `sort_key` and the ordering refers to the alias.
+  SORTS = {
+    "newest" => {
+      key: "commerce_products.created_at",
+      direction: :desc,
+      cursor_value: ->(product) { product.created_at.utc.iso8601(6) }
+    },
+    "popular" => {
+      key: "COALESCE(commerce_products.sales_count, 0)",
+      direction: :desc,
+      computed: true,
+      cursor_value: ->(product) { product.sort_key.to_i }
+    },
+    "rating" => {
+      key: "COALESCE(commerce_products.rating_average, 0)",
+      direction: :desc,
+      computed: true,
+      cursor_value: ->(product) { product.sort_key.to_f }
+    },
+    "price_asc" => {
+      key: MIN_PRICE_SQL,
+      direction: :asc,
+      computed: true,
+      cursor_value: ->(product) { product.sort_key.to_i }
+    },
+    "price_desc" => {
+      key: MIN_PRICE_SQL,
+      direction: :desc,
+      computed: true,
+      cursor_value: ->(product) { product.sort_key.to_i }
+    }
+  }.freeze
+
+  #: Newest first, which is what the storefront opens on.
+  DEFAULT_SORT = {
+    key: "commerce_products.created_at",
+    direction: :desc,
+    cursor_value: ->(product) { product.created_at.utc.iso8601(6) }
+  }.freeze
+
   def index
     require_scope("commerce:read")
 
-    products = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_category).preload(:commerce_skus).order(created_at: :desc)
+    products = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_category).preload(:commerce_skus)
     products = products.joins(:commerce_merchant).where(commerce_merchants: { merchant_id: params[:merchant_id] }) if params[:merchant_id].present?
     products = products.where(commerce_storefront_id: ::CommerceStorefront.where(storefront_id: params[:storefront_id]).select(:id)) if params[:storefront_id].present?
-    products = products.where(category_id: ::CommerceCategory.where(category_id: params[:category_id]).select(:id)) if params[:category_id].present?
+
+    if params[:category_id].present?
+      branch_ids = category_branch_ids(params[:category_id])
+      if branch_ids.empty?
+        render json: { products: [], meta: { total: 0 }, next_cursor: nil }
+        return
+      end
+      # A listing records the top of its chain as its category and its leaf as
+      # its subcategory, so a branch has to be matched on either side —
+      # otherwise browsing a subcategory finds nothing.
+      products = products.where(category_id: branch_ids).or(products.where(subcategory_id: branch_ids))
+    end
 
     if params[:min_price].present?
-      min_price = params[:min_price].to_i
-      products = products.joins(:commerce_skus).where("commerce_skus.price_cents >= ?", min_price)
+      products = products.where("#{MIN_PRICE_SQL} >= ?", params[:min_price].to_i)
     end
 
     if params[:max_price].present?
-      max_price = params[:max_price].to_i
-      products = products.joins(:commerce_skus).where("commerce_skus.price_cents <= ?", max_price)
+      products = products.where("#{MIN_PRICE_SQL} <= ?", params[:max_price].to_i)
+    end
+
+    if params[:condition].present?
+      products = products.where(condition: params[:condition])
     end
 
     if params[:search].present?
@@ -24,21 +91,21 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
       products = products.where("LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR ? = ANY(tags)", query, query, params[:search].downcase)
     end
 
-    # Sorting
-    products = case params[:sort]
-               when "price_asc" then products.joins(:commerce_skus).order("commerce_skus.price_cents ASC")
-               when "price_desc" then products.joins(:commerce_skus).order("commerce_skus.price_cents DESC")
-               when "popular" then products.order(sales_count: :desc, view_count: :desc)
-               when "rating" then products.order(rating_average: :desc)
-               else products.order(created_at: :desc)
-               end
+    total_count = products.count
 
-    total_count = products.distinct.count
-    products = products.distinct.limit(limit_param(default: 20, max: 100))
+    sort = SORTS[params[:sort].to_s] || DEFAULT_SORT
+    order_key = sort[:key]
+    if sort[:computed]
+      products = products.select("commerce_products.*, (#{sort[:key]}) AS sort_key")
+      order_key = "sort_key"
+    end
+    products = products.order(Arel.sql("#{order_key} #{sort[:direction] == :asc ? 'ASC' : 'DESC'}"), id: sort[:direction])
+    products, next_cursor = page_of(products, sort)
 
     render json: {
       products: products.map { |p| product_json(p, detail: :public) },
-      meta: { total: total_count }
+      meta: { total: total_count },
+      next_cursor: next_cursor
     }
   end
 
@@ -288,5 +355,70 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
 
   def limit_param(default:, max:)
     [ (params[:limit] || default).to_i, max ].min
+  end
+
+  # ── Paging ──────────────────────────────────────────────────────────
+
+  # One page of listings, plus the cursor that asks for the next one.
+  #
+  # The cursor is a keyset, not an offset: it names the exact row the previous
+  # page ended on, so a listing published while somebody is scrolling can never
+  # push a page down and make them miss one, or be shown twice. A page is only
+  # answered with a cursor when there is more behind it.
+  def page_of(products, sort)
+    limit = limit_param(default: 20, max: 100)
+
+    if (values = decode_product_cursor(params[:cursor]))
+      key, last_id = values
+      comparison = sort[:direction] == :asc ? ">" : "<"
+      products = products.where(
+        "(#{sort[:key]}, commerce_products.id) #{comparison} (?, ?)",
+        key, last_id
+      )
+    end
+
+    rows = products.limit(limit + 1).to_a
+    return [ rows, nil ] unless rows.size > limit
+
+    page = rows.first(limit)
+    [ page, encode_product_cursor(sort[:cursor_value].call(page.last), page.last.id) ]
+  end
+
+  def encode_product_cursor(key, id)
+    Base64.urlsafe_encode64({ key: key, id: id }.to_json)
+  end
+
+  # A cursor we cannot read is treated as "start again" rather than an error:
+  # the worst it can cost a reader is the top of the list.
+  def decode_product_cursor(cursor)
+    return nil if cursor.blank?
+
+    decoded = JSON.parse(Base64.urlsafe_decode64(cursor.to_s))
+    key = decoded["key"]
+    id = decoded["id"]
+    return nil if key.nil? || id.nil?
+
+    [ key, id ]
+  rescue StandardError
+    nil
+  end
+
+  # ── Categories ──────────────────────────────────────────────────────
+
+  # The category the buyer picked, plus everything filed under it. Browsing a
+  # top-level branch has to include its children: a product records the top of
+  # its chain as its category, so a parent with four hundred listings under its
+  # subcategories would otherwise look empty.
+  def category_branch_ids(category_id)
+    ::CommerceCategory.connection.select_values(
+      ::CommerceCategory.sanitize_sql_array([ <<~SQL, category_id ])
+        WITH RECURSIVE branch AS (
+          SELECT id, parent_id FROM commerce_categories WHERE category_id = ?
+          UNION
+          SELECT c.id, c.parent_id FROM commerce_categories c JOIN branch b ON c.parent_id = b.id
+        )
+        SELECT id FROM branch
+      SQL
+    ).map(&:to_i)
   end
 end
