@@ -91,4 +91,14 @@ namespace :commerce do
     puts summary
     puts(apply ? "applied" : "dry run — re-run with APPLY=1 to write")
   end
+
+
+  desc "Fill imported storefront branding (banner, about, location, accent) from the listings already stored. Dry run; APPLY=1 writes."
+  task backfill_storefront_branding: :environment do
+    apply = ENV["APPLY"] == "1"
+    summary = Commerce::StorefrontBrandingBackfill.call(dry_run: !apply)
+
+    puts summary
+    puts(apply ? "applied" : "dry run — re-run with APPLY=1 to write")
+  end
 end
