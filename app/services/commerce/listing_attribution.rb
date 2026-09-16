@@ -70,16 +70,28 @@ module Commerce
         )
       end
 
+      recache_counts! unless @dry_run
       @summary
     end
 
     private
 
+    #: Moving a listing invalidates the counters on both ends: the store it left
+    #: (which a store page and the shop's store list both read) and the store it
+    #: joined. Recached once at the end rather than per listing.
+    def recache_counts!
+      stores = @stores_by_slug.values.reject { |store| store.is_a?(Symbol) }
+      CommerceStorefront.where(id: (stores.map(&:id) + catch_all_ids).uniq).find_each(&:recache_stats!)
+    end
+
+    def catch_all_ids
+      @catch_all_ids ||= CommerceStorefront.where("slug LIKE ?", CATCH_ALL_SLUG).pluck(:id)
+    end
+
     #: Only listings on a marketplace's own store, and only imported ones: a
     #: store a person created is never touched.
     def candidates
-      catch_all = CommerceStorefront.where("slug LIKE ?", CATCH_ALL_SLUG).select(:id)
-      CommerceProduct.where(commerce_storefront_id: catch_all)
+      CommerceProduct.where(commerce_storefront_id: catch_all_ids)
                      .where.not(source_platform: nil)
                      .includes(:commerce_merchant)
     end

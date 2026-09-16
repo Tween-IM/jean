@@ -80,6 +80,19 @@ class Commerce::ListingAttributionTest < ActiveSupport::TestCase
     assert_equal @catch_all.id, product.reload.commerce_storefront_id
   end
 
+  test "the counters on both stores are refreshed by a move" do
+    @catch_all.update!(product_count: 500)
+    store = @merchant.commerce_storefronts.create!(
+      display_name: "Olah", slug: "olah-konga", status: "published", source_platform: "konga"
+    )
+    listing_in_catch_all(seller: { "name" => "Olah" })
+
+    Commerce::ListingAttribution.call(dry_run: false)
+
+    assert_equal 0, @catch_all.reload.product_count
+    assert_equal 1, store.reload.product_count
+  end
+
   test "a dry run reports what it would do without writing" do
     product = listing_in_catch_all(seller: { "name" => "Springhealthwellness" })
 
