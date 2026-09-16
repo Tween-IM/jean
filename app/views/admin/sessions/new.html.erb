@@ -85,6 +85,20 @@
       <% end %>
 
       <div class="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8 backdrop-blur-sm">
+        <% if Admin::MasOidc.configured? %>
+          <%= link_to admin_mas_login_path,
+              class: "mb-5 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 py-2.5 text-sm font-semibold text-white transition-all hover:border-indigo-500 hover:bg-slate-900" do %>
+            <svg class="h-4 w-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+            </svg>
+            Continue with Tween ID
+          <% end %>
+          <div class="mb-5 flex items-center gap-3">
+            <span class="h-px flex-1 bg-slate-800"></span>
+            <span class="text-xs text-slate-500">or use the admin token</span>
+            <span class="h-px flex-1 bg-slate-800"></span>
+          </div>
+        <% end %>
         <%= form_with url: admin_login_path, method: :post, class: "space-y-5", data: { turbo: false } do |f| %>
           <% admin_token = ENV["ADMIN_ACCESS_TOKEN"] %>
           <% if admin_token.present? %>

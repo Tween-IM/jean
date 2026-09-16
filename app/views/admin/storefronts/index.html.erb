@@ -1,0 +1,194 @@
+<% content_for :title, "Storefronts — TMCP Admin" %>
+<% content_for :page_title, "Storefronts" %>
+
+<div class="mb-6 flex flex-wrap items-start justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-semibold text-gray-900">Storefronts</h1>
+    <p class="mt-1 text-sm text-gray-500">
+      Every store on the marketplace — merchant-built and mirrored — with the branding
+      operators have to supply by hand, because the sources publish none.
+    </p>
+  </div>
+  <%= link_to "Imported catalogue →", admin_imports_path, class: "text-sm font-medium text-indigo-600 hover:text-indigo-800" %>
+</div>
+
+<div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Stores</p>
+    <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:total]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500"><%= number_with_delimiter(@stats[:published]) %> published</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Mirrored</p>
+    <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:imported]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500">from marketplaces</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">No logo</p>
+    <p class="mt-1 text-2xl font-semibold <%= @stats[:without_logo].positive? ? 'text-amber-600' : 'text-gray-900' %>"><%= number_with_delimiter(@stats[:without_logo]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500">shows a monogram</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">No banner</p>
+    <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:without_banner]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500">flat header</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">No contact</p>
+    <p class="mt-1 text-2xl font-semibold <%= @stats[:without_contact].positive? ? 'text-amber-600' : 'text-gray-900' %>"><%= number_with_delimiter(@stats[:without_contact]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500">outreach queue</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Featured</p>
+    <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:featured]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500">on the home shelf</p>
+  </div>
+</div>
+
+<%= form_with url: admin_storefronts_path, method: :get, class: "mb-4 bg-white rounded-xl border border-gray-200 p-4" do %>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Search</label>
+      <input type="text" name="query" value="<%= params[:query] %>" placeholder="Store, slug or source id"
+        class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-400">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Platform</label>
+      <select name="platform" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">All</option>
+        <option value="own" <%= "selected" if params[:platform] == "own" %>>Merchant built</option>
+        <% @platforms.each do |platform| %>
+          <option value="<%= platform %>" <%= "selected" if params[:platform] == platform %>><%= platform %></option>
+        <% end %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Kind</label>
+      <select name="kind" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">All</option>
+        <% @kinds.each do |kind| %>
+          <option value="<%= kind %>" <%= "selected" if params[:kind] == kind %>><%= kind.humanize %></option>
+        <% end %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Status</label>
+      <select name="status" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">All</option>
+        <% @statuses.each do |status| %>
+          <option value="<%= status %>" <%= "selected" if params[:status] == status %>><%= status.humanize %></option>
+        <% end %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Store type</label>
+      <select name="store_type" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">All</option>
+        <% @store_types.each do |type| %>
+          <option value="<%= type %>" <%= "selected" if params[:store_type] == type %>><%= type == "ecommerce" ? "Store (sells)" : "Classified (contact)" %></option>
+        <% end %>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Owner</label>
+      <select name="owner" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">All</option>
+        <option value="system" <%= "selected" if params[:owner] == "system" %>>System merchant</option>
+        <option value="merchant" <%= "selected" if params[:owner] == "merchant" %>>Merchant owned</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Gaps</label>
+      <select name="missing" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">Any</option>
+        <option value="logo" <%= "selected" if params[:missing] == "logo" %>>Missing logo</option>
+        <option value="banner" <%= "selected" if params[:missing] == "banner" %>>Missing banner</option>
+        <option value="contact" <%= "selected" if params[:missing] == "contact" %>>Missing contact</option>
+        <option value="products" <%= "selected" if params[:missing] == "products" %>>No listings</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Sort</label>
+      <div class="flex gap-2">
+        <select name="sort" class="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="name" <%= "selected" if params[:sort].blank? || params[:sort] == "name" %>>Name</option>
+          <option value="products" <%= "selected" if params[:sort] == "products" %>>Most listings</option>
+          <option value="orders" <%= "selected" if params[:sort] == "orders" %>>Most orders</option>
+          <option value="newest" <%= "selected" if params[:sort] == "newest" %>>Newest</option>
+        </select>
+        <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Filter</button>
+      </div>
+    </div>
+  </div>
+<% end %>
+
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <% if @storefronts.records.any? %>
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Store</th>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Merchant</th>
+          <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Listings</th>
+          <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branding</th>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+          <th class="px-5 py-3"></th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-100">
+        <% @storefronts.records.each do |storefront| %>
+          <tr class="hover:bg-gray-50">
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-3">
+                <%= store_mark(storefront) %>
+                <div class="min-w-0">
+                  <div class="text-sm font-medium text-gray-900 truncate"><%= storefront.display_name %></div>
+                  <div class="text-xs text-gray-500 font-mono truncate"><%= storefront.slug %></div>
+                </div>
+              </div>
+            </td>
+            <td class="px-5 py-3">
+              <% if storefront.source_platform.present? %>
+                <%= platform_badge(storefront.source_platform) %>
+                <div class="mt-1"><%= source_kind_badge(storefront.source_kind) %></div>
+              <% else %>
+                <span class="text-xs text-gray-500">merchant built</span>
+              <% end %>
+            </td>
+            <td class="px-5 py-3 text-sm text-gray-700">
+              <%= storefront.commerce_merchant.display_name %>
+              <% if storefront.commerce_merchant.system_owned? %>
+                <div class="text-xs text-indigo-600">system</div>
+              <% end %>
+            </td>
+            <td class="px-5 py-3 text-right text-sm text-gray-900"><%= number_with_delimiter(storefront.product_count) %></td>
+            <td class="px-5 py-3 text-right text-sm text-gray-900"><%= number_with_delimiter(storefront.order_count) %></td>
+            <td class="px-5 py-3">
+              <div class="flex flex-wrap gap-1">
+                <%= signal("logo", ok: storefront.logo_url.present?) %>
+                <%= signal("banner", ok: storefront.banner_url.present?) %>
+              </div>
+              <div class="mt-1"><%= contact_badge(storefront) %></div>
+            </td>
+            <td class="px-5 py-3">
+              <%= entity_status_badge(storefront.status) %>
+              <% if storefront.featured %>
+                <div class="mt-1 text-xs text-indigo-600 font-medium">featured</div>
+              <% end %>
+            </td>
+            <td class="px-5 py-3 text-right">
+              <%= link_to "Manage", admin_storefront_path(storefront), class: "text-sm font-medium text-indigo-600 hover:text-indigo-900" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <%= render "admin/shared/pagination", collection: @storefronts %>
+  <% else %>
+    <div class="p-12 text-center">
+      <p class="text-sm text-gray-500">No stores match this filter.</p>
+    </div>
+  <% end %>
+</div>

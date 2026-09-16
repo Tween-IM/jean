@@ -1,0 +1,319 @@
+<% content_for :title, "#{@product.title} — Listing" %>
+<% content_for :page_title, "Catalogue" %>
+
+<% can_manage = current_admin_user.has_admin_permission?(:manage_catalog) %>
+
+<div class="mb-6 flex flex-wrap items-start justify-between gap-3">
+  <div class="flex items-start gap-4 min-w-0">
+    <%= product_thumb(@product, size: "w-16 h-16") %>
+    <div class="min-w-0">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-xl font-semibold text-gray-900 truncate"><%= @product.title %></h1>
+        <%= entity_status_badge(@product.status) %>
+        <% if @product.featured %>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">featured</span>
+        <% end %>
+        <% if @product.source_platform.present? %>
+          <%= platform_badge(@product.source_platform) %>
+        <% end %>
+      </div>
+      <p class="mt-1 text-sm text-gray-500">
+        <span class="font-mono"><%= @product.product_id %></span>
+        · <%= pricing_label(@product) %>
+        · <%= stock_label(@product) %>
+      </p>
+      <p class="mt-0.5 text-sm text-gray-500">
+        Store:
+        <% if @storefront %>
+          <%= link_to @storefront.display_name, admin_storefront_path(@storefront), class: "text-indigo-600 hover:text-indigo-800" %>
+        <% else %>
+          <span class="text-amber-600">unassigned</span>
+        <% end %>
+        <% if @category %>
+          · Category: <%= @category.name %><% if @subcategory %> / <%= @subcategory.name %><% end %>
+        <% else %>
+          · <span class="text-amber-600">uncategorised</span>
+        <% end %>
+      </p>
+    </div>
+  </div>
+  <%= link_to "← All listings", admin_products_path, class: "text-sm font-medium text-indigo-600 hover:text-indigo-800" %>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <%= form_with model: @product, url: admin_product_path(@product), method: :patch, class: "bg-white rounded-xl border border-gray-200" do |form| %>
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="text-sm font-semibold text-gray-900">Listing settings</h2>
+        <p class="text-xs text-gray-500 mt-0.5">What the buyer reads, and where the listing sits in the taxonomy</p>
+      </div>
+      <div class="p-5 space-y-5">
+        <div>
+          <%= form.label :title, class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+          <%= form.text_field :title, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+        </div>
+        <div>
+          <%= form.label :short_description, "Short description", class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+          <%= form.text_field :short_description, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+        </div>
+        <div>
+          <%= form.label :description, class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+          <%= form.text_area :description, rows: 8, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <%= form.label :status, class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+            <%= form.select :status, %w[active draft archived rejected].map { |status| [ status.humanize, status ] }, {},
+                class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+          </div>
+          <div>
+            <%= form.label :condition, class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+            <%= form.select :condition, %w[new used refurbished].map { |condition| [ condition.humanize, condition ] }, {},
+                class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+          </div>
+          <div>
+            <%= form.label :category_id, "Category", class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+            <%= form.collection_select :category_id, @categories, :id, :name, { include_blank: "Uncategorised" },
+                class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+          </div>
+          <div>
+            <%= form.label :subcategory_id, "Subcategory", class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+            <%= form.collection_select :subcategory_id, @categories, :id, :name, { include_blank: "None" },
+                class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+          </div>
+          <div>
+            <%= form.label :warranty, class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+            <%= form.text_field :warranty, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+          </div>
+          <div>
+            <%= form.label :tags, "Tags (comma separated)", class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+            <%= text_field_tag "commerce_product[tags]", Array(@product.tags).join(", "),
+                class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <%= form.label :seo_title, class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+            <%= form.text_field :seo_title, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+          </div>
+          <div>
+            <%= form.label :seo_description, class: "block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1" %>
+            <%= form.text_field :seo_description, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+          </div>
+        </div>
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+          <%= form.check_box :featured, class: "rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" %>
+          Featured listing
+        </label>
+      </div>
+      <% if can_manage %>
+        <div class="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
+          <p class="text-xs text-gray-400">Re-imports keep merged copy; your edits to status and taxonomy always win.</p>
+          <%= form.submit "Save listing", class: "px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg" %>
+        </div>
+      <% end %>
+    <% end %>
+
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="text-sm font-semibold text-gray-900">Variants (SKUs)</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Price and stock live here — one row per variant</p>
+      </div>
+      <% if @skus.any? %>
+        <div class="divide-y divide-gray-100">
+          <% @skus.each do |sku| %>
+            <div class="px-5 py-4">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-900"><%= sku.title.presence || "Default" %></span>
+                  <%= entity_status_badge(sku.inventory_status) %>
+                  <span class="text-xs text-gray-400 font-mono"><%= sku.sku_id %></span>
+                </div>
+                <span class="text-xs text-gray-500">
+                  properties: <span class="font-mono"><%= (sku.properties.is_a?(Hash) ? sku.properties : {}).values.compact.join(" / ").presence || "—" %></span>
+                </span>
+              </div>
+              <% if can_manage %>
+                <%= form_with url: admin_product_sku_path(@product, sku), method: :patch, class: "grid grid-cols-1 sm:grid-cols-5 gap-2 items-end" do %>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Title</label>
+                    <input type="text" name="commerce_sku[title]" value="<%= sku.title %>"
+                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Price (<%= sku.currency %>)</label>
+                    <input type="text" name="commerce_sku[price]" value="<%= format('%.2f', sku.price_cents.to_i / 100.0) %>"
+                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Quantity</label>
+                    <input type="number" name="commerce_sku[quantity_available]" value="<%= sku.quantity_available %>"
+                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Stock state</label>
+                    <select name="commerce_sku[inventory_status]" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                      <% %w[in_stock low_stock out_of_stock preorder backorder].each do |state| %>
+                        <option value="<%= state %>" <%= "selected" if sku.inventory_status == state %>><%= state.humanize %></option>
+                      <% end %>
+                    </select>
+                  </div>
+                  <button type="submit" class="px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Save</button>
+                <% end %>
+              <% else %>
+                <p class="text-sm text-gray-700">
+                  <%= money(sku.price_cents, sku.currency) %> · <%= sku.quantity_available %> available · <%= sku.inventory_status.humanize %>
+                </p>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% else %>
+        <div class="px-5 py-6 text-sm text-gray-500">
+          This listing has no variants, so it cannot be priced or bought. Imported listings normally carry at least one.
+        </div>
+      <% end %>
+    </div>
+
+    <% if @reviews.any? %>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-100">
+          <h2 class="text-sm font-semibold text-gray-900">Reviews</h2>
+          <p class="text-xs text-gray-500 mt-0.5">Imported reviews keep their source attribution</p>
+        </div>
+        <div class="divide-y divide-gray-100">
+          <% @reviews.each do |review| %>
+            <div class="px-5 py-3">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-900"><%= review.reviewer_display_name.presence || "Anonymous" %></span>
+                <span class="text-xs text-amber-600"><%= "★" * review.rating.to_i %></span>
+                <%= entity_status_badge(review.status) %>
+                <% if review.imported? %>
+                  <span class="text-xs text-gray-500">via <%= review.source_platform %></span>
+                <% end %>
+              </div>
+              <% if review.title.present? %>
+                <p class="mt-1 text-sm font-medium text-gray-800"><%= review.title %></p>
+              <% end %>
+              <p class="mt-1 text-sm text-gray-600"><%= review.body.to_s.truncate(400) %></p>
+              <p class="mt-1 text-xs text-gray-400">
+                <%= review.review_date&.strftime("%d %b %Y") %>
+                <% if review.is_anonymous? %> · anonymous<% end %>
+              </p>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <!-- Right: media, provenance, facts -->
+  <div class="space-y-6">
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="text-sm font-semibold text-gray-900">Media</h2>
+        <p class="text-xs text-gray-500 mt-0.5"><%= @media.size %> image(s)</p>
+      </div>
+      <div class="px-5 py-4">
+        <% if @media.any? %>
+          <div class="grid grid-cols-3 gap-2">
+            <% @media.each do |url| %>
+              <div class="relative group">
+                <%= image_tag url, alt: "", loading: "lazy", class: "w-full h-20 object-cover rounded-lg border border-gray-200" %>
+                <% if can_manage %>
+                  <%= button_to media_admin_product_path(@product), method: :post,
+                      params: { remove_url: url },
+                      class: "absolute top-1 right-1 rounded-md bg-white/90 px-1.5 py-0.5 text-xs text-red-600 opacity-0 group-hover:opacity-100 transition-opacity",
+                      form: { data: { turbo: false } } do %>
+                    Remove
+                  <% end %>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% else %>
+          <p class="text-sm text-gray-500">No images. The storefront shows a placeholder.</p>
+        <% end %>
+
+        <% if can_manage %>
+          <%= form_with url: media_admin_product_path(@product), method: :post, html: { multipart: true }, class: "mt-4 space-y-2" do %>
+            <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif"
+              class="block w-full text-xs text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-indigo-700 hover:file:bg-indigo-100">
+            <button type="submit" class="w-full px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg">Upload image</button>
+            <p class="text-xs text-gray-400">Stored under <span class="font-mono">commerce/products/…</span> in the shared bucket.</p>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="text-sm font-semibold text-gray-900">Facts</h2>
+      </div>
+      <div class="px-5 py-4 space-y-2 text-sm">
+        <div class="flex justify-between gap-2"><span class="text-gray-500">Sales</span><span class="text-gray-900"><%= number_with_delimiter(@product.sales_count.to_i) %></span></div>
+        <div class="flex justify-between gap-2"><span class="text-gray-500">Views</span><span class="text-gray-900"><%= number_with_delimiter(@product.view_count.to_i) %></span></div>
+        <div class="flex justify-between gap-2"><span class="text-gray-500">Rating</span><span class="text-gray-900"><%= @product.rating_average ? "#{@product.rating_average} (#{@product.rating_count})" : "—" %></span></div>
+        <div class="flex justify-between gap-2"><span class="text-gray-500">Condition</span><span class="text-gray-900"><%= @product.condition %></span></div>
+        <div class="flex justify-between gap-2"><span class="text-gray-500">Weight</span><span class="text-gray-900"><%= @product.weight_grams ? "#{@product.weight_grams} g" : "—" %></span></div>
+      </div>
+    </div>
+
+    <% if @identifiers.any? || @specifications.any? %>
+      <div class="bg-white rounded-xl border border-gray-200">
+        <div class="px-5 py-4 border-b border-gray-100">
+          <h2 class="text-sm font-semibold text-gray-900">Source detail</h2>
+          <p class="text-xs text-gray-500 mt-0.5">As the marketplace published it</p>
+        </div>
+        <div class="px-5 py-4 space-y-3 text-sm">
+          <% @identifiers.each do |key, value| %>
+            <div class="flex justify-between gap-2">
+              <span class="text-gray-500"><%= key.to_s.humanize %></span>
+              <span class="text-gray-900 font-mono text-xs truncate"><%= value %></span>
+            </div>
+          <% end %>
+          <% @specifications.each do |key, value| %>
+            <div>
+              <p class="text-xs text-gray-500"><%= key.to_s.humanize %></p>
+              <p class="text-gray-900"><%= value.is_a?(Array) ? value.join(", ") : value %></p>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <% if @product.source_platform.present? %>
+      <div class="bg-white rounded-xl border border-gray-200">
+        <div class="px-5 py-4 border-b border-gray-100">
+          <h2 class="text-sm font-semibold text-gray-900">Provenance</h2>
+        </div>
+        <div class="px-5 py-4 space-y-2 text-sm">
+          <div class="flex justify-between gap-2">
+            <span class="text-gray-500">Source id</span>
+            <span class="text-gray-900 font-mono text-xs truncate"><%= @product.source_id %></span>
+          </div>
+          <div class="flex justify-between gap-2">
+            <span class="text-gray-500">Last synced</span>
+            <span class="text-gray-900"><%= @product.source_synced_at ? "#{time_ago_in_words(@product.source_synced_at)} ago" : "never" %></span>
+          </div>
+          <% if @product.source_url.present? %>
+            <%= link_to "Open at source", @product.source_url, target: "_blank", rel: "noopener",
+                class: "text-xs text-indigo-600 hover:text-indigo-800 break-all" %>
+          <% end %>
+          <% if @product.source_category_path.present? %>
+            <div>
+              <p class="text-xs text-gray-500">Source category path</p>
+              <p class="text-gray-900 text-xs"><%= Array(@product.source_category_path).join(" → ") %></p>
+            </div>
+          <% end %>
+          <% if @source.any? %>
+            <details>
+              <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-700">Raw source payload</summary>
+              <pre class="mt-2 max-h-64 overflow-auto rounded-lg bg-gray-50 border border-gray-200 p-2 text-xs text-gray-700"><%= JSON.pretty_generate(@source) %></pre>
+            </details>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

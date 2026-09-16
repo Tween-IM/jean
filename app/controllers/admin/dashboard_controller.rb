@@ -18,6 +18,41 @@ module Admin
         last_import_sync_at: safe_maximum(CommerceProduct.imported, :source_synced_at)
       }
 
+      @commerce = {
+        orders_today: safe_value { CommerceOrder.where("created_at >= ?", Time.current.beginning_of_day).count },
+        orders_7d: safe_value { CommerceOrder.where("created_at >= ?", 7.days.ago).count },
+        open_orders: safe_value { CommerceOrder.where(status: OrdersController::OPEN_STATUSES).count },
+        needs_fulfillment: safe_value {
+          CommerceOrder.where(status: %w[paid processing], fulfillment_status: %w[unfulfilled partially_fulfilled]).count
+        },
+        system_open_orders: safe_value {
+          CommerceOrder.where(commerce_merchant_id: CommerceMerchant.system_owned.select(:id), status: OrdersController::OPEN_STATUSES).count
+        },
+        gmv_30d_cents: safe_value {
+          CommerceOrder.where(status: %w[paid processing fulfilled partially_fulfilled])
+            .where("created_at >= ?", 30.days.ago).sum(:total_cents)
+        },
+        refunds_30d_cents: safe_value {
+          CommerceOrder.where(status: %w[refunded partially_refunded]).where("updated_at >= ?", 30.days.ago).sum(:total_cents)
+        },
+        stores_without_logo: safe_value {
+          CommerceStorefront.where.not(source_platform: nil).where(logo_url: [ nil, "" ]).count
+        },
+        listings_without_category: safe_value { CommerceProduct.where(category_id: nil).count },
+        empty_categories: safe_value {
+          in_use = (CommerceCategory.where.not(parent_id: nil).distinct.pluck(:parent_id) +
+            CommerceProduct.where.not(category_id: nil).distinct.pluck(:category_id) +
+            CommerceProduct.where.not(subcategory_id: nil).distinct.pluck(:subcategory_id)).compact.uniq
+          CommerceCategory.where.not(id: in_use).count
+        }
+      }
+
+      @attention_orders = safe_relation(CommerceOrder)
+        .where(status: %w[pending_payment paid processing], fulfillment_status: %w[unfulfilled partially_fulfilled])
+        .includes(:commerce_merchant)
+        .order(:created_at)
+        .limit(6)
+
       @recent_users = safe_relation(User)
       @recent_mini_apps = safe_relation(MiniApp)
       @pending_approvals = safe_relation(AuthorizationApproval)
@@ -51,6 +86,13 @@ module Admin
     rescue ActiveRecord::StatementInvalid => e
       Rails.logger.error "safe_relation for #{model} failed: #{e.message}"
       model.none
+    end
+
+    def safe_value(fallback = 0)
+      yield
+    rescue ActiveRecord::StatementInvalid => e
+      Rails.logger.error "dashboard metric failed: #{e.message}"
+      fallback
     end
   end
 end

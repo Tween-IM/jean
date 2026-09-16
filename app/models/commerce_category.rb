@@ -2,7 +2,10 @@
 class CommerceCategory < ApplicationRecord
   has_many :subcategories, class_name: "CommerceCategory", foreign_key: "parent_id", dependent: :destroy
   belongs_to :parent_category, class_name: "CommerceCategory", optional: true, foreign_key: "parent_id"
-  has_many :commerce_products, dependent: :nullify
+  # Listings point at a category through `category_id`; the association is
+  # spelled out because `CommerceCategory` would otherwise infer a
+  # `commerce_category_id` column that does not exist (and fail on destroy).
+  has_many :commerce_products, foreign_key: "category_id", dependent: :nullify
 
   before_validation :assign_category_id
 

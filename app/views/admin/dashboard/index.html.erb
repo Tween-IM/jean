@@ -42,6 +42,88 @@
     </div>
   </div>
 
+  <!-- Commerce operations -->
+  <div class="bg-white rounded-xl border border-gray-200 mb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
+      <div>
+        <h2 class="text-sm font-semibold text-gray-900">Commerce operations</h2>
+        <p class="text-xs text-gray-500 mt-0.5">Orders, stores and catalogue — including the platform-owned merchant</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 text-xs font-medium">
+        <%= link_to "Orders", admin_orders_path, class: "text-indigo-600 hover:text-indigo-800" %>
+        <%= link_to "Stores", admin_storefronts_path, class: "text-indigo-600 hover:text-indigo-800" %>
+        <%= link_to "Listings", admin_products_path, class: "text-indigo-600 hover:text-indigo-800" %>
+        <%= link_to "Merchants", admin_merchants_path, class: "text-indigo-600 hover:text-indigo-800" %>
+        <%= link_to "Categories", admin_categories_path, class: "text-indigo-600 hover:text-indigo-800" %>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-6 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+      <div class="px-5 py-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Orders today</p>
+        <p class="mt-1 text-2xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@commerce[:orders_today]) %></p>
+        <p class="mt-0.5 text-xs text-gray-500"><%= number_with_delimiter(@commerce[:orders_7d]) %> this week</p>
+      </div>
+      <div class="px-5 py-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Open</p>
+        <p class="mt-1 text-2xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@commerce[:open_orders]) %></p>
+        <p class="mt-0.5 text-xs text-gray-500">not yet closed</p>
+      </div>
+      <div class="px-5 py-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Needs fulfilment</p>
+        <p class="mt-1 text-2xl font-semibold tracking-tight <%= @commerce[:needs_fulfillment].positive? ? 'text-amber-600' : 'text-gray-900' %>"><%= number_with_delimiter(@commerce[:needs_fulfillment]) %></p>
+        <p class="mt-0.5 text-xs text-gray-500">paid, nothing shipped</p>
+      </div>
+      <div class="px-5 py-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">System merchant</p>
+        <p class="mt-1 text-2xl font-semibold tracking-tight <%= @commerce[:system_open_orders].positive? ? 'text-indigo-600' : 'text-gray-900' %>"><%= number_with_delimiter(@commerce[:system_open_orders]) %></p>
+        <p class="mt-0.5 text-xs text-gray-500">open imported orders</p>
+      </div>
+      <div class="px-5 py-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Value · 30d</p>
+        <p class="mt-1 text-xl font-semibold text-gray-900 tracking-tight"><%= money(@commerce[:gmv_30d_cents]) %></p>
+        <p class="mt-0.5 text-xs text-gray-500"><%= money(@commerce[:refunds_30d_cents]) %> refunded</p>
+      </div>
+      <div class="px-5 py-4">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Branding gaps</p>
+        <p class="mt-1 text-xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@commerce[:stores_without_logo]) %></p>
+        <p class="mt-0.5 text-xs text-gray-500">mirrored stores with no logo</p>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-100">
+      <div class="flex items-center justify-between px-5 py-3">
+        <h3 class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Orders that need a human</h3>
+        <%= link_to admin_orders_path(attention: 1), class: "text-xs font-medium text-indigo-600 hover:text-indigo-800" do %>
+          Work the queue →
+        <% end %>
+      </div>
+      <% if @attention_orders.any? %>
+        <table class="min-w-full divide-y divide-gray-100">
+          <tbody class="divide-y divide-gray-100">
+            <% @attention_orders.each do |order| %>
+              <tr class="hover:bg-gray-50">
+                <td class="px-5 py-3 text-sm font-mono text-gray-900"><%= order.order_id %></td>
+                <td class="px-5 py-3 text-sm text-gray-600 truncate max-w-[14rem]"><%= order.buyer_user_id %></td>
+                <td class="px-5 py-3 text-sm text-gray-700">
+                  <%= order.commerce_merchant.display_name %>
+                  <% if order.commerce_merchant.system_owned? %><span class="text-xs text-indigo-600">· system</span><% end %>
+                </td>
+                <td class="px-5 py-3 text-sm text-gray-900"><%= money(order.total_cents, order.currency) %></td>
+                <td class="px-5 py-3"><%= order_status_badge(order.status) %></td>
+                <td class="px-5 py-3 text-xs text-gray-500"><%= time_ago_in_words(order.created_at) %> ago</td>
+                <td class="px-5 py-3 text-right">
+                  <%= link_to "Manage", admin_order_path(order), class: "text-sm font-medium text-indigo-600 hover:text-indigo-900" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <div class="px-5 py-6 text-sm text-gray-500">Nothing waiting — every paid order has moved.</div>
+      <% end %>
+    </div>
+  </div>
+
   <!-- Imported catalog -->
   <div class="bg-white rounded-xl border border-gray-200 mb-8">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">

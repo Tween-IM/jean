@@ -45,6 +45,10 @@ module Admin
       session.delete(:admin_user_id)
       session.delete(:admin_last_activity_at)
       session.delete(:admin_mfa_verified)
+      session.delete(:admin_mfa_pending_user_id)
+      session.delete(:admin_mas_state)
+      session.delete(:admin_mas_verifier)
+      session.delete(:admin_mas_started_at)
     end
 
     def log_admin_action(action, resource = nil, details = {})

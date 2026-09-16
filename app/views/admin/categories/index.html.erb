@@ -1,0 +1,191 @@
+<% content_for :title, "Categories — TMCP Admin" %>
+<% content_for :page_title, "Categories" %>
+
+<% can_manage = current_admin_user.has_admin_permission?(:manage_categories) %>
+
+<div class="mb-6 flex flex-wrap items-start justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-semibold text-gray-900">Categories</h1>
+    <p class="mt-1 text-sm text-gray-500">
+      The taxonomy buyers browse by. Imported listings arrive with the source's own path,
+      so this tree grows as catalogues sync.
+    </p>
+  </div>
+  <%= link_to "Listings →", admin_products_path, class: "text-sm font-medium text-indigo-600 hover:text-indigo-800" %>
+</div>
+
+<% if can_manage %>
+  <%= form_with model: CommerceCategory.new, url: admin_categories_path, method: :post,
+      class: "mb-4 bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap items-end gap-3" do |form| %>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">New category</label>
+      <input type="text" name="commerce_category[name]" placeholder="Category name" required
+        class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-56 placeholder-gray-400">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Parent</label>
+      <select name="commerce_category[parent_id]" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">Top level</option>
+        <% @all_categories.each do |category| %>
+          <option value="<%= category.id %>"><%= category.name %></option>
+        <% end %>
+      </select>
+    </div>
+    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Add category</button>
+    <p class="text-xs text-gray-400 pb-2">Imports create their own branches too — this is for the ones only people need.</p>
+  <% end %>
+<% end %>
+
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Categories</p>
+    <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:total]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500"><%= number_with_delimiter(@stats[:top_level]) %> top level</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">In use</p>
+    <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:with_products]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500">hold listings or children</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Empty</p>
+    <p class="mt-1 text-2xl font-semibold <%= @stats[:empty].positive? ? 'text-amber-600' : 'text-gray-900' %>"><%= number_with_delimiter(@stats[:empty]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500">safe to remove</p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Filed listings</p>
+    <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:filed_listings]) %></p>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-200 p-4">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Inactive</p>
+    <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:inactive]) %></p>
+    <p class="mt-0.5 text-xs text-gray-500">hidden from browse</p>
+  </div>
+</div>
+
+<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+  <%= form_with url: admin_categories_path, method: :get, class: "flex flex-wrap items-end gap-3" do %>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Search</label>
+      <input type="text" name="query" value="<%= params[:query] %>" placeholder="Name, slug or id"
+        class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-56 placeholder-gray-400">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Scope</label>
+      <select name="depth" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">All levels</option>
+        <option value="top" <%= "selected" if params[:depth] == "top" %>>Top level only</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Contents</label>
+      <select name="filled" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">Any</option>
+        <option value="with_products" <%= "selected" if params[:filled] == "with_products" %>>In use (holds listings)</option>
+        <option value="empty" <%= "selected" if params[:filled] == "empty" %>>Empty branch</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Status</label>
+      <select name="status" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">All</option>
+        <option value="active" <%= "selected" if params[:status] == "active" %>>Active</option>
+        <option value="inactive" <%= "selected" if params[:status] == "inactive" %>>Inactive</option>
+      </select>
+    </div>
+    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Filter</button>
+    <%= link_to "Reset", admin_categories_path, class: "px-3 py-2 text-sm text-gray-600 hover:text-gray-900" %>
+  <% end %>
+
+  <% if can_manage %>
+    <%= button_to "Remove empty categories", prune_empty_admin_categories_path,
+        class: "px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg",
+        form: { data: { turbo: false } },
+        data: { confirm: "Delete every category with no listings and no children? Categories in use are never touched." } %>
+  <% end %>
+</div>
+
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <% if @categories.any? %>
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+          <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Listings</th>
+          <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Children</th>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health</th>
+          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+          <% if can_manage %><th class="px-5 py-3"></th><% end %>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-100">
+        <% @categories.each do |category| %>
+          <% listings = @product_counts[category.id].to_i %>
+          <% children = @children_counts[category.id].to_i %>
+          <tr class="hover:bg-gray-50">
+            <td class="px-5 py-3">
+              <div class="<%= category.parent_id? ? 'pl-6' : '' %>">
+                <div class="flex items-center gap-2">
+                  <% if category.parent_id? %>
+                    <span class="text-gray-300">└</span>
+                  <% end %>
+                  <span class="text-sm font-medium text-gray-900"><%= category.name %></span>
+                  <% if category.parent_category %>
+                    <span class="text-xs text-gray-400">in <%= category.parent_category.name %></span>
+                  <% end %>
+                </div>
+                <div class="text-xs text-gray-500 font-mono"><%= category.slug %></div>
+              </div>
+            </td>
+            <td class="px-5 py-3 text-right text-sm text-gray-900"><%= number_with_delimiter(listings) %></td>
+            <td class="px-5 py-3 text-right text-sm text-gray-700"><%= number_with_delimiter(children) %></td>
+            <td class="px-5 py-3">
+              <% if @in_use_ids.include?(category.id) %>
+                <%= signal("in use", ok: true, detail: listings.positive? ? "#{listings} listing(s) here" : "listings under this branch") %>
+              <% else %>
+                <%= signal("empty", ok: false, detail: "nothing filed here or below") %>
+              <% end %>
+            </td>
+            <td class="px-5 py-3"><%= entity_status_badge(category.status) %></td>
+            <% if can_manage %>
+              <td class="px-5 py-3 text-right">
+                <details class="relative">
+                  <summary class="cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-900 list-none">Edit</summary>
+                  <div class="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-4 shadow-lg text-left">
+                    <%= form_with model: category, url: admin_category_path(category), method: :patch, class: "space-y-3" do |form| %>
+                      <div>
+                        <%= form.label :name, class: "block text-xs text-gray-500 mb-1" %>
+                        <%= form.text_field :name, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+                      </div>
+                      <div>
+                        <%= form.label :parent_id, "Parent", class: "block text-xs text-gray-500 mb-1" %>
+                        <%= form.collection_select :parent_id, @parents, :id, :name, { include_blank: "Top level" },
+                            class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+                      </div>
+                      <div class="grid grid-cols-2 gap-3">
+                        <div>
+                          <%= form.label :status, class: "block text-xs text-gray-500 mb-1" %>
+                          <%= form.select :status, [ [ "Active", "active" ], [ "Inactive", "inactive" ] ], {},
+                              class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+                        </div>
+                        <div>
+                          <%= form.label :sort_order, "Order", class: "block text-xs text-gray-500 mb-1" %>
+                          <%= form.number_field :sort_order, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
+                        </div>
+                      </div>
+                      <%= form.submit "Save", class: "w-full px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg" %>
+                    <% end %>
+                  </div>
+                </details>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <div class="p-12 text-center">
+      <p class="text-sm text-gray-500">No categories match this filter.</p>
+    </div>
+  <% end %>
+</div>

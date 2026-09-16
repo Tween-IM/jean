@@ -25,13 +25,16 @@ module Commerce
       end
     end
 
-    def initialize(dry_run: true)
+    # `only:` narrows the pass to a single storefront, which is what the admin
+    # "pull branding from the source" button does.
+    def initialize(dry_run: true, only: nil)
       @dry_run = dry_run
+      @only = only
       @summary = Summary.new(stores_scanned: 0, stores_filled: 0, banners: 0, addresses: 0, accents: 0)
     end
 
-    def self.call(dry_run: true)
-      new(dry_run: dry_run).call
+    def self.call(dry_run: true, only: nil)
+      new(dry_run: dry_run, only: only).call
     end
 
     def call
@@ -46,7 +49,8 @@ module Commerce
     private
 
     def imported_stores
-      CommerceStorefront.where.not(source_platform: nil).where.not(source_kind: "brand")
+      scope = CommerceStorefront.where.not(source_platform: nil).where.not(source_kind: "brand")
+      @only ? scope.where(id: @only.id) : scope
     end
 
     def seller_record_for(store)

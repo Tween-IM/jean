@@ -16,6 +16,18 @@ module Commerce
 
     INSPECTION_HOURS = 24
 
+    # Platform staff act on orders the platform itself owns (the system
+    # merchant has no human owner) and step in when a merchant is
+    # unresponsive. Pass `platform_admin: true` from the admin surface — every
+    # other caller keeps the participant guards.
+    def initialize(platform_admin: false)
+      @platform_admin = platform_admin
+    end
+
+    def platform_admin?
+      @platform_admin
+    end
+
     # -------------------------------------------------------------------------
     # Shipment / local delivery
     # -------------------------------------------------------------------------
@@ -320,18 +332,21 @@ module Commerce
     end
 
     def buyer!(order, actor)
+      return if platform_admin?
       return if order.buyer_user_id == actor
 
       raise NotAuthorizedError, "only the buyer can do this"
     end
 
     def merchant_owner!(order, actor)
+      return if platform_admin?
       return if order.commerce_merchant.owner_user_id == actor
 
       raise NotAuthorizedError, "only the seller can do this"
     end
 
     def participant!(order, actor)
+      return if platform_admin?
       return if order.buyer_user_id == actor || order.commerce_merchant.owner_user_id == actor
 
       raise NotAuthorizedError, "only order participants can do this"

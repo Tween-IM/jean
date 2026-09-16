@@ -323,6 +323,11 @@ Rails.application.routes.draw do
   post "admin/mfa", to: "admin/sessions#verify_mfa"
   delete "admin/logout", to: "admin/sessions#destroy", as: :admin_logout
 
+  # Tween ID (MAS) sign-in for platform staff: OIDC authorization code + PKCE.
+  # The callback path is registered as a redirect URI on the MAS client.
+  get "admin/auth/mas", to: "admin/mas_sessions#new", as: :admin_mas_login
+  get "admin/auth/mas/callback", to: "admin/mas_sessions#create", as: :admin_mas_callback
+
   namespace :admin do
     get "dashboard", to: "dashboard#index", as: :dashboard
     resources :mini_apps, only: [ :index, :show, :new, :create, :edit, :destroy ], path: "mini-apps" do
@@ -336,6 +341,46 @@ Rails.application.routes.draw do
       end
     end
     resources :users, only: [ :index, :show, :edit, :update ]
+
+    # Commerce operations: the platform runs the storefronts it mirrors, so
+    # orders, stores, listings, merchants and the category tree all need an
+    # operator surface.
+    resources :orders, only: [ :index, :show ] do
+      member do
+        post :transition
+        post :refund
+        post :fulfillment
+        post :payment
+      end
+    end
+
+    resources :storefronts, only: [ :index, :show, :update ] do
+      member do
+        post :enrich
+        post :feature
+      end
+    end
+
+    resources :products, only: [ :index, :show, :update ] do
+      member do
+        post :media
+      end
+      resources :skus, only: [ :update ]
+    end
+
+    resources :merchants, only: [ :index, :show, :update ] do
+      member do
+        post :verify
+        post :suspend
+        post :reactivate
+      end
+    end
+
+    resources :categories, only: [ :index, :create, :update ] do
+      collection do
+        post :prune_empty
+      end
+    end
     resources :oauth_applications, only: [ :index, :show, :destroy ], path: "oauth-apps"
 
     # Externally-imported catalogs (Jumia/Konga scraper)

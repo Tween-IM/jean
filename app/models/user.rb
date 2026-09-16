@@ -62,8 +62,26 @@ class User < ApplicationRecord
     when :view_settings, :manage_settings then admin_super_admin?
     when :view_imports then admin_support? || admin_operations_analyst? || admin_operations_manager?
     when :manage_imports then admin_operations_manager?
+    # Commerce operations. The platform itself runs the merchant that owns
+    # every mirrored catalogue, so these surfaces are staffed, not automated.
+    when :view_orders, :view_fulfillment, :view_storefronts, :view_catalog,
+         :view_merchants, :view_categories
+      commerce_operator?
+    when :manage_orders, :manage_fulfillment, :manage_storefronts, :manage_catalog,
+         :manage_merchants, :manage_categories
+      admin_operations_manager?
+    # Money movement is deliberately narrower than the rest of order handling.
+    when :manage_refunds
+      admin_operations_manager? || admin_compliance_manager?
     else false
     end
+  end
+
+  # Anyone who works the commerce desk: support answers questions about an
+  # order, analysts and managers run it, compliance reviews it.
+  def commerce_operator?
+    admin_support? || admin_operations_analyst? || admin_operations_manager? ||
+      admin_compliance_officer? || admin_compliance_manager?
   end
 
   private

@@ -101,4 +101,18 @@ namespace :commerce do
     puts summary
     puts(apply ? "applied" : "dry run — re-run with APPLY=1 to write")
   end
+
+  desc "Delete categories with no listings and no children. Dry run; APPLY=1 writes."
+  # Usage: bin/rails commerce:prune_empty_categories [APPLY=1]
+  #
+  # The taxonomy was seeded before the catalogue existed and the importer adds
+  # the branches it discovers, so unused seeded branches pile up in browse.
+  # Nothing with a listing or a child is ever touched.
+  task prune_empty_categories: :environment do
+    apply = ENV["APPLY"] == "1"
+    summary = Commerce::CategoryPruner.call(dry_run: !apply)
+
+    puts summary
+    puts(apply ? "applied" : "dry run — re-run with APPLY=1 to write")
+  end
 end
