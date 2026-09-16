@@ -85,6 +85,13 @@
                 <% if item.supplier_url.present? %>
                   <div><%= link_to "At source", item.supplier_url, target: "_blank", rel: "noopener", class: "text-xs text-indigo-600 hover:text-indigo-800" %></div>
                 <% end %>
+                <% procurement = item.commerce_procurement %>
+                <% if procurement %>
+                  <div class="mt-1 flex items-center gap-2">
+                    <%= entity_status_badge(procurement.status) %>
+                    <%= link_to "Sourcing", admin_procurement_path(procurement), class: "text-xs font-medium text-indigo-600 hover:text-indigo-800" %>
+                  </div>
+                <% end %>
               </td>
             </tr>
           <% end %>

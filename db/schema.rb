@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -416,6 +416,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120000) do
     t.index ["code_hash"], name: "index_commerce_pickup_codes_on_code_hash", unique: true
     t.index ["commerce_fulfillment_id", "status"], name: "idx_on_commerce_fulfillment_id_status_7f95e6ab90"
     t.index ["commerce_fulfillment_id"], name: "index_commerce_pickup_codes_on_commerce_fulfillment_id"
+  end
+
+  create_table "commerce_procurements", force: :cascade do |t|
+    t.bigint "commerce_order_id", null: false
+    t.bigint "commerce_order_item_id", null: false
+    t.integer "cost_cents"
+    t.string "courier"
+    t.datetime "created_at", null: false
+    t.string "currency"
+    t.datetime "delivered_at"
+    t.datetime "dispatched_at"
+    t.string "external_order_ref"
+    t.text "notes"
+    t.datetime "ordered_at"
+    t.datetime "received_at"
+    t.string "started_by_user_id"
+    t.string "status", default: "pending", null: false
+    t.string "supplier_name"
+    t.string "supplier_platform"
+    t.text "supplier_url"
+    t.string "tracking_number"
+    t.datetime "updated_at", null: false
+    t.index ["commerce_order_id"], name: "index_commerce_procurements_on_commerce_order_id"
+    t.index ["commerce_order_item_id"], name: "index_commerce_procurements_on_commerce_order_item_id", unique: true
+    t.index ["status", "created_at"], name: "index_commerce_procurements_on_status_and_created_at"
+    t.index ["status"], name: "index_commerce_procurements_on_status"
   end
 
   create_table "commerce_product_shippings", force: :cascade do |t|
@@ -1099,6 +1125,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_120000) do
   add_foreign_key "commerce_orders", "commerce_merchants"
   add_foreign_key "commerce_payouts", "commerce_merchants"
   add_foreign_key "commerce_pickup_codes", "commerce_fulfillments"
+  add_foreign_key "commerce_procurements", "commerce_order_items"
+  add_foreign_key "commerce_procurements", "commerce_orders"
   add_foreign_key "commerce_product_shippings", "commerce_products"
   add_foreign_key "commerce_product_shippings", "commerce_shipping_profiles"
   add_foreign_key "commerce_products", "commerce_merchants"

@@ -31,7 +31,7 @@ module Admin
     end
 
     def show
-      @items = @order.commerce_order_items.order(:id)
+      @items = @order.commerce_order_items.includes(:commerce_procurement).order(:id)
       @fulfillments = @order.commerce_fulfillments.order(created_at: :desc)
       @events = CommerceFulfillmentEvent
         .where(commerce_fulfillment_id: @fulfillments.map(&:id))

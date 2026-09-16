@@ -368,6 +368,14 @@ Rails.application.routes.draw do
       resources :skus, only: [ :update ]
     end
 
+    # Sourcing: the platform sells the mirrored catalogue itself, so a paid
+    # order is a purchase somebody has to make.
+    resources :procurements, only: [ :index, :show ] do
+      member do
+        post :advance
+      end
+    end
+
     resources :merchants, only: [ :index, :show, :update ] do
       member do
         post :verify

@@ -7,6 +7,9 @@ class CommerceOrder < ApplicationRecord
   has_many :commerce_change_orders, dependent: :restrict_with_error
   has_many :commerce_disputes, dependent: :restrict_with_error
   has_many :commerce_service_milestones, dependent: :restrict_with_error
+  # What the platform has to buy to honour this order. Only its own sales carry
+  # these; a merchant's order is fulfilled from their own stock.
+  has_many :commerce_procurements, through: :commerce_order_items
 
   SOURCES = %w[storefront conversation service_booking].freeze
   PROTECTION_STATUSES = %w[not_eligible eligible active completed void].freeze
@@ -33,6 +36,10 @@ class CommerceOrder < ApplicationRecord
 
   before_update :validate_status_transition
   before_update :validate_protection_status_transition
+  # The platform sells the mirrored catalogue itself, so nothing is bought
+  # until the buyer has actually paid, and nothing is left queued to buy once
+  # the order is cancelled or refunded.
+  after_update :sync_procurements_for_sourcing, if: :saved_change_to_status?
 
   VALID_TRANSITIONS = {
     'pending_payment' => %w[paid cancelled],
@@ -44,6 +51,32 @@ class CommerceOrder < ApplicationRecord
     'refunded' => [],
     'partially_refunded' => []
   }.freeze
+
+  # Paying for an order is what turns its lines into purchases to make. This
+  # is also what catches an order whose lines were created while it was still
+  # waiting for payment.
+  def sync_procurements_for_sourcing
+    case status
+    when "paid"
+      commerce_order_items.includes(:commerce_procurement).find_each(&:open_procurement!)
+    when "cancelled", "refunded"
+      cancel_open_procurements!
+    end
+  end
+
+  # A cancelled sale must not be sourced. Anything already delivered is left
+  # alone -- the buyer has the goods -- and anything the pipeline cannot cancel
+  # has to be walked by hand.
+  def cancel_open_procurements!
+    commerce_procurements.open.includes(:commerce_order_item).find_each do |procurement|
+      next unless procurement.next_statuses.include?("cancelled")
+
+      procurement.update!(
+        status: "cancelled",
+        notes: [ procurement.notes, "Cancelled automatically: order #{status}." ].compact_blank.join("\n")
+      )
+    end
+  end
 
   def validate_status_transition
     return unless status_changed?

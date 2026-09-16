@@ -14,6 +14,23 @@ module Admin::LayoutHelper
   end
   # Orders that need a human right now. The sidebar badge and the topbar bell
   # both read this, so operators can see the queue from wherever they are.
+  # Lines the platform has to buy and nobody has bought yet: the sourcing
+  # queue's own "to do" count. Memoised for the same reason as above.
+  def sourcing_queue_count
+    return @sourcing_queue_count if defined?(@sourcing_queue_count)
+
+    @sourcing_queue_count = begin
+      if current_admin_user&.has_admin_permission?(:view_fulfillment)
+        CommerceProcurement.awaiting_purchase.count
+      else
+        0
+      end
+    rescue ActiveRecord::StatementInvalid => e
+      Rails.logger.error "sourcing_queue_count failed: #{e.message}"
+      0
+    end
+  end
+
   def commerce_attention_count
     return @commerce_attention_count if defined?(@commerce_attention_count)
 

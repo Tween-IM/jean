@@ -42,6 +42,10 @@
               <% if current_admin_user.has_admin_permission?(:view_catalog) %>
                 <%= sidebar_link admin_products_path, "Listings", "clipboard" %>
               <% end %>
+              <% if current_admin_user.has_admin_permission?(:view_fulfillment) %>
+                <% sourcing_count = sourcing_queue_count %>
+                <%= sidebar_link admin_procurements_path, "Sourcing", "box", badge_count: sourcing_count.positive? ? sourcing_count : nil %>
+              <% end %>
               <% if current_admin_user.has_admin_permission?(:view_merchants) %>
                 <%= sidebar_link admin_merchants_path, "Merchants", "people" %>
               <% end %>

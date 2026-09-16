@@ -65,10 +65,90 @@ class CommerceOrderItemTest < ActiveSupport::TestCase
     assert_equal "Hand-delivered service", item.title
   end
 
+  # ── The platform buys nothing until somebody buys it ─────────────────
+
+  test "nothing is queued to be bought before the order is paid" do
+    order = build_order(status: "pending_payment")
+    item = create_item(order: order)
+
+    assert_nil item.reload.commerce_procurement
+  end
+
+  test "paying for the order queues its lines to be bought" do
+    order = build_order(status: "pending_payment")
+    item = create_item(order: order)
+
+    order.update!(status: "paid")
+
+    procurement = item.reload.commerce_procurement
+    assert_not_nil procurement
+    assert_equal "pending", procurement.status
+    assert_equal "Chimaco Stores", procurement.supplier_name
+    assert_equal "https://www.konga.com/product/#{@suffix}", procurement.supplier_url
+    assert_equal "NGN", procurement.currency
+    assert_equal order.order_id, procurement.commerce_order.order_id
+  end
+
+  test "a merchant's own order is never sourced by the platform" do
+    merchant = CommerceMerchant.create!(
+      owner_user_id: "@own-stock-seller-#{@suffix}:example.com",
+      miniapp_id: "ma.test",
+      display_name: "Own Stock Shop #{@suffix}",
+      status: "active"
+    )
+    product = merchant.commerce_products.create!(title: "Shop Cap #{@suffix}", status: "active")
+    order = CommerceOrder.create!(
+      commerce_merchant: merchant,
+      buyer_user_id: "@own-stock-buyer-#{@suffix}:example.com",
+      payment_id: "pay_own_stock_#{@suffix}",
+      status: "paid",
+      currency: "NGN",
+      total_cents: 1_000
+    )
+
+    item = order.commerce_order_items.create!(
+      sku_id: "sku_own_#{@suffix}",
+      product_id: product.product_id,
+      title: "Shop Cap",
+      quantity: 1,
+      unit_price_cents: 1_000,
+      line_total_cents: 1_000,
+      currency: "NGN"
+    )
+    order.update!(status: "processing")
+
+    assert_nil item.reload.commerce_procurement
+  end
+
+  test "a cancelled order takes its unstarted purchase out of the queue" do
+    order = build_order(status: "pending_payment")
+    item = create_item(order: order)
+    order.update!(status: "paid")
+    procurement = item.reload.commerce_procurement
+    assert_not_nil procurement
+
+    order.update!(status: "cancelled")
+
+    assert_equal "cancelled", procurement.reload.status
+    assert_match "Cancelled automatically", procurement.notes
+    assert_equal 0, CommerceProcurement.open.count
+  end
+
   private
 
-  def create_item
-    @order.commerce_order_items.create!(
+  def build_order(status:)
+    CommerceOrder.create!(
+      commerce_merchant: @merchant,
+      buyer_user_id: "@order-item-buyer-#{@suffix}:example.com",
+      payment_id: "pay_order_item_#{status}_#{@suffix}",
+      status: status,
+      currency: "NGN",
+      total_cents: 400_00
+    )
+  end
+
+  def create_item(order: @order)
+    order.commerce_order_items.create!(
       sku_id: @product.commerce_skus.create!(
         title: "Medium", price_cents: 400_00, currency: "NGN", quantity_available: 3
       ).sku_id,
