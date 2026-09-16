@@ -1,9 +1,23 @@
 module ApplicationHelper
+  # Badges in the admin layout count things that may not exist in a given
+  # deployment. Probe for the table first: a failed statement aborts the
+  # surrounding transaction, so the zero returned here would be followed by
+  # failures everywhere else on the page instead of just a missing badge.
   def safe_count(relation)
+    return 0 unless safe_count_ready?(relation)
+
     relation.count
   rescue ActiveRecord::StatementInvalid => e
     Rails.logger.error "safe_count failed for #{relation}: #{e.message}"
     0
+  end
+
+  def safe_count_ready?(subject)
+    model = subject.respond_to?(:klass) ? subject.klass : subject
+    model.respond_to?(:table_exists?) && model.table_exists?
+  rescue ActiveRecord::StatementInvalid, ActiveRecord::NoDatabaseError => e
+    Rails.logger.error "safe_count probe failed for #{subject}: #{e.message}"
+    false
   end
 
   PERMISSIONS_CATEGORIES = {
