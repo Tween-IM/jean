@@ -81,4 +81,14 @@ namespace :commerce do
       puts "dry run — re-run with APPLY=1 to write"
     end
   end
+
+
+  desc "Re-file imported listings sitting on a marketplace catch-all store onto their real seller/brand store. Dry run; APPLY=1 writes."
+  task attribute_imported_listings: :environment do
+    apply = ENV["APPLY"] == "1"
+    summary = Commerce::ListingAttribution.call(dry_run: !apply)
+
+    puts summary
+    puts(apply ? "applied" : "dry run — re-run with APPLY=1 to write")
+  end
 end
