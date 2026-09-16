@@ -61,16 +61,22 @@ namespace :commerce do
       .where(store_type: "marketplace")
       .where(commerce_storefront_id: imported_storefronts.select(:id))
 
+    # Counted before the update: the scopes are predicates on store_type, so
+    # after a write they match nothing and a re-count would report zero rows
+    # changed on a run that changed thousands.
+    storefront_count = storefront_scope.count
+    product_count = product_scope.count
+
     puts "imported storefronts       : #{imported_storefronts.count}"
-    puts "storefronts to re-type      : #{storefront_scope.count}"
-    puts "products to re-type         : #{product_scope.count}"
+    puts "storefronts to re-type      : #{storefront_count}"
+    puts "products to re-type         : #{product_count}"
 
     if apply
       CommerceStorefront.transaction do
         storefront_scope.update_all(store_type: "ecommerce", updated_at: Time.current)
         product_scope.update_all(store_type: "ecommerce", updated_at: Time.current)
       end
-      puts "applied: #{storefront_scope.count} storefronts, #{product_scope.count} products now ecommerce"
+      puts "applied: #{storefront_count} storefronts, #{product_count} products now ecommerce"
     else
       puts "dry run — re-run with APPLY=1 to write"
     end
