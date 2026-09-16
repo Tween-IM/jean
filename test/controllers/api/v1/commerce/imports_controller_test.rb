@@ -41,6 +41,12 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "https://www.jumia.com.ng/product", product.source_url
     assert_equal "Phones & Tablets", product.source_payload.dig("category_path", 0)
     assert_not_nil product.source_synced_at
+    # The source names both the brand and the seller that fulfils it; lifting
+    # them out of the payload is what makes them queryable.
+    assert_equal "Samsung", product.brand
+    assert_equal "Jumia Express", product.supplier_name
+    assert_equal "jumia", product.supplier_platform
+    assert_equal 250_000, product.source_price_cents
     assert_equal "active", product.status
     assert_equal "ecommerce", product.store_type
     assert_equal "Jumia Deals", product.commerce_storefront.display_name
@@ -485,6 +491,10 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
         brand: "Samsung",
         category_path: [ "Phones & Tablets", "Mobile Phones" ],
         seller_name: "Jumia Express",
+        seller_id: "9911",
+        # The scraper sends the listing's own price alongside the SKUs; it is
+        # what we paid attention to when costing a sale.
+        price_cents: 250_000,
         rating_average: 4.6,
         rating_count: 128,
         scraped_at: Time.current.iso8601

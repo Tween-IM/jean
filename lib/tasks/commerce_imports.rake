@@ -102,6 +102,38 @@ namespace :commerce do
     puts(apply ? "applied" : "dry run — re-run with APPLY=1 to write")
   end
 
+  desc "Lift the brand and the supplying seller out of each imported listing's payload into columns. Dry run; APPLY=1 writes."
+  # Usage: bin/rails commerce:backfill_source_identity [APPLY=1]
+  #
+  # The source publishes both on every listing and both only ever lived in
+  # `source_payload`, so the catalogue could not be browsed by brand and an
+  # order line could not say where its goods come from.
+  task backfill_source_identity: :environment do
+    apply = ENV["APPLY"] == "1"
+    scanned = 0
+    updated = 0
+    brands = 0
+    suppliers = 0
+
+    CommerceProduct.imported.find_each do |product|
+      scanned += 1
+      identity = product.source_identity
+      brands += 1 if identity[:brand].present?
+      suppliers += 1 if identity[:supplier_name].present?
+
+      stale = identity.any? { |attribute, value| value.present? && product.public_send(attribute) != value }
+      next unless stale
+
+      updated += 1
+      product.apply_source_identity! if apply
+    end
+
+    puts "listings scanned: #{scanned}"
+    puts "naming a brand: #{brands}"
+    puts "naming a supplier: #{suppliers}"
+    puts(apply ? "updated: #{updated}" : "would update: #{updated} — re-run with APPLY=1 to write")
+  end
+
   desc "Delete categories with no listings and no children. Dry run; APPLY=1 writes."
   # Usage: bin/rails commerce:prune_empty_categories [APPLY=1]
   #

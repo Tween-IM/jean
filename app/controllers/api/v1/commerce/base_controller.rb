@@ -216,6 +216,17 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       status: product.status,
       media_urls: product.media_urls,
       condition: product.condition,
+      brand: product.brand,
+      # What a shopper is buying, as opposed to where it is displayed. The
+      # merchant is the seller of record — for the mirrored catalogue that is
+      # the platform's own importer, never the store on the shelf and never the
+      # source's brand. `sourced_from` names the marketplace the listing
+      # mirrors and the supplier the goods come from, so a card can say
+      # "sold by Tween, sourced from Konga" instead of implying Nokia sells it.
+      sourced_from: product.source_platform.present? ? {
+        platform: product.source_platform,
+        supplier: product.supplier_name
+      } : nil,
       store_type: product.effective_store_type,
       featured: product.featured,
       rating_average: product.rating_average,

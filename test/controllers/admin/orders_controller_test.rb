@@ -26,7 +26,13 @@ class Admin::OrdersControllerTest < ActionDispatch::IntegrationTest
       commerce_storefront: @system_store,
       status: "active",
       source_platform: "konga",
-      source_id: "SKU-#{suffix}"
+      source_id: "SKU-#{suffix}",
+      source_url: "https://www.konga.com/product/SKU-#{suffix}",
+      brand: "Bella Couture",
+      supplier_name: "Chimaco Stores",
+      supplier_id: "8811",
+      supplier_platform: "konga",
+      source_price_cents: 900_000
     )
     @sku = @product.commerce_skus.create!(
       title: "Medium",
@@ -124,6 +130,10 @@ class Admin::OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_match "Move the order", response.body
     assert_match "Processing", response.body
     assert_match "Sync from Tween Pay", response.body
+    # The desk has to know where the goods come from and what they cost us:
+    # the supplier is frozen onto the line, not read off the listing.
+    assert_match "Chimaco Stores", response.body
+    assert_match "At source", response.body
   end
 
   test "the index narrows by status, merchant and attention" do

@@ -18,6 +18,40 @@ class CommerceProduct < ApplicationRecord
   validates :store_type, inclusion: { in: %w[marketplace ecommerce] }, allow_nil: true
   validates :rating_average, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 5 }, allow_nil: true
 
+  # Who the source says made a listing and who supplies it.
+  #
+  # Both were published on every listing and only readable out of
+  # `source_payload`: the brand is the make ("Nokia"), the supplier is the
+  # seller that fulfils it ("Kriscrown global links"). Neither is the merchant
+  # that sells to the buyer — for imported goods that is always the platform's
+  # own importer — so the storefront stays the shelf, the merchant stays the
+  # seller of record, and the supplier is the party to actually buy from.
+  def source_identity
+    payload = source_payload.is_a?(Hash) ? source_payload : {}
+    seller = payload["seller"].is_a?(Hash) ? payload["seller"] : {}
+
+    {
+      brand: payload["brand"].to_s.strip.presence,
+      supplier_name: (seller["name"].presence || payload["seller_name"]).to_s.strip.presence,
+      supplier_id: (seller["id"].presence || payload["seller_id"]).to_s.strip.presence,
+      supplier_platform: source_platform.presence,
+      supplier_url: source_url.presence,
+      source_price_cents: payload["price_cents"].presence&.to_i
+    }
+  end
+
+  # Fills what the source published and overwrites nothing: a re-import that
+  # arrives without a seller must not erase the one we already knew.
+  def apply_source_identity!
+    source_identity.each do |attribute, value|
+      next if value.blank?
+
+      public_send("#{attribute}=", value)
+    end
+
+    save! if changed?
+  end
+
   scope :active, -> { where(status: "active") }
   scope :featured, -> { where(featured: true) }
   scope :trending, -> { order(sales_count: :desc, view_count: :desc) }

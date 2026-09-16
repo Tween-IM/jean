@@ -108,6 +108,12 @@ module Commerce
         product.assign_attributes(permitted_product_attributes(product_attrs))
         product.source_url = source["source_url"]
         product.source_payload = source
+        # Brand and supplier are published on every listing. Lifting them out
+        # of the payload at import keeps them queryable and keeps an order line
+        # able to record where its goods come from.
+        product.source_identity.each do |attribute, value|
+          product.public_send("#{attribute}=", value) if value.present?
+        end
         product.source_category_path = source_category_path(entry)
         product.source_synced_at = Time.current
         # A mirrored listing carries a price and stock, so it belongs to the

@@ -288,6 +288,22 @@
           <h2 class="text-sm font-semibold text-gray-900">Provenance</h2>
         </div>
         <div class="px-5 py-4 space-y-2 text-sm">
+          <% if @product.brand.present? %>
+            <div class="flex justify-between gap-2">
+              <span class="text-gray-500">Brand</span>
+              <span class="text-gray-900"><%= @product.brand %></span>
+            </div>
+          <% end %>
+          <div class="flex justify-between gap-2">
+            <span class="text-gray-500">Supplied by</span>
+            <span class="text-gray-900 truncate max-w-[12rem]">
+              <%= @product.supplier_name.presence || "— not published by the source" %>
+            </span>
+          </div>
+          <div class="flex justify-between gap-2">
+            <span class="text-gray-500">Source price</span>
+            <span class="text-gray-900"><%= money(@product.source_price_cents, @skus.first&.currency.presence || "NGN") %></span>
+          </div>
           <div class="flex justify-between gap-2">
             <span class="text-gray-500">Source id</span>
             <span class="text-gray-900 font-mono text-xs truncate"><%= @product.source_id %></span>

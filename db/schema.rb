@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -321,6 +321,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
   end
 
   create_table "commerce_order_items", force: :cascade do |t|
+    t.string "brand"
     t.bigint "commerce_order_id", null: false
     t.datetime "created_at", null: false
     t.string "currency", null: false
@@ -330,6 +331,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
     t.string "product_name"
     t.integer "quantity", null: false
     t.string "sku_id", null: false
+    t.integer "source_price_cents"
+    t.string "supplier_id"
+    t.string "supplier_name"
+    t.string "supplier_platform"
+    t.text "supplier_url"
     t.string "title", null: false
     t.integer "unit_price_cents", null: false
     t.datetime "updated_at", null: false
@@ -424,6 +430,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
 
   create_table "commerce_products", force: :cascade do |t|
     t.string "badges", default: [], null: false, array: true
+    t.string "brand"
     t.bigint "category_id"
     t.bigint "commerce_merchant_id", null: false
     t.bigint "commerce_storefront_id"
@@ -446,6 +453,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
     t.string "source_id"
     t.jsonb "source_payload", default: {}, null: false
     t.string "source_platform"
+    t.integer "source_price_cents"
     t.datetime "source_synced_at"
     t.text "source_url"
     t.jsonb "specifications", default: {}, null: false
@@ -453,6 +461,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
     t.jsonb "stock", default: {}, null: false
     t.string "store_type", default: "marketplace", null: false
     t.bigint "subcategory_id"
+    t.string "supplier_id"
+    t.string "supplier_name"
+    t.string "supplier_platform"
+    t.text "supplier_url"
     t.string "tags", default: [], array: true
     t.string "title", null: false
     t.datetime "updated_at", null: false
@@ -460,6 +472,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
     t.integer "view_count", default: 0
     t.jsonb "warranty", default: {}, null: false
     t.integer "weight_grams"
+    t.index ["brand"], name: "index_commerce_products_on_brand"
     t.index ["category_id"], name: "index_commerce_products_on_category_id"
     t.index ["commerce_merchant_id", "status"], name: "index_commerce_products_on_commerce_merchant_id_and_status"
     t.index ["commerce_merchant_id"], name: "index_commerce_products_on_commerce_merchant_id"
@@ -467,6 +480,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_170000) do
     t.index ["featured"], name: "index_commerce_products_on_featured"
     t.index ["product_id"], name: "index_commerce_products_on_product_id", unique: true
     t.index ["source_platform", "source_id"], name: "index_commerce_products_on_source_identity", unique: true, where: "((source_platform IS NOT NULL) AND (source_id IS NOT NULL))"
+    t.index ["supplier_id"], name: "index_commerce_products_on_supplier_id"
+    t.index ["supplier_name"], name: "index_commerce_products_on_supplier_name"
     t.index ["tags"], name: "index_commerce_products_on_tags", using: :gin
   end
 

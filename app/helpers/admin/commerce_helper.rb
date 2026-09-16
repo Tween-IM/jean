@@ -54,6 +54,17 @@ module Admin
         precision: 2)
     end
 
+    # What a line has to be bought for, and what that leaves.
+    #
+    # Supplier facts are frozen onto the order line when it is created, so this
+    # reads the order rather than the listing: a re-import since the sale must
+    # never restate what an order cost.
+    def supply_margin(item)
+      return nil if item.source_price_cents.nil?
+
+      item.line_total_cents - (item.source_price_cents.to_i * item.quantity.to_i)
+    end
+
     def order_status_badge(status)
       status_pill(status, ORDER_STATUS_STYLES)
     end
