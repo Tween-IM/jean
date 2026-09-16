@@ -257,12 +257,12 @@
     </div>
   </div>
 
-  <!-- Pending Approvals -->
+  <!-- Recent scope grants -->
   <div class="bg-white rounded-xl border border-gray-200">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
       <div>
-        <h2 class="text-sm font-semibold text-gray-900">Pending Approvals</h2>
-        <p class="text-xs text-gray-500 mt-0.5">OAuth scope approvals awaiting admin review</p>
+        <h2 class="text-sm font-semibold text-gray-900">Recent scope grants</h2>
+        <p class="text-xs text-gray-500 mt-0.5">OAuth scopes mini apps have been granted</p>
       </div>
     </div>
     <div class="overflow-x-auto">
@@ -276,7 +276,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
-          <% @pending_approvals.each do |approval| %>
+          <% @recent_approvals.each do |approval| %>
             <tr class="hover:bg-gray-50/50 transition-colors">
               <td class="px-5 py-3 text-gray-700"><%= approval.user&.matrix_user_id %></td>
               <td class="px-5 py-3 text-gray-700"><%= approval.miniapp&.name || approval.miniapp_id %></td>
@@ -288,9 +288,9 @@
               <td class="px-5 py-3 text-xs text-gray-500 whitespace-nowrap"><%= time_ago_in_words(approval.created_at) %> ago</td>
             </tr>
           <% end %>
-          <% if @pending_approvals.empty? %>
+          <% if @recent_approvals.empty? %>
             <tr>
-              <td colspan="4" class="px-5 py-8 text-center text-sm text-gray-400">No pending approvals</td>
+              <td colspan="4" class="px-5 py-8 text-center text-sm text-gray-400">No scope grants yet</td>
             </tr>
           <% end %>
         </tbody>

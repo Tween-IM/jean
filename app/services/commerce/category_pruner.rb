@@ -62,16 +62,22 @@ module Commerce
     end
 
     def call
+      before = CommerceCategory.count
       empties = self.class.empty_scope.to_a
+      @summary.scanned = before
       @summary.removed = empties.size
 
-      unless @dry_run
+      if @dry_run
+        @summary.kept = before - empties.size
+      else
         # Deepest first, so a cascade never orphans anything.
         empties.sort_by { |category| -category.full_hierarchy.size }.each(&:destroy)
+        # `subcategories` is `dependent: :destroy`, so the cascade can take
+        # more than the rows named above. Report what actually went.
+        @summary.removed = before - CommerceCategory.count
+        @summary.kept = CommerceCategory.count
       end
 
-      @summary.kept = CommerceCategory.count
-      @summary.scanned = @summary.removed + @summary.kept
       @summary
     end
   end

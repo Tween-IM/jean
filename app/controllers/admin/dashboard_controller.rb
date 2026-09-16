@@ -53,14 +53,30 @@ module Admin
         .order(:created_at)
         .limit(6)
 
-      @recent_users = safe_relation(User)
-      @recent_mini_apps = safe_relation(MiniApp)
-      @pending_approvals = safe_relation(AuthorizationApproval)
+      @recent_users = safe_relation(User).order(created_at: :desc).limit(8)
+      @recent_mini_apps = safe_relation(MiniApp).order(created_at: :desc).limit(8)
+      # `AuthorizationApproval` stamps `approved_at` on create, so there is no
+      # pending state to show — this panel lists what was granted.
+      @recent_approvals = safe_relation(AuthorizationApproval).order(created_at: :desc).limit(8)
     end
 
     private
 
+    # Models whose table was never created (or was dropped) must not cost the
+    # dashboard its other numbers. Probing the table first is the point: a
+    # failed statement aborts the surrounding transaction, so rescuing it and
+    # carrying on would fail every later metric instead of just this one.
+    def table_ready?(subject)
+      model = subject.respond_to?(:klass) ? subject.klass : subject
+      model.respond_to?(:table_exists?) && model.table_exists?
+    rescue ActiveRecord::StatementInvalid, ActiveRecord::NoDatabaseError => e
+      Rails.logger.error "table probe failed for #{model}: #{e.message}"
+      false
+    end
+
     def safe_count(model)
+      return 0 unless table_ready?(model)
+
       model.count
     rescue ActiveRecord::StatementInvalid => e
       Rails.logger.error "safe_count failed for #{model}: #{e.message}"
@@ -68,6 +84,8 @@ module Admin
     end
 
     def safe_count_for(model, scope)
+      return 0 unless table_ready?(model)
+
       model.send(scope).count
     rescue ActiveRecord::StatementInvalid => e
       Rails.logger.error "safe_count_for #{model}.#{scope} failed: #{e.message}"
@@ -75,14 +93,21 @@ module Admin
     end
 
     def safe_maximum(relation, column)
+      return nil unless table_ready?(relation)
+
       relation.maximum(column)
     rescue ActiveRecord::StatementInvalid => e
       Rails.logger.error "safe_maximum for #{relation}.#{column} failed: #{e.message}"
       nil
     end
 
+    # The relation itself, for the lists the dashboard renders. It used to
+    # hand back `model.none` on the happy path too, which quietly emptied
+    # every panel on the page.
     def safe_relation(model)
-      model.none
+      return model.none unless table_ready?(model)
+
+      model.all
     rescue ActiveRecord::StatementInvalid => e
       Rails.logger.error "safe_relation for #{model} failed: #{e.message}"
       model.none
