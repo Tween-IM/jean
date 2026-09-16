@@ -96,6 +96,33 @@ class Api::V1::Commerce::ProductsControllerTest < ActionDispatch::IntegrationTes
     refute_includes titles, "Pricey Used"
   end
 
+  test "a listing names the storefront it sits in, not the platform merchant" do
+    owner = create_user("storefront-identity-owner")
+    merchant = merchant_for(owner)
+    storefront = merchant.commerce_storefronts.create!(
+      display_name: "Bella's Coutures", slug: "bella-s-coutures-konga",
+      store_type: "ecommerce", status: "published", logo_url: "https://cdn/bella.png"
+    )
+    product = merchant.commerce_products.create!(
+      title: "Aso Oke Set", status: "active", condition: "new", commerce_storefront_id: storefront.id
+    )
+    product.commerce_skus.create!(title: "Default", price_cents: 25_000, currency: "NGN", inventory_status: "in_stock")
+
+    get api_v1_commerce_product_url(product.product_id),
+      headers: tep_headers(owner, "commerce:read"),
+      as: :json
+
+    assert_response :success
+    body = response.parsed_body.fetch("product")
+    assert_equal "Shop", body.dig("merchant", "display_name"),
+      "the merchant is still reported — it owns the catalogue and the payouts"
+    assert_equal "Bella's Coutures", body.dig("storefront", "display_name"),
+      "the card's seller label comes from the storefront"
+    assert_equal "bella-s-coutures-konga", body.dig("storefront", "slug")
+    assert_equal "https://cdn/bella.png", body.dig("storefront", "logo_url")
+    assert_equal "ecommerce", body.dig("storefront", "store_type")
+  end
+
   # ── Catalog paging ──────────────────────────────────────────────────
   # The mobile app pages the catalog with `next_cursor`; before this the
   # endpoint returned neither a cursor nor an offset, so the app never had a

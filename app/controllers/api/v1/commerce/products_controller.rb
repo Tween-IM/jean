@@ -58,7 +58,7 @@ class Api::V1::Commerce::ProductsController < Api::V1::Commerce::BaseController
   def index
     require_scope("commerce:read")
 
-    products = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_category).preload(:commerce_skus)
+    products = ::CommerceProduct.active.with_available_stock.includes(:commerce_merchant, :commerce_category, :commerce_storefront).preload(:commerce_skus)
     products = products.joins(:commerce_merchant).where(commerce_merchants: { merchant_id: params[:merchant_id] }) if params[:merchant_id].present?
     products = products.where(commerce_storefront_id: ::CommerceStorefront.where(storefront_id: params[:storefront_id]).select(:id)) if params[:storefront_id].present?
 

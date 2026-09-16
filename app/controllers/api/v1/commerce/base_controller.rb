@@ -180,6 +180,22 @@ class Api::V1::Commerce::BaseController < Api::BaseController
     base
   end
 
+  # The slice of a storefront that travels with a product: enough for a card,
+  # a search result or an order line to name and link the seller. The full
+  # storefront_json is a page's worth of branding and stays on its own endpoint.
+  def storefront_identity_json(storefront)
+    {
+      storefront_id: storefront.storefront_id,
+      slug: storefront.slug,
+      store_url_slug: storefront.store_url_slug,
+      display_name: storefront.display_name,
+      logo_url: storefront.logo_url,
+      store_type: storefront.store_type,
+      imported: storefront.source_platform.present?,
+      source_platform: storefront.source_platform
+    }
+  end
+
   # ============================================================================
   # PRODUCT
   # ============================================================================
@@ -190,6 +206,10 @@ class Api::V1::Commerce::BaseController < Api::BaseController
       merchant_id: product.commerce_merchant.merchant_id,
       merchant: merchant_json(product.commerce_merchant, detail: :public),
       storefront_id: product.commerce_storefront&.storefront_id,
+      # Who a shopper is buying from. The merchant is often the platform-owned
+      # importer ("Tween Imports"), so the card's seller label has to come from
+      # the storefront the listing actually sits in.
+      storefront: product.commerce_storefront ? storefront_identity_json(product.commerce_storefront) : nil,
       title: product.title,
       description: product.description,
       short_description: product.short_description,

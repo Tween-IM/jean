@@ -54,6 +54,51 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "NGN", sku.currency
   end
 
+  test "a source seller's catalogue is imported as a storefront, not a classified listing" do
+    # Older scrapers described sellers as `marketplace`, and the store kept
+    # sending that on re-import. A marketplace store is the classified,
+    # message-the-seller experience with no cart, so thousands of priced
+    # listings could not be bought.
+    post api_v1_commerce_imports_url,
+      params: {
+        merchant_id: @merchant.merchant_id,
+        storefront: {
+          display_name: "Bella's Coutures",
+          slug: "bella-s-coutures-konga",
+          store_type: "marketplace"
+        },
+        products: [ product_entry ]
+      },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    product = CommerceProduct.find_by!(product_id: response.parsed_body.fetch("results").first.fetch("product_id"))
+
+    assert_equal "ecommerce", product.store_type
+    assert_equal "Bella's Coutures", product.commerce_storefront.display_name
+    assert_equal "ecommerce", product.commerce_storefront.store_type
+  end
+
+  test "re-importing a storefront corrects a store that was typed classified" do
+    classified = @merchant.commerce_storefronts.create!(
+      display_name: "Bella's Coutures", slug: "bella-s-coutures-konga",
+      store_type: "marketplace", status: "published"
+    )
+
+    post api_v1_commerce_imports_url,
+      params: {
+        merchant_id: @merchant.merchant_id,
+        storefront: { display_name: "Bella's Coutures", slug: "bella-s-coutures-konga", store_type: "marketplace" },
+        products: [ product_entry ]
+      },
+      headers: tep_headers(@owner, "commerce:merchant"),
+      as: :json
+
+    assert_response :success
+    assert_equal "ecommerce", classified.reload.store_type
+  end
+
   test "re-importing the same source record updates instead of duplicating" do
     2.times do
       post api_v1_commerce_imports_url,
@@ -232,7 +277,9 @@ class Api::V1::Commerce::ImportsControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal "Bella's Coutures", storefront.display_name
     assert_equal "bella-s-coutures-jumia", storefront.slug
-    assert_equal "marketplace", storefront.store_type
+    assert_equal "ecommerce", storefront.store_type, (
+      "a scrape-sourced seller store sells through the cart; `marketplace` is "       "the classified experience and is only for stores people create"
+    )
     assert_equal "published", storefront.status
     assert_equal "Ankara and ready-to-wear, made in Lagos.", storefront.about
     assert_equal "https://cdn.tween.im/stores/jumia/bella-s-coutures/logo.jpg", storefront.logo_url

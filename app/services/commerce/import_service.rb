@@ -30,6 +30,12 @@ module Commerce
     #: Attributes that are Postgres arrays.
     ARRAY_ATTRIBUTES = %w[tags badges source_category_path].freeze
 
+    #: Imported catalogues live on the storefront experience — a priced shelf
+    #: with cart and checkout. `marketplace` is the classified experience (buyer
+    #: messages the seller, no checkout) and is for stores a person created, so
+    #: nothing the importer writes may carry it.
+    IMPORTED_STORE_TYPE = "ecommerce"
+
     STOREFRONT_ATTRIBUTES = %w[
       display_name about description logo_url banner_url accent_color
       store_type seo_title seo_description
@@ -104,7 +110,12 @@ module Commerce
         product.source_payload = source
         product.source_category_path = source_category_path(entry)
         product.source_synced_at = Time.current
-        product.store_type = product_attrs["store_type"] || product.commerce_storefront&.store_type
+        # A mirrored listing carries a price and stock, so it belongs to the
+        # storefront experience — cart, checkout, orders. Inheriting the store's
+        # type instead let stores typed `marketplace` (the classified,
+        # message-the-seller flow) drag their whole catalogue into a checkout-less
+        # experience; the storefront's own type is fixed separately.
+        product.store_type = product_attrs["store_type"].presence || IMPORTED_STORE_TYPE
         product.save!
 
         sku_count = sync_skus(product, Array(entry["skus"]))
@@ -197,7 +208,7 @@ module Commerce
 
       @merchant.commerce_storefronts.find_or_create_by!(slug: slug) do |sf|
         sf.display_name = branding["display_name"].presence || slug.titleize
-        sf.store_type = branding["store_type"].presence || "ecommerce"
+        sf.store_type = IMPORTED_STORE_TYPE
         sf.status = "published"
       end
     end
@@ -206,7 +217,7 @@ module Commerce
       @merchant.commerce_storefronts.first_or_create! do |sf|
         sf.display_name = @merchant.display_name
         sf.status = "published"
-        sf.store_type = "ecommerce"
+        sf.store_type = IMPORTED_STORE_TYPE
       end
     end
 
@@ -214,6 +225,10 @@ module Commerce
       return if branding.blank?
 
       storefront.assign_attributes(branding.slice(*STOREFRONT_ATTRIBUTES))
+      # A re-import re-sends the storefront's branding, and older scrapers typed
+      # source sellers `marketplace`. Pinning the type here keeps a stale payload
+      # from re-classifying an already-corrected store.
+      storefront.store_type = IMPORTED_STORE_TYPE
       apply_storefront_provenance(storefront, as_hash(branding["source"]))
       apply_storefront_contact(storefront, as_hash(branding["contact"]))
       storefront.status = "published" if storefront.status.blank? || storefront.status == "draft"

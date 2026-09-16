@@ -47,4 +47,32 @@ namespace :commerce do
 
     puts "done: #{resolved} listed, #{skipped} left without a category"
   end
+
+
+  desc "Re-type imported catalogues that were created as classified (marketplace) stores. Dry run; APPLY=1 writes."
+  task fix_imported_store_types: :environment do
+    apply = ENV["APPLY"] == "1"
+
+    # Imported rows are the ones carrying provenance. A store a person created
+    # has no source_platform, so a genuine classified store is never touched.
+    imported_storefronts = CommerceStorefront.where.not(source_platform: nil)
+    storefront_scope = imported_storefronts.where(store_type: "marketplace")
+    product_scope = CommerceProduct
+      .where(store_type: "marketplace")
+      .where(commerce_storefront_id: imported_storefronts.select(:id))
+
+    puts "imported storefronts       : #{imported_storefronts.count}"
+    puts "storefronts to re-type      : #{storefront_scope.count}"
+    puts "products to re-type         : #{product_scope.count}"
+
+    if apply
+      CommerceStorefront.transaction do
+        storefront_scope.update_all(store_type: "ecommerce", updated_at: Time.current)
+        product_scope.update_all(store_type: "ecommerce", updated_at: Time.current)
+      end
+      puts "applied: #{storefront_scope.count} storefronts, #{product_scope.count} products now ecommerce"
+    else
+      puts "dry run — re-run with APPLY=1 to write"
+    end
+  end
 end
