@@ -56,6 +56,15 @@ class Admin::DashboardControllerTest < ActionDispatch::IntegrationTest
     assert_match "Needs fulfilment", response.body
   end
 
+  test "the layout counts the queue once and shows it in both places" do
+    sign_in_as(@super_admin)
+
+    get admin_dashboard_path
+
+    assert_response :success
+    assert_match "orders need attention", response.body
+  end
+
   test "the newest users and stores are listed" do
     sign_in_as(@super_admin)
 

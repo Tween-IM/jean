@@ -15,13 +15,19 @@ module Admin::LayoutHelper
   # Orders that need a human right now. The sidebar badge and the topbar bell
   # both read this, so operators can see the queue from wherever they are.
   def commerce_attention_count
-    return 0 unless current_admin_user&.has_admin_permission?(:view_orders)
+    return @commerce_attention_count if defined?(@commerce_attention_count)
 
-    CommerceOrder
-      .where(status: %w[pending_payment paid processing], fulfillment_status: %w[unfulfilled partially_fulfilled])
-      .count
-  rescue ActiveRecord::StatementInvalid => e
-    Rails.logger.error "commerce_attention_count failed: #{e.message}"
-    0
+    @commerce_attention_count = begin
+      if current_admin_user&.has_admin_permission?(:view_orders)
+        CommerceOrder
+          .where(status: %w[pending_payment paid processing], fulfillment_status: %w[unfulfilled partially_fulfilled])
+          .count
+      else
+        0
+      end
+    rescue ActiveRecord::StatementInvalid => e
+      Rails.logger.error "commerce_attention_count failed: #{e.message}"
+      0
+    end
   end
 end
