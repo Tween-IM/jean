@@ -56,6 +56,34 @@ class Admin::DashboardControllerTest < ActionDispatch::IntegrationTest
     assert_match "Needs fulfilment", response.body
   end
 
+  test "scope grants are listed with the mini app they belong to" do
+    # This panel 500'd in production: the approval's `miniapp` association
+    # looked for a class that does not exist, which no test caught while the
+    # panel was permanently empty.
+    mini_app = MiniApp.create!(
+      app_id: "ma_dashboard#{SecureRandom.hex(4)}",
+      name: "Dashboard Test App",
+      version: "1.0.0",
+      classification: :official,
+      status: :active,
+      manifest: { "scopes" => [ "user:read" ] }
+    )
+    AuthorizationApproval.create!(
+      user_id: @buyer.matrix_user_id,
+      miniapp_id: mini_app.app_id,
+      scope: "user:read",
+      approved_at: Time.current
+    )
+
+    sign_in_as(@super_admin)
+
+    get admin_dashboard_path
+
+    assert_response :success
+    assert_match "Recent scope grants", response.body
+    assert_match "Dashboard Test App", response.body
+  end
+
   test "the layout counts the queue once and shows it in both places" do
     sign_in_as(@super_admin)
 

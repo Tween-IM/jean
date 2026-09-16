@@ -6,7 +6,10 @@ class AuthorizationApproval < ApplicationRecord
   self.table_name = "authorization_approvals"
 
   belongs_to :user, foreign_key: :user_id, primary_key: :matrix_user_id, optional: true
-  belongs_to :miniapp, foreign_key: :miniapp_id, primary_key: :miniapp_id, optional: true
+  # `miniapp_id` holds a mini app's `app_id` (the "ma_..." identifier), and
+  # the class is `MiniApp` — without both spellings out, Rails looks for a
+  # `Miniapp` class and a `miniapp_id` column that do not exist.
+  belongs_to :miniapp, class_name: "MiniApp", foreign_key: :miniapp_id, primary_key: :app_id, optional: true
 
   validates :user_id, presence: true
   validates :miniapp_id, presence: true

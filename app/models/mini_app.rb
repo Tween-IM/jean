@@ -10,8 +10,9 @@ class MiniApp < ApplicationRecord
   # Relationships
   has_many :miniapp_installations, foreign_key: :mini_app_id
   has_many :installed_users, through: :miniapp_installations, source: :user
-  has_many :mini_app_automated_checks, foreign_key: :miniapp_id
-  has_many :mini_app_appeals, foreign_key: :miniapp_id
+  # Both tables name a mini app by its `app_id`, not by this row's id.
+  has_many :mini_app_automated_checks, foreign_key: :miniapp_id, primary_key: :app_id
+  has_many :mini_app_appeals, foreign_key: :miniapp_id, primary_key: :app_id
 
   # Validations
   validates :app_id, presence: true, uniqueness: true,

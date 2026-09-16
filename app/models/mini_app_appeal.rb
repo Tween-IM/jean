@@ -5,7 +5,7 @@ class MiniAppAppeal < ApplicationRecord
 
   self.table_name = "mini_app_appeals"
 
-  belongs_to :miniapp, foreign_key: :miniapp_id, primary_key: :miniapp_id, optional: true
+  belongs_to :miniapp, class_name: "MiniApp", foreign_key: :miniapp_id, primary_key: :app_id, optional: true
 
   validates :miniapp_id, presence: true
   validates :user_id, presence: true
