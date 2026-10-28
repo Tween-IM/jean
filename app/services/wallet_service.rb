@@ -130,13 +130,15 @@ class WalletService
         begin
           error_data = JSON.parse(response.body)
           if error_data["error"]
-            code = error_data["error"]["code"]
-            message = error_data["error"]["message"] || "Wallet service error"
-            # 4xx = client/validation error (bad request, missing scope, etc.).
-            # Don't open the circuit breaker for these — the service is up.
-            raise(ClientError, message) if response.status.between?(400, 499)
-
-            raise WalletError.new(message, code)
+            upstream_error = error_data["error"]
+            code = upstream_error.is_a?(Hash) ? upstream_error["code"] : nil
+            message = upstream_error.is_a?(Hash) ? upstream_error["message"] : upstream_error.to_s
+            message = "Wallet service error" if message.blank?
+            # Preserve authentication failures so the app's 401 recovery can
+            # refresh its session instead of showing a generic balance error.
+            code = "AUTHENTICATION_FAILED" if response.status == 401
+            error_class = response.status.between?(400, 499) ? ClientError : WalletError
+            raise error_class.new(message, code)
           end
         rescue JSON::ParserError
         end

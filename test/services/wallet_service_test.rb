@@ -15,6 +15,27 @@ class WalletServiceTest < ActiveSupport::TestCase
     WalletService::CIRCUIT_BREAKER_ACCESS_TIMES.clear
   end
 
+  test "wallet authentication failures preserve a refreshable error code" do
+    stub_request(:get, "#{WalletService::WALLET_API_BASE_URL}/api/v1/tmcp/wallets/balance")
+      .to_return(status: 401, body: { error: "Invalid TEP token" }.to_json)
+
+    error = assert_raises(WalletService::ClientError) do
+      WalletService.make_wallet_request(:get, "/api/v1/tmcp/wallets/balance")
+    end
+    assert_equal "AUTHENTICATION_FAILED", error.code
+    assert_equal "Invalid TEP token", error.message
+  end
+
+  test "wallet structured validation errors retain their original code" do
+    stub_request(:get, "#{WalletService::WALLET_API_BASE_URL}/api/v1/tmcp/wallets/balance")
+      .to_return(status: 403, body: { error: { code: "INSUFFICIENT_SCOPE", message: "Missing wallet:balance scope" } }.to_json)
+
+    error = assert_raises(WalletService::ClientError) do
+      WalletService.make_wallet_request(:get, "/api/v1/tmcp/wallets/balance")
+    end
+    assert_equal "INSUFFICIENT_SCOPE", error.code
+  end
+
   # ============================================================================
   # Circuit Breaker Tests
   # ============================================================================
