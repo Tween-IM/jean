@@ -109,7 +109,10 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
           body: {
             transfer_id: transfer_id,
             status: "completed",
-            accepted_at: Time.current.iso8601
+            accepted_at: Time.current.iso8601,
+            sender: { user_id: "@bob:tween.example" },
+            amount: 100,
+            currency: "NGN"
           }.to_json
         }
       end
@@ -274,9 +277,18 @@ class Api::V1::WalletControllerTest < ActionDispatch::IntegrationTest
     # Section 7.2.3: Recipient Acceptance Protocol
     transfer_id = "p2p_test123"
 
-    post "/api/v1/wallet/p2p/#{transfer_id}/accept",
-         params: { device_id: "device_test" },
-         headers: @headers
+    notification = nil
+    original = NotificationDispatcher.method(:notify)
+    NotificationDispatcher.define_singleton_method(:notify) { |**args| notification = args }
+    begin
+      post "/api/v1/wallet/p2p/#{transfer_id}/accept",
+           params: { device_id: "device_test" },
+           headers: @headers
+    ensure
+      NotificationDispatcher.define_singleton_method(:notify, original)
+    end
+    assert_equal "@bob:tween.example", notification[:user_id]
+    assert_includes notification[:body], @user.matrix_user_id
 
     assert_response :success
 

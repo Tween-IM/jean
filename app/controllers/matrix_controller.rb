@@ -131,7 +131,7 @@ class MatrixController < ApplicationController
       return render json: { error: "invalid_request", message: "room_id is required" }, status: :bad_request
     end
 
-    unless room_id.match?(/^![A-Za-z0-9]+:.+/)
+    unless valid_matrix_room_id?(room_id)
       return render json: { error: "invalid_request", message: "Invalid room_id format" }, status: :bad_request
     end
 
@@ -163,7 +163,7 @@ class MatrixController < ApplicationController
       return render json: { error: "invalid_request", message: "room_id is required" }, status: :bad_request
     end
 
-    unless room_id.match?(/^![A-Za-z0-9]+:.+/)
+    unless valid_matrix_room_id?(room_id)
       return render json: { error: "invalid_request", message: "Invalid room_id format" }, status: :bad_request
     end
 
@@ -194,7 +194,7 @@ class MatrixController < ApplicationController
     transfer_id = params[:transfer_id].to_s
     status = params[:status].to_s
 
-    unless room_id.match?(/^![A-Za-z0-9]+:.+/) && transfer_id.present? && %w[completed rejected].include?(status)
+    unless valid_matrix_room_id?(room_id) && transfer_id.present? && %w[completed rejected].include?(status)
       return render json: { error: "invalid_request" }, status: :unprocessable_entity
     end
 
@@ -211,7 +211,7 @@ class MatrixController < ApplicationController
   def payment_event
     room_id = params[:room_id].to_s
     transfer_id = params[:transfer_id].to_s
-    unless room_id.match?(/^![A-Za-z0-9]+:.+/) && transfer_id.present?
+    unless valid_matrix_room_id?(room_id) && transfer_id.present?
       return render json: { error: "invalid_request" }, status: :unprocessable_entity
     end
 
@@ -231,6 +231,12 @@ class MatrixController < ApplicationController
   end
 
   private
+
+  # Room versions 12+ use a base64url hash without a homeserver suffix.
+  # Continue accepting legacy room IDs, while rejecting whitespace/path input.
+  def valid_matrix_room_id?(room_id)
+    room_id.bytesize <= 255 && room_id.match?(/\A!(?:[A-Za-z0-9_-]{43}|[A-Za-z0-9_-]+:[^\s\/]+)\z/)
+  end
 
   def verify_tweenpay_internal_token
     expected = ENV["TWEENPAY_INTERNAL_TOKEN"].to_s

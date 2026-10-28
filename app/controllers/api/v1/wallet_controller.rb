@@ -272,14 +272,16 @@ class Api::V1::WalletController < Api::BaseController
 
     if result[:status] == "completed"
       # Notify the sender that their transfer was accepted
-      sender_id = result[:sender] || result[:sender_user_id]
+      sender = result[:sender]
+      sender_id = sender.is_a?(Hash) ? (sender[:user_id] || sender["user_id"]) : sender
+      sender_id ||= result[:sender_user_id]
       if sender_id.present?
         NotificationDispatcher.notify(
           user_id: sender_id,
           source: :tweenpay,
           notification_type: :payment,
           title: "Transfer accepted",
-          body: "#{@current_user.display_name || @current_user.matrix_user_id} accepted your transfer of #{result[:amount]} #{result[:currency]}.",
+          body: "#{@current_user.matrix_user_id} accepted your transfer of #{result[:amount]} #{result[:currency]}.",
           deep_link: "tween://chat",
           metadata: {
             transfer_id: transfer_id,
@@ -315,14 +317,16 @@ class Api::V1::WalletController < Api::BaseController
     result = WalletService.reject_p2p_transfer(transfer_id, @tep_token, params[:reason])
 
     # Notify the sender that their transfer was rejected
-    sender_id = result[:sender] || result[:sender_user_id]
+    sender = result[:sender]
+    sender_id = sender.is_a?(Hash) ? (sender[:user_id] || sender["user_id"]) : sender
+    sender_id ||= result[:sender_user_id]
     if sender_id.present?
       NotificationDispatcher.notify(
         user_id: sender_id,
         source: :tweenpay,
         notification_type: :payment,
         title: "Transfer rejected",
-        body: "#{@current_user.display_name || @current_user.matrix_user_id} rejected your transfer of #{result[:amount]} #{result[:currency]}.",
+        body: "#{@current_user.matrix_user_id} rejected your transfer of #{result[:amount]} #{result[:currency]}.",
         deep_link: "tween://chat",
         metadata: {
           transfer_id: transfer_id,

@@ -28,7 +28,7 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
     end
     begin
       post "/api/v1/internal/matrix/payment_status",
-           params: { room_id: "!room123:tween.example", transfer_id: "p2p_123", status: "completed" },
+           params: { room_id: "!wgdFL2VJI9L6QBr5aqGL7D_YEuG1JwyJ_fa13r7iEjU", transfer_id: "p2p_123", status: "completed" },
            headers: { "X-TweenPay-Internal-Token" => "test_internal_token" },
            as: :json
     ensure
@@ -38,6 +38,15 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "published", response.parsed_body["status"]
     assert_equal "$status", response.parsed_body["event_id"]
+  end
+
+  test "payment callbacks reject malformed room ids" do
+    [ "!bad room:tween.im", "!short", "!room:tween.im/path", "!room:tween.im\n" ].each do |room_id|
+      post "/api/v1/internal/matrix/payment_status",
+           params: { room_id: room_id, transfer_id: "p2p_123", status: "completed" },
+           headers: { "X-TweenPay-Internal-Token" => "test_internal_token" }, as: :json
+      assert_response :unprocessable_entity
+    end
   end
 
   test "payment status rejects callers without the internal token" do
@@ -58,7 +67,7 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
     begin
       post "/api/v1/internal/matrix/payment_event",
            params: {
-             room_id: "!room123:tween.example",
+             room_id: "!wgdFL2VJI9L6QBr5aqGL7D_YEuG1JwyJ_fa13r7iEjU",
              transfer_id: "p2p_123",
              amount: 50,
              currency: "NGN",
@@ -72,7 +81,7 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal "$payment", response.parsed_body["event_id"]
-    assert_equal "!room123:tween.example", captured[0]
+    assert_equal "!wgdFL2VJI9L6QBr5aqGL7D_YEuG1JwyJ_fa13r7iEjU", captured[0]
     assert_equal "Mona", captured[1][:sender][:display_name]
   end
 
