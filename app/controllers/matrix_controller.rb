@@ -239,6 +239,14 @@ class MatrixController < ApplicationController
   end
 
   def verify_tweenpay_internal_token
+    secret = ENV["JEAN_CALLBACK_SECRET"].to_s
+    signature = request.headers["X-Tween-Signature"].to_s
+    if secret.present? && signature.present?
+      expected_signature = "sha256=" + OpenSSL::HMAC.hexdigest("SHA256", secret, request.raw_post)
+      return if ActiveSupport::SecurityUtils.secure_compare(signature, expected_signature)
+      return render json: { error: "unauthorized" }, status: :unauthorized
+    end
+
     expected = ENV["TWEENPAY_INTERNAL_TOKEN"].to_s
     provided = request.headers["X-TweenPay-Internal-Token"].to_s
     valid = expected.present? && provided.bytesize == expected.bytesize &&

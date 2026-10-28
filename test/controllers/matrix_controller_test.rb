@@ -40,6 +40,21 @@ class MatrixControllerTest < ActionDispatch::IntegrationTest
     assert_equal "$status", response.parsed_body["event_id"]
   end
 
+  test "payment callbacks authenticate with the existing callback HMAC" do
+    previous = ENV['JEAN_CALLBACK_SECRET']
+    ENV['JEAN_CALLBACK_SECRET'] = 'callback-test-secret'
+    body = { room_id: '!short', transfer_id: 'p2p_123', status: 'completed' }.to_json
+    signature = 'sha256=' + OpenSSL::HMAC.hexdigest('SHA256', 'callback-test-secret', body)
+    post '/api/v1/internal/matrix/payment_status', params: body,
+         headers: { 'Content-Type' => 'application/json', 'X-Tween-Signature' => signature }
+    assert_response :unprocessable_entity # authenticated, then fails room validation
+    post '/api/v1/internal/matrix/payment_status', params: body + ' ',
+         headers: { 'Content-Type' => 'application/json', 'X-Tween-Signature' => signature }
+    assert_response :unauthorized
+  ensure
+    ENV['JEAN_CALLBACK_SECRET'] = previous
+  end
+
   test "payment callbacks reject malformed room ids" do
     [ "!bad room:tween.im", "!short", "!room:tween.im/path", "!room:tween.im\n" ].each do |room_id|
       post "/api/v1/internal/matrix/payment_status",
