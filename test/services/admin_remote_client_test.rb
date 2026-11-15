@@ -58,4 +58,30 @@ class AdminRemoteClientTest < ActiveSupport::TestCase
     %w[MAS_ADMIN_URL MAS_ADMIN_CLIENT_ID MAS_ADMIN_CLIENT_SECRET].each { |key| ENV.delete(key) }
   end
 
+  test "admin integrations reuse existing service URLs without new URL variables" do
+    previous = ENV.to_h.slice('TWEEN_PAY_ADMIN_URL', 'TWEEN_PAY_ADMIN_SECRET', 'WALLET_API_BASE_URL',
+      'SYNAPSE_ADMIN_URL', 'SYNAPSE_ADMIN_TOKEN', 'MATRIX_API_URL', 'MAS_ADMIN_URL', 'MAS_ADMIN_TOKEN', 'MAS_AUTH_URL', 'MAS_URL')
+    %w[TWEEN_PAY_ADMIN_URL SYNAPSE_ADMIN_URL MAS_ADMIN_URL MAS_AUTH_URL].each { |key| ENV.delete(key) }
+    ENV['WALLET_API_BASE_URL'] = 'https://wallet.test'
+    ENV['TWEEN_PAY_ADMIN_SECRET'] = 'x' * 48
+    ENV['MATRIX_API_URL'] = 'https://matrix.test'
+    ENV['SYNAPSE_ADMIN_TOKEN'] = 'test-token'
+    ENV['MAS_URL'] = 'https://id.test'
+    ENV['MAS_ADMIN_TOKEN'] = 'test-token'
+    actor = Struct.new(:matrix_user_id).new('@staff:tween.im')
+    stub_request(:get, 'https://wallet.test/internal/admin/v1/resources/wallets')
+      .to_return(body: { records: [], page: 1 }.to_json)
+    stub_request(:get, 'https://matrix.test/_synapse/admin/v2/users/@staff:tween.im')
+      .to_return(body: { name: '@staff:tween.im' }.to_json)
+    stub_request(:get, 'https://id.test/api/admin/v1/users/staff')
+      .to_return(body: { data: { attributes: { username: 'staff' } } }.to_json)
+    assert_equal [], TweenPay::AdminClient.new(actor).list('wallets')['records']
+    assert_equal '@staff:tween.im', Admin::SynapseClient.new.person('@staff:tween.im')['name']
+    assert_equal 'staff', Admin::MasClient.new.person('staff')['username']
+  ensure
+    %w[TWEEN_PAY_ADMIN_URL TWEEN_PAY_ADMIN_SECRET WALLET_API_BASE_URL SYNAPSE_ADMIN_URL SYNAPSE_ADMIN_TOKEN
+      MATRIX_API_URL MAS_ADMIN_URL MAS_ADMIN_TOKEN MAS_AUTH_URL MAS_URL].each { |key| ENV.delete(key) }
+    previous.each { |key, value| ENV[key] = value }
+  end
+
 end

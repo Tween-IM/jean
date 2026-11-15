@@ -1,7 +1,7 @@
 module Admin
   class SynapseClient < RemoteClient
     def initialize
-      super(url: ENV["SYNAPSE_ADMIN_URL"], token: ENV["SYNAPSE_ADMIN_TOKEN"])
+      super(url: ENV["SYNAPSE_ADMIN_URL"].presence || ENV["MATRIX_API_URL"], token: ENV["SYNAPSE_ADMIN_TOKEN"])
     end
 
     def list(resource, query = {})

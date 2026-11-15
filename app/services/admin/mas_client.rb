@@ -1,7 +1,7 @@
 module Admin
   class MasClient < RemoteClient
     def initialize
-      url = ENV["MAS_ADMIN_URL"].to_s.chomp("/")
+      url = (ENV["MAS_ADMIN_URL"].presence || ENV["MAS_AUTH_URL"].presence || ENV["MAS_URL"]).to_s.chomp("/")
       token = ENV["MAS_ADMIN_TOKEN"].presence || client_token(url)
       super(url: url, token: token)
     end

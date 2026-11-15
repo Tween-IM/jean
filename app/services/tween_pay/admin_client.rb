@@ -9,7 +9,7 @@ module TweenPay
         JWT.encode({ iss: "tween-admin", aud: "tween-pay-admin", sub: actor.matrix_user_id,
           iat: Time.current.to_i, exp: 1.minute.from_now.to_i }, secret, "HS256")
       end
-      super(url: ENV["TWEEN_PAY_ADMIN_URL"], token: token)
+      super(url: ENV["TWEEN_PAY_ADMIN_URL"].presence || ENV["WALLET_API_BASE_URL"], token: token)
     end
 
     def list(resource, query = {})
