@@ -6,6 +6,7 @@ module Admin
   class RemoteClient
     class Unavailable < StandardError; end
     class Forbidden < StandardError; end
+    class Unauthorized < Forbidden; end
     class NotFound < StandardError; end
     class Rejected < StandardError; end
 
@@ -38,7 +39,8 @@ module Admin
         req.body = JSON.generate(body)
       end
       response = http.request(req)
-      raise Forbidden, "You do not have access to this information." if %w[401 403].include?(response.code)
+      raise Unauthorized, "Your authorization has expired. Please reconnect." if response.code == "401"
+      raise Forbidden, "You do not have access to this information." if response.code == "403"
       raise NotFound, "No matching record was found." if response.code == "404"
       if %w[400 409 422].include?(response.code)
         raise Rejected, "The action was rejected. Refresh the record and check its current state before trying again."

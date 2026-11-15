@@ -34,6 +34,7 @@ module Admin
       if Rails.env.production? && ENV.fetch("ADMIN_REQUIRE_MFA", "true") == "true" && !user.admin_mfa_enabled?
         return redirect_to admin_login_path, alert: "Staff access requires an enrolled authenticator. Contact your administrator."
       end
+      AdminOauthGrant.disconnect(session.delete(:admin_oauth_key))
       reset_session
       # Check MFA if enabled
       if user.admin_mfa_enabled?
@@ -74,6 +75,7 @@ module Admin
         return
       end
 
+      AdminOauthGrant.disconnect(session.delete(:admin_oauth_key))
       reset_session
       session[:admin_user_id] = user.id
       session[:admin_last_activity_at] = Time.current.iso8601
@@ -95,6 +97,7 @@ module Admin
     end
 
     def reset_admin_session!
+      AdminOauthGrant.disconnect(session.delete(:admin_oauth_key))
       session.delete(:admin_user_id)
       session.delete(:admin_last_activity_at)
       session.delete(:admin_mfa_verified)

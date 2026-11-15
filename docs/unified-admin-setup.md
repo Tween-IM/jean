@@ -18,6 +18,7 @@ UI is embedded or used as a browser redirect for routine work.
   require a reason and a stable UUID and are deduplicated in Tween Pay.
 - Messaging room/report list/detail, room blocking/unblocking and report dismissal.
 - Linked MAS identity detail and account locking/unlocking.
+- Per-admin MAS authorization with encrypted, session-bound credentials and refresh rotation.
 - Independent tab failures, direct-request permission checks, short-lived signed
   payment staff delegation, backend staff revocation checks and durable audits.
 - Production login fails closed without an emergency token; production staff MFA
@@ -51,13 +52,32 @@ URLs continue to work.
 | Jean | `ADMIN_ACCESS_TOKEN` | Optional explicitly configured emergency access; store as a secret |
 | Jean | `TWEEN_PAY_ADMIN_URL` | Optional HTTPS base URL override; defaults to existing `WALLET_API_BASE_URL`, without `/internal/admin/v1` |
 | Both | `TWEEN_ADMIN_SECRET` | Dedicated shared signing secret of at least 32 bytes, supplied through secret configuration |
-| Jean | `SYNAPSE_ADMIN_URL`, `SYNAPSE_ADMIN_TOKEN` | Optional Synapse URL override (defaults to existing `MATRIX_API_URL`), plus the required server-admin credential |
-| Jean | `MAS_ADMIN_CLIENT_ID`, `MAS_ADMIN_CLIENT_SECRET` | Dedicated privileged client; when no static token is set, Jean obtains a fresh `urn:mas:admin` access token using client credentials |
-| Jean | `MAS_ADMIN_URL`, `MAS_ADMIN_TOKEN` | Optional MAS URL override (defaults to existing `MAS_AUTH_URL` / `MAS_URL`) and an optional admin-scoped access token; refresh/rotate before expiry |
+| Jean | `SYNAPSE_ADMIN_URL` | Optional URL override; defaults to existing `MATRIX_API_URL`. No global admin token is used. |
+| Jean | `MAS_ADMIN_URL` | Optional API URL override; defaults to existing `MAS_AUTH_URL` / `MAS_URL`. |
 
-The MAS staff login client is distinct from the privileged MAS API credential.
-No administrative tokens go into JavaScript, browser storage, or HTML. Production
-upstream URLs require HTTPS. Connection credentials are never displayed by the UI.
+Messaging and identity administration use the signed-in staff member's own MAS
+OAuth grant, not a shared user, application-service token or client-credentials
+administrator. Legacy `SYNAPSE_ADMIN_TOKEN`, `MAS_ADMIN_TOKEN` and
+`MAS_ADMIN_CLIENT_*` variables are ignored by these integrations and should be
+removed from deployment.
+
+Ordinary Tween ID login continues to request only `openid`. On entering an
+administrative section, choose **Authorize with Tween ID**. The existing MAS
+client and registered callback are reused with authorization code + PKCE,
+requesting `openid urn:matrix:client:api:* urn:synapse:admin:* urn:mas:admin`.
+MAS decides whether that person can receive those privileges. A Jean staff role
+alone does not grant MAS administration rights. Staff denied those scopes retain
+their other permitted workspace sections; do not promote accounts automatically.
+
+The callback must name the exact MAS subject linked to the current staff account.
+An authorization is scoped to one browser's staff session, never shared with
+another staff member or browser. Only a random opaque reference goes in the Rails
+session cookie. Access/refresh tokens are encrypted in the database with a key
+derived from the existing Rails secret key base; no new encryption env is needed.
+Refresh is serialized by a row lock and persists rotated refresh tokens. Logout,
+idle expiry, upstream rejection, identity changes and role revocation clear local
+access. Remote revocation is attempted on disconnect. There is a twelve-hour
+absolute grant lifetime before new consent is required.
 
 Before enabling payment access, create/link the staff identity in Tween Pay with
 the same full Matrix ID and deliberately assign its local staff role. A Jean role
@@ -75,9 +95,8 @@ balance or a newly provisioned account.
 1. Deploy Tween Pay's internal API and run its `admin_workspace_commands`
    migration. Restrict `/internal/admin/v1` at the network/proxy layer to the
    dashboard server where possible; signed authentication is still required.
-2. Configure the same dedicated signing secret in both services. Configure the
-   Synapse and MAS credentials and verify staff mappings/roles.
-3. Deploy Jean, run the `admin_audit_events` migration, and build its CSS. Verify
+2. Configure the same dedicated signing secret in both services. Verify staff mappings/roles and each administrator's own MAS permissions.
+3. Deploy Jean, run the `admin_audit_events` and `admin_oauth_grants` migrations, and build its CSS. Verify
    staff have enrolled MFA before applying the production default requirement.
 4. Register the dedicated-host callback and verify login/logout, denied access,
    reads, unavailable states, and a controlled command in staging.
@@ -98,7 +117,7 @@ engineering consoles remain fallback tools until those workflows are migrated.
 
 Search currently covers Jean's people directory. Payment and MAS details use
 existing identity links; searching MAS-only or unlinked payment accounts is not
-implemented. MAS API access uses a dedicated client-credentials grant or a supplied token. Missing links and expired credentials do not
+implemented. MAS and Synapse API access require per-admin consent. Missing links and expired credentials do not
 trigger provisioning or broaden permissions.
 
 Audit records cover new remote commands and existing local actions that call

@@ -6,7 +6,7 @@ class AdminRemoteClientTest < ActiveSupport::TestCase
     ENV['SYNAPSE_ADMIN_TOKEN'] = 'test-token'
     stub_request(:get, 'https://matrix.test/_synapse/admin/v1/rooms?from=opaque-token&limit=25')
       .to_return(body: { rooms: [], total_rooms: 100, next_batch: 'opaque-next', prev_batch: 'opaque-prev' }.to_json)
-    data = Admin::SynapseClient.new.list('rooms', page: 3, cursor: 'opaque-token')
+    data = Admin::SynapseClient.new(grant: transport_grant).list('rooms', page: 3, cursor: 'opaque-token')
     assert_equal 'opaque-next', data['next_cursor']
     assert_equal 'opaque-prev', data['previous_cursor']
     assert_equal 4, data['next_page']
@@ -35,29 +35,13 @@ class AdminRemoteClientTest < ActiveSupport::TestCase
     stub_request(:get, 'https://id.test/api/admin/v1/users/test-id').to_return(body: {
       data: { attributes: { username: 'alice', created_at: '2026-01-01', locked_at: nil, admin: true } }
     }.to_json)
-    data = Admin::MasClient.new.person('test-id')
+    data = Admin::MasClient.new(grant: transport_grant).person('test-id')
     assert_equal 'alice', data['username']
     refute data.key?('admin')
   ensure
     ENV.delete('MAS_ADMIN_URL')
     ENV.delete('MAS_ADMIN_TOKEN')
   end
-  test "MAS obtains a fresh admin token from its dedicated confidential client" do
-    ENV['MAS_ADMIN_URL'] = 'https://id.test'
-    ENV['MAS_ADMIN_CLIENT_ID'] = 'workspace-client'
-    ENV['MAS_ADMIN_CLIENT_SECRET'] = 'test-client-secret'
-    stub_request(:post, 'https://id.test/oauth2/token')
-      .with(basic_auth: ['workspace-client', 'test-client-secret'],
-        body: { 'grant_type' => 'client_credentials', 'scope' => 'urn:mas:admin' })
-      .to_return(body: { access_token: 'fresh-token' }.to_json)
-    stub_request(:get, 'https://id.test/api/admin/v1/users/test-id')
-      .with(headers: { 'Authorization' => 'Bearer fresh-token' })
-      .to_return(body: { data: { attributes: { username: 'alice' } } }.to_json)
-    assert_equal 'alice', Admin::MasClient.new.person('test-id')['username']
-  ensure
-    %w[MAS_ADMIN_URL MAS_ADMIN_CLIENT_ID MAS_ADMIN_CLIENT_SECRET].each { |key| ENV.delete(key) }
-  end
-
   test "admin integrations reuse existing service URLs without new URL variables" do
     previous = ENV.to_h.slice('TWEEN_PAY_ADMIN_URL', 'TWEEN_ADMIN_SECRET', 'WALLET_API_BASE_URL',
       'SYNAPSE_ADMIN_URL', 'SYNAPSE_ADMIN_TOKEN', 'MATRIX_API_URL', 'MAS_ADMIN_URL', 'MAS_ADMIN_TOKEN', 'MAS_AUTH_URL', 'MAS_URL')
@@ -76,12 +60,21 @@ class AdminRemoteClientTest < ActiveSupport::TestCase
     stub_request(:get, 'https://id.test/api/admin/v1/users/staff')
       .to_return(body: { data: { attributes: { username: 'staff' } } }.to_json)
     assert_equal [], TweenPay::AdminClient.new(actor).list('wallets')['records']
-    assert_equal '@staff:tween.im', Admin::SynapseClient.new.person('@staff:tween.im')['name']
-    assert_equal 'staff', Admin::MasClient.new.person('staff')['username']
+    assert_equal '@staff:tween.im', Admin::SynapseClient.new(grant: transport_grant).person('@staff:tween.im')['name']
+    assert_equal 'staff', Admin::MasClient.new(grant: transport_grant).person('staff')['username']
   ensure
     %w[TWEEN_PAY_ADMIN_URL TWEEN_ADMIN_SECRET WALLET_API_BASE_URL SYNAPSE_ADMIN_URL SYNAPSE_ADMIN_TOKEN
       MATRIX_API_URL MAS_ADMIN_URL MAS_ADMIN_TOKEN MAS_AUTH_URL MAS_URL].each { |key| ENV.delete(key) }
     previous.each { |key, value| ENV[key] = value }
+  end
+
+  private
+
+  def transport_grant
+    Struct.new(:token) do
+      def access_token_for(_scope) = token
+      def destroy! = nil
+    end.new('test-token')
   end
 
 end

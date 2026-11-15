@@ -47,7 +47,12 @@ module Admin
       end
     end
 
+    def admin_oauth_grant
+      AdminOauthGrant.for_session(current_admin_user, session[:admin_oauth_key])
+    end
+
     def reset_admin_session!
+      AdminOauthGrant.disconnect(session.delete(:admin_oauth_key))
       session.delete(:admin_user_id)
       session.delete(:admin_last_activity_at)
       session.delete(:admin_mfa_verified)

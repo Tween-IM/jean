@@ -1,4 +1,11 @@
 <div class="admin-empty" role="status">
-  <h2>We couldn’t load this information</h2>
-  <p><%= message %></p>
-  <%= link_to "Try again", request.fullpath, class: "admin-button", style: "margin-top:16px" %></div>
+  <% if @needs_authorization %>
+    <h2>Connect your administration access</h2>
+    <p>Authorize with your own Tween ID. Your identity provider controls whether you can administer messaging and accounts.</p>
+    <%= link_to "Authorize with Tween ID", admin_mas_connect_path, class: "admin-button admin-button-primary", style: "margin-top:16px" %>
+  <% else %>
+    <h2>We couldn’t load this information</h2>
+    <p><%= message %></p>
+    <%= link_to "Try again", request.fullpath, class: "admin-button", style: "margin-top:16px" %>
+  <% end %>
+</div>

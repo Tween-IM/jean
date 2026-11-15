@@ -37,7 +37,20 @@ module Admin
       redirect_to admin_login_path, alert: "Could not start Tween ID sign-in. Please try again."
     end
 
+    def connect
+      return redirect_to admin_login_path unless connection_staff?
+      return redirect_to admin_dashboard_path, alert: "Tween ID sign-in is not configured." unless MasOidc.configured?
+      pending = { "state" => MasOidc.new_state, "verifier" => MasOidc.new_code_verifier,
+        "user_id" => current_admin_user.id, "started_at" => Time.current.to_i }
+      session[:admin_connection] = pending
+      redirect_to MasOidc.authorization_url(state: pending["state"], code_verifier: pending["verifier"],
+        scope: AdminOauthGrant::REQUIRED_SCOPES.join(" ")), allow_other_host: true
+    rescue MasOidc::Error
+      redirect_to admin_dashboard_path, alert: "Could not start administration authorization. Please try again."
+    end
+
     def create
+      return complete_connection if session[:admin_connection]
       state = session.delete(:admin_mas_state)
       verifier = session.delete(:admin_mas_verifier)
       started_at = session.delete(:admin_mas_started_at)
@@ -60,6 +73,7 @@ module Admin
       if Rails.env.production? && ENV.fetch("ADMIN_REQUIRE_MFA", "true") == "true" && !user.admin_mfa_enabled?
         return fail_login("Staff access requires an enrolled authenticator. Contact your administrator.")
       end
+      AdminOauthGrant.disconnect(session.delete(:admin_oauth_key))
       reset_session
       if user.admin_mfa_enabled?
         session[:admin_mfa_pending_user_id] = user.id
@@ -75,6 +89,54 @@ module Admin
     end
 
     private
+
+    def connection_staff?
+      user = current_admin_user
+      return false unless user&.active? && user.platform_admin?
+      return false unless user.has_admin_permission?(:view_messaging) || user.has_admin_permission?(:view_identity)
+      last_activity = Time.iso8601(session[:admin_last_activity_at].to_s)
+      last_activity > [ ENV.fetch("ADMIN_SESSION_TIMEOUT_MINUTES", 30).to_i, 5 ].max.minutes.ago
+    rescue ArgumentError
+      false
+    end
+
+    def complete_connection
+      pending = session.delete(:admin_connection)
+      tokens = nil
+      installed = false
+      unless connection_staff? && pending["user_id"] == current_admin_user.id
+        return redirect_to admin_login_path, alert: "Your staff session changed or expired. Sign in again."
+      end
+      unless !stale?(pending["started_at"]) && params[:state].present? &&
+          ActiveSupport::SecurityUtils.secure_compare(pending["state"].to_s, params[:state].to_s)
+        return redirect_to admin_dashboard_path, alert: "That authorization expired or did not match. Please try again."
+      end
+      if params[:error].present? || params[:code].blank?
+        return redirect_to admin_dashboard_path, alert: "Administration access was not granted. Your other workspace access is unchanged."
+      end
+      tokens = MasOidc.tokens_for(code: params[:code], code_verifier: pending["verifier"])
+      claims = MasOidc.userinfo(tokens.fetch("access_token", ""))
+      key = session[:admin_oauth_key].presence || SecureRandom.urlsafe_base64(32)
+      AdminOauthGrant.transaction do
+        AdminOauthGrant.install!(user: current_admin_user, key: key, subject: claims["sub"], tokens: tokens)
+        AdminAuditEvent.create!(actor_matrix_id: current_admin_user.matrix_user_id,
+          action: "connect_administration", target: claims["sub"], request_id: request.request_id)
+      end
+      session[:admin_oauth_key] = key
+      installed = true
+      redirect_to admin_resource_path("rooms"), notice: "Administration is connected using your own Tween ID."
+    rescue MasOidc::Error, AdminOauthGrant::ConnectionRequired
+      redirect_to admin_dashboard_path,
+        alert: "Administration authorization failed. Use the Tween ID linked to your staff account; MAS must grant it admin access."
+    ensure
+      if tokens && !installed
+        begin
+          MasOidc.revoke(tokens["refresh_token"].presence || tokens["access_token"])
+        rescue MasOidc::Error
+          Rails.logger.warn("Could not revoke a rejected administration grant.")
+        end
+      end
+    end
 
     def stale?(started_at)
       started_at.blank? || Time.at(started_at.to_i) < STATE_TTL.ago

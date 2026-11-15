@@ -25,8 +25,8 @@ module Admin
       return head :forbidden unless @tabs.key?(@tab)
       case @tab
       when "payments" then @remote = TweenPay::AdminClient.new(current_admin_user).person(@user.matrix_user_id)
-      when "messaging" then @remote = SynapseClient.new.person(@user.matrix_user_id)
-      when "identity" then @remote = MasClient.new.person(@user.mas_user_id)
+      when "messaging" then @remote = SynapseClient.new(grant: admin_oauth_grant).person(@user.matrix_user_id)
+      when "identity" then @remote = MasClient.new(grant: admin_oauth_grant).person(@user.mas_user_id)
       when "apps"
         @installations = @user.miniapp_installations.includes(:mini_app).order(created_at: :desc).limit(20)
         @mfa_methods = @user.mfa_methods
@@ -35,6 +35,7 @@ module Admin
         @orders = CommerceOrder.where(buyer_user_id: @user.matrix_user_id).order(created_at: :desc).limit(20)
       end
     rescue RemoteClient::Unavailable, RemoteClient::Forbidden, RemoteClient::NotFound, RemoteClient::Rejected => e
+      @needs_authorization = e.is_a?(AdminOauthGrant::ConnectionRequired)
       @remote_error = e.message
     end
 
@@ -45,7 +46,7 @@ module Admin
       event = AdminAuditEvent.create!(actor_matrix_id: current_admin_user.matrix_user_id,
         action: "identity.#{params[:operation]}", target: @user.mas_user_id, request_id: request.request_id,
         outcome: "pending", details: { reason: params[:reason] })
-      MasClient.new.account_action(@user.mas_user_id, params[:operation])
+      MasClient.new(grant: admin_oauth_grant).account_action(@user.mas_user_id, params[:operation])
       event.update!(outcome: "success")
       redirect_to admin_user_path(@user, tab: "identity"), notice: "Identity account updated."
     rescue RemoteClient::Unavailable, RemoteClient::Forbidden, RemoteClient::NotFound, RemoteClient::Rejected => e

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_15_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -54,6 +54,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
     t.index ["actor_matrix_id"], name: "index_admin_audit_events_on_actor_matrix_id"
     t.index ["created_at"], name: "index_admin_audit_events_on_created_at"
     t.index ["request_id"], name: "index_admin_audit_events_on_request_id"
+  end
+
+  create_table "admin_oauth_grants", force: :cascade do |t|
+    t.string "client_id", null: false
+    t.datetime "created_at", null: false
+    t.text "encrypted_credentials", null: false
+    t.datetime "expires_at", null: false
+    t.string "issuer", null: false
+    t.text "scope", null: false
+    t.string "session_digest", null: false
+    t.datetime "session_expires_at", null: false
+    t.string "subject", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["session_digest"], name: "index_admin_oauth_grants_on_session_digest", unique: true
+    t.index ["session_expires_at"], name: "index_admin_oauth_grants_on_session_expires_at"
+    t.index ["user_id"], name: "index_admin_oauth_grants_on_user_id"
   end
 
   create_table "authorization_approvals", force: :cascade do |t|
@@ -1124,6 +1141,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_120000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "admin_oauth_grants", "users"
   add_foreign_key "commerce_cart_items", "commerce_carts"
   add_foreign_key "commerce_cart_items", "commerce_skus"
   add_foreign_key "commerce_carts", "commerce_merchants"

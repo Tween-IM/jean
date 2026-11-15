@@ -1,7 +1,15 @@
 module Admin
   class SynapseClient < RemoteClient
-    def initialize
-      super(url: ENV["SYNAPSE_ADMIN_URL"].presence || ENV["MATRIX_API_URL"], token: ENV["SYNAPSE_ADMIN_TOKEN"])
+    def initialize(grant:)
+      @grant = grant
+      super(url: ENV["SYNAPSE_ADMIN_URL"].presence || ENV["MATRIX_API_URL"], token: grant.access_token_for(AdminOauthGrant::SYNAPSE_SCOPE))
+    end
+
+    def request(...)
+      super
+    rescue RemoteClient::Unauthorized
+      @grant.destroy!
+      raise AdminOauthGrant::ConnectionRequired, AdminOauthGrant::MESSAGE
     end
 
     def list(resource, query = {})

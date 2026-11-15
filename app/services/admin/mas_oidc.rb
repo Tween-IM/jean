@@ -24,6 +24,7 @@ module Admin
   class MasOidc
     class Error < StandardError; end
     class NotConfiguredError < Error; end
+    class AuthorizationRejected < Error; end
 
     AUTHORIZE_PATH = "/authorize"
     TOKEN_PATH = "/oauth2/token"
@@ -65,14 +66,14 @@ module Admin
           "#{ENV.fetch('SERVICE_URL_RAILS', 'http://localhost:3000').to_s.chomp('/')}/admin/auth/mas/callback"
       end
 
-      def authorization_url(state:, code_verifier:)
+      def authorization_url(state:, code_verifier:, scope: SCOPE)
         raise NotConfiguredError, "Tween ID sign-in is not configured" unless configured?
 
         query = URI.encode_www_form(
           response_type: "code",
           client_id: client_id,
           redirect_uri: redirect_uri,
-          scope: SCOPE,
+          scope: scope,
           state: state,
           code_challenge: code_challenge(code_verifier),
           code_challenge_method: "S256"
@@ -92,23 +93,30 @@ module Admin
         Base64.urlsafe_encode64(Digest::SHA256.digest(verifier.to_s), padding: false)
       end
 
-      # Exchanges the authorization code for tokens and returns the OIDC claims.
-      def claims_for(code:, code_verifier:)
+      def tokens_for(code:, code_verifier:)
         raise NotConfiguredError, "Tween ID sign-in is not configured" unless configured?
+        post(TOKEN_PATH, { grant_type: "authorization_code", code: code,
+          redirect_uri: redirect_uri, client_id: client_id, client_secret: client_secret,
+          code_verifier: code_verifier })
+      end
 
-        token = post(TOKEN_PATH, {
-          grant_type: "authorization_code",
-          code: code,
-          redirect_uri: redirect_uri,
-          client_id: client_id,
-          client_secret: client_secret,
-          code_verifier: code_verifier
-        })
+      def claims_for(code:, code_verifier:)
+        userinfo(tokens_for(code: code, code_verifier: code_verifier).fetch("access_token", ""))
+      end
 
-        access_token = token["access_token"].to_s
+      def userinfo(access_token)
         raise Error, "MAS returned no access token" if access_token.blank?
-
         get(USERINFO_PATH, "Authorization" => "Bearer #{access_token}")
+      end
+
+      def refresh(refresh_token)
+        post(TOKEN_PATH, { grant_type: "refresh_token", refresh_token: refresh_token,
+          client_id: client_id, client_secret: client_secret })
+      end
+
+      def revoke(token)
+        return if token.blank?
+        post("/oauth2/revoke", { token: token, client_id: client_id, client_secret: client_secret })
       end
 
       # The userinfo claims name the MAS user id (`sub`) and, depending on
@@ -141,7 +149,9 @@ module Admin
 
       def request(verb, path, body, headers)
         uri = URI.parse("#{issuer}#{path}")
-        raise Error, "MAS URL is not a valid HTTP endpoint" unless uri.is_a?(URI::HTTP)
+        unless uri.is_a?(URI::HTTP) && (uri.scheme == "https" || !Rails.env.production?) && uri.userinfo.nil?
+          raise Error, "MAS URL is not a secure HTTP endpoint"
+        end
 
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == "https"
@@ -156,15 +166,17 @@ module Admin
       rescue Error
         raise
       rescue StandardError => e
-        raise Error, "could not reach Tween ID (#{e.class}: #{e.message})"
+        raise Error, "Could not reach Tween ID (#{e.class})."
       end
 
       def parse(response, context)
         payload = parse_body(response.body)
         return payload if response.is_a?(Net::HTTPSuccess)
 
-        detail = payload["error_description"].presence || payload["error"].presence || "HTTP #{response.code}"
-        raise Error, "Tween ID rejected #{context}: #{detail}"
+        if %w[400 401 403].include?(response.code)
+          raise AuthorizationRejected, "Tween ID rejected the authorization."
+        end
+        raise Error, "Tween ID could not complete #{context}."
       end
 
       def parse_body(body)

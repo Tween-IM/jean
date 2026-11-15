@@ -331,6 +331,7 @@ Rails.application.routes.draw do
   # Tween ID (MAS) sign-in for platform staff: OIDC authorization code + PKCE.
   # The callback path is registered as a redirect URI on the MAS client.
   get "admin/auth/mas", to: "admin/mas_sessions#new", as: :admin_mas_login
+  get "admin/auth/mas/administration", to: "admin/mas_sessions#connect", as: :admin_mas_connect
   get "admin/auth/mas/callback", to: "admin/mas_sessions#create", as: :admin_mas_callback
 
   namespace :admin do
