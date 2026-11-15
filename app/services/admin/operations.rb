@@ -1,6 +1,7 @@
 module Admin
   module Operations
     PERMISSIONS = {
+      "verification_attempts" => { "approve_attempt" => :approve_kyc, "reject_attempt" => :reject_kyc },
       "wallets" => { "set_status" => :manage_wallets },
       "pending_transfers" => { "cancel" => :manage_pending_transfers },
       "api_keys" => { "revoke" => :manage_api_keys },
@@ -25,11 +26,13 @@ module Admin
     def self.arguments(operation, params)
       values = if params[:arguments].present?
         raise ArgumentError unless params[:arguments].is_a?(ActionController::Parameters)
-        params.require(:arguments).permit(:amount, :transaction_id, :outcome, :seller_amount, :buyer_amount, :price).to_h.stringify_keys
+        params.require(:arguments).permit(:amount, :transaction_id, :outcome, :seller_amount, :buyer_amount, :price, :acknowledged, :evidence_digest).to_h.stringify_keys
       else
         {}
       end
       case operation
+      when "approve_attempt", "reject_attempt"
+        { acknowledged: values["acknowledged"] == "1", evidence_digest: values.fetch("evidence_digest") }.to_json
       when "refund_balance"
         { amount_cents: cents(values.fetch("amount")) }.to_json
       when "reverse_transaction"

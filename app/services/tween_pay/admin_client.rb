@@ -34,8 +34,8 @@ module TweenPay
       get("/internal/admin/v1/card_options")
     end
 
-    def evidence(id)
-      get("/internal/admin/v1/resources/identity_documents/#{segment(id)}/evidence")
+    def evidence(id, resource: "identity_documents", **query)
+      get("/internal/admin/v1/resources/#{segment(resource)}/#{segment(id)}/evidence", query)
     end
 
     def command(resource, id, action:, reason:, request_id:, value: nil)

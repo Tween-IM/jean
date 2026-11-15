@@ -168,4 +168,25 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
     ENV.delete("TWEEN_ADMIN_SECRET")
   end
 
+  test "compliance review renders private gallery and exact provider details with controlled decisions" do
+    ENV["TWEEN_PAY_ADMIN_URL"] = "https://pay.test"
+    ENV["TWEEN_ADMIN_SECRET"] = "x" * 48
+    stub_request(:get, "https://pay.test/internal/admin/v1/resources/verification_attempts/8")
+      .to_return(body: { record: { id: 8, title: "BVN · Validate", customer_name: "Synthetic Customer", status: "failed", review_status: "pending", approval_blocked_reason: nil } }.to_json)
+    stub_request(:get, "https://pay.test/internal/admin/v1/resources/verification_attempts/8/evidence")
+      .to_return(body: { details: { provider_calls: [{ http_status: 400, raw_body: { message: "Provider unavailable" } }] }, images: [{ index: 0, label: "Provider identity photo" }], evidence_digest: "review-version" }.to_json)
+    get admin_resource_record_path("verification_attempts", 8)
+    assert_response :success
+    assert_select "h2", "Retained evidence"
+    assert_select 'img[alt="Provider identity photo"]'
+    assert_select 'input[name="arguments[evidence_digest]"][value="review-version"]'
+    assert_select 'input[name="arguments[acknowledged]"][required]'
+    assert_select 'section[data-turbo-temporary]'
+    assert_includes response.body, "Provider unavailable"
+    assert_includes response.headers["Cache-Control"], "no-store"
+  ensure
+    ENV.delete("TWEEN_PAY_ADMIN_URL")
+    ENV.delete("TWEEN_ADMIN_SECRET")
+  end
+
 end

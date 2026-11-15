@@ -17,6 +17,7 @@ module Admin
     def show
       @tabs = { "profile" => "Profile", "commerce" => "Commerce" }
       @tabs["apps"] = "Apps & access" if current_admin_user.has_admin_permission?(:view_mini_apps)
+      @tabs["compliance"] = "Compliance" if current_admin_user.has_admin_permission?(:view_kyc)
       @tabs["payments"] = "Payments" if current_admin_user.has_admin_permission?(:view_wallets) || current_admin_user.has_admin_permission?(:view_transactions)
       @tabs["messaging"] = "Messaging" if current_admin_user.has_admin_permission?(:view_messaging)
       @tabs["identity"] = "Identity" if current_admin_user.has_admin_permission?(:view_identity)
@@ -24,6 +25,7 @@ module Admin
       @tab = params[:tab].presence || "profile"
       return head :forbidden unless @tabs.key?(@tab)
       case @tab
+      when "compliance" then @remote = TweenPay::AdminClient.new(current_admin_user).person(@user.matrix_user_id)
       when "payments" then @remote = TweenPay::AdminClient.new(current_admin_user).person(@user.matrix_user_id)
       when "messaging" then @remote = SynapseClient.new(grant: admin_oauth_grant).person(@user.matrix_user_id)
       when "identity" then @remote = MasClient.new(grant: admin_oauth_grant).person(@user.mas_user_id)

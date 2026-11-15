@@ -160,3 +160,14 @@ Card issuance uses existing Clover credentials and current reviewed issuance
 quotes. No new Jean URL or card-provider credential is needed. Provider timeouts
 retain command receipts: use reconciliation from the payment account, or refresh
 the existing card, before submitting another provider change.
+
+
+### Verification review evidence
+
+Use **Compliance → Verification reviews** for the durable BVN, NIN and face-check submission history, including failed checks. Customer → Compliance links to the same records. Screening checks remain separate provider/risk screening records; Customer KYC status shows the current granted status, not submission history.
+
+Authorized compliance staff can inspect encrypted submissions, the exact retained provider HTTP body and status, provider identity photos, the identity reference used for comparison, final selfie and three challenge frames. Images use authenticated, audited, non-cached endpoints. No new environment variable is required: encryption derives from the existing stable Rails secret; preserve that secret with database backups. Never rotate it without migrating retained evidence.
+
+Manual approval or keeping a rejection requires a reason and acknowledgement of the exact evidence version. Original machine/provider outcomes remain unchanged. Reviews record the operator, time, reason and evidence digest. Approval uses existing KYC tier eligibility/provisioning and does not repeat a paid provider lookup. Superseded identities and incomplete face captures cannot be approved; request a new submission. Rejection of an old failed attempt does not revoke a subsequent valid identity grant.
+
+Retention begins with this release. Historical provider exchanges can be imported from retained application logs via `VerificationHistoryImporter`; missing historical selfies cannot be reconstructed. Empty galleries explain when no photo was returned or retained. Biometric payloads over 16 MB are marked as omitted rather than silently treated as evidence. Include this encrypted table in your controlled KYC retention/deletion policy.

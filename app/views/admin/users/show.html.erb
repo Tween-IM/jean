@@ -25,6 +25,8 @@
       </dl>
     </div>
   </section>
+<% elsif @tab == 'compliance' %>
+<section class="admin-panel"><div class="admin-panel-heading"><h2>Verification history</h2><%= link_to "Review inbox", admin_resource_path("verification_attempts"), class: "admin-button" %></div><%= render "admin/shared/resource_table", records: @remote.fetch('verification_attempts', []), fields: [], resource_key: 'verification_attempts' %></section>
 <% elsif @tab == 'payments' %>
   <section class="admin-panel">
     <div class="admin-panel-heading">

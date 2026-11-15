@@ -2,6 +2,8 @@ module Admin::OperationsHelper
   def admin_operations(key, record)
     state = record["status"]
     rows = case key
+    when "verification_attempts"
+      %w[failed error].include?(state) && record["review_status"] == "pending" ? ((record["approval_blocked_reason"].blank? ? [["Approve after manual review", "approve_attempt", nil]] : []) + [["Keep rejected", "reject_attempt", nil]]) : []
     when "wallets" then [ [ "Freeze wallet", "set_status", "frozen" ], [ "Activate wallet", "set_status", "active" ] ]
     when "cards"
       [ [ "Refresh provider status", "sync_card", nil ] ] +

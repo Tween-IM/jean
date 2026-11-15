@@ -327,8 +327,29 @@ saving_sweeps:
   - skipped
   - failed
   - reversed
+verification_attempts:
+  label: Verification reviews
+  group: Compliance
+  icon: check
+  permission: view_kyc
+  service: payments
+  description: One inbox for failed identity checks, provider responses, captured evidence and staff decisions.
+  columns:
+  - key: identity
+    label: Check
+  - key: customer
+    label: Person
+  - key: provider
+    label: Provider
+  - key: status
+    label: Original result
+  - key: review_status
+    label: Staff decision
+  - key: created_at
+    label: Submitted
+  statuses: [needs_review, failed, error, passed, processing]
 compliance_checks:
-  label: Review queue
+  label: Screening checks
   group: Compliance
   icon: shield
   permission: view_kyc
@@ -353,7 +374,7 @@ compliance_checks:
   - passed
   - failed
 verifications:
-  label: Customer verification
+  label: Customer KYC status
   group: Compliance
   icon: shield
   permission: view_kyc

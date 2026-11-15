@@ -1,0 +1,13 @@
+<% content_for :head do %><meta name="turbo-cache-control" content="no-cache"><% end %>
+<section class="admin-panel" data-turbo-temporary>
+  <div class="admin-panel-heading"><div><h2>Retained evidence</h2><p class="admin-muted">Original submissions and provider results. Opening evidence is audited.</p></div><%= link_to "Original provider response ↓", admin_resource_evidence_path('verification_attempts', params[:id], raw: 'true'), class: "admin-button", data: { turbo: false } %></div>
+  <div class="admin-panel-body">
+    <% if evidence['images'].empty? %><p class="admin-evidence-empty">No images were retained for this attempt. A failed provider lookup may return no photo; captures from before evidence retention cannot be reconstructed.</p><% end %>
+    <div class="admin-evidence-gallery"><% evidence['images'].each do |item| %>
+      <figure><%= link_to admin_resource_evidence_path('verification_attempts', params[:id], image: item['index']), target: '_blank', rel: 'noopener', data: { turbo: false } do %><%= image_tag admin_resource_evidence_path('verification_attempts', params[:id], image: item['index']), alt: item['label'], loading: 'lazy' %><% end %><figcaption><%= item['label'] %><span>Open full size ↗</span></figcaption></figure>
+    <% end %></div>
+    <% evidence['details'].each do |section, value| %>
+      <details class="admin-evidence-section" <%= 'open' if section == 'provider_calls' %>><summary><%= section.humanize %></summary><pre><%= JSON.pretty_generate(value) %></pre></details>
+    <% end %>
+  </div>
+</section>

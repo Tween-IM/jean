@@ -34,6 +34,7 @@
       </dl></div>
     </section>
   <% end %>
+  <%= render "admin/shared/verification_evidence", evidence: @verification_evidence if @verification_evidence %>
   <% operations = admin_operations(params[:resource], @record) %>
   <% operations.each do |label, operation, value| %>
     <details class="admin-panel admin-action-panel"><summary class="admin-panel-heading"><%= label %></summary>
@@ -46,7 +47,11 @@
         <% end %>
         <p class="mb-4">This will <%= label.downcase %> for <strong><%= @record["title"].presence || @resource[:label].singularize %></strong>. The action and your reason will be recorded.</p>
         <%= form.hidden_field :operation, value: operation %><%= form.hidden_field :value, value: value %><%= form.hidden_field :command_id, value: (operation == "resolve_dispute" ? @record.dig("resolution", "command_id").presence : nil) || SecureRandom.uuid %>
-        <% if operation == 'refund_balance' %>
+        <% if %w[approve_attempt reject_attempt].include?(operation) %>
+          <%= hidden_field_tag 'arguments[evidence_digest]', @verification_evidence['evidence_digest'] %>
+          <label class="admin-review-ack"><%= check_box_tag 'arguments[acknowledged]', '1', false, required: true %> I inspected the retained evidence and independently confirmed the basis for this decision.</label>
+          <p class="mb-4">The original result stays unchanged. Approval updates this person's KYC status under your name and may trigger normal tier/account provisioning. No verification fee is charged. Superseded identities and incomplete face evidence cannot be approved.</p>
+        <% elsif operation == 'refund_balance' %>
           <%= label_tag 'arguments_amount', "Amount in #{@record['currency']} (maximum #{admin_value(@record['balance_cents'], 'balance_cents', @record)})" %>
           <%= number_field_tag 'arguments[amount]', nil, required: true, min: '0.01', step: '0.01', class: 'admin-input' %>
         <% elsif operation == 'resolve_dispute' %>
@@ -79,3 +84,8 @@
 <% end %>
 
 <% if @card_requests.present? && !@error %><section class="admin-panel"><div class="admin-panel-heading"><h2>Card issuance requests</h2></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Submitted</th><th>Outcome</th><th>Follow-up</th></tr></thead><tbody><% @card_requests.each do |entry| %><tr><td><%= admin_short_date(entry['created_at']) %></td><td><%= admin_badge(entry['state']) %></td><td><% if entry['can_reconcile'] %><details><summary>Reconcile original request</summary><%= form_with url: admin_resource_command_path('payment_accounts', params[:id]), class: "admin-inline-command", data: { turbo_confirm: 'Recheck this exact provider issuance reference? This does not submit a new issuance reference.' } do |form| %><%= form.hidden_field :operation, value: 'reconcile_issuance' %><%= form.hidden_field :value, value: entry['request_id'] %><%= form.hidden_field :command_id, value: SecureRandom.uuid %><%= form.label :reason, 'Reconciliation reason' %><%= form.text_area :reason, required: true, minlength: 5, maxlength: 1000, class: 'admin-input' %><%= form.submit 'Reconcile request', class: 'admin-button' %><% end %></details><% else %>Refresh account for updates<% end %></td></tr><% end %></tbody></table></div></section><% end %>
+
+<% if @verification_attempts.present? && !@error %>
+<section class="admin-panel"><div class="admin-panel-heading"><h2>Verification history</h2><%= link_to "Open review inbox", admin_resource_path("verification_attempts"), class: "admin-button" %></div>
+<%= render "admin/shared/resource_table", records: @verification_attempts, fields: [], resource_key: "verification_attempts" %></section>
+<% end %>

@@ -17,6 +17,9 @@ module Admin
       @savings_transactions = payload["savings_transactions"]
       @evidence = payload["evidence"]
       @card_requests = payload["card_requests"]
+      @verification_attempts = payload["verification_attempts"]
+      @verification_evidence = client.evidence(params[:id], resource: "verification_attempts") if params[:resource] == "verification_attempts"
+      response.headers["Cache-Control"] = "private, no-store" if @verification_evidence
       if params[:resource] == "payment_accounts" && current_admin_user.has_admin_permission?(:manage_cards)
         begin
           @card_options = client.card_options.fetch("options")
@@ -52,15 +55,16 @@ module Admin
     end
 
     def evidence
-      return head :forbidden unless params[:resource] == "identity_documents" && current_admin_user.has_admin_permission?(:view_kyc)
-      payload = client.evidence(params[:id])
+      return head :forbidden unless %w[identity_documents verification_attempts].include?(params[:resource]) && current_admin_user.has_admin_permission?(:view_kyc)
+      payload = client.evidence(params[:id], resource: params[:resource], image: params[:image], raw: params[:raw])
       bytes = Base64.strict_decode64(payload.fetch("content"))
       type = payload.fetch("content_type")
-      return head :unprocessable_entity unless %w[application/pdf image/jpeg image/png image/webp].include?(type) && bytes.bytesize <= 10.megabytes
+      return head :unprocessable_entity unless %w[application/pdf application/json image/jpeg image/png image/webp].include?(type) && bytes.bytesize <= 10.megabytes
       response.headers["Cache-Control"] = "private, no-store"
       response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
       response.headers["X-Content-Type-Options"] = "nosniff"
-      send_data bytes, type: type, disposition: "inline", filename: "document-evidence.#{type == 'application/pdf' ? 'pdf' : type.delete_prefix('image/')}"
+      extension = { "application/pdf" => "pdf", "application/json" => "json", "image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp" }.fetch(type)
+      send_data bytes, type: type, disposition: (type == "application/json" ? "attachment" : "inline"), filename: "verification-evidence.#{extension}"
     rescue RemoteClient::Unavailable, RemoteClient::Forbidden, RemoteClient::NotFound, RemoteClient::Rejected, KeyError, ArgumentError
       render plain: "Evidence is unavailable. Ask the customer to upload a valid supported document.", status: :unprocessable_entity
     end
