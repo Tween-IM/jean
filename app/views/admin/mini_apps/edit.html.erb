@@ -3,9 +3,9 @@
 </div>
 
 <div class="max-w-2xl">
-  <h1 class="text-3xl font-bold text-slate-900 mb-6">Edit Mini App</h1>
+  <h1 class="admin-title text-3xl font-bold text-slate-900 mb-6">Edit Mini App</h1>
 
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
     <%= form_tag admin_mini_app_path(@mini_app), method: :patch, class: "space-y-6" do %>
       <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>" />
       <div>

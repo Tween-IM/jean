@@ -3,9 +3,9 @@
 </div>
 
 <div class="max-w-2xl">
-  <h1 class="text-3xl font-bold text-slate-900 mb-6">Create New Mini App</h1>
+  <h1 class="admin-title text-3xl font-bold text-slate-900 mb-6">Create New Mini App</h1>
 
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
     <%= form_with model: [:admin, @mini_app], local: true, html: { method: :post }, class: "space-y-6" do |f| %>
       <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
 

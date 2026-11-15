@@ -30,7 +30,7 @@
             <td><%= admin_badge(user.status) %></td>
             <td><%= user.platform_role == 'none' ? 'Member' : user.platform_role.humanize %></td>
             <td><%= user.created_at.strftime('%d %b %Y') %></td>
-            <td><%= link_to 'Open profile →', admin_user_path(user) %></td>
+            <td><%= admin_detail_link 'Open profile →', admin_user_path(user) %></td>
           </tr>
         <% end %>
       </tbody>

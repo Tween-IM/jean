@@ -7,7 +7,7 @@
   <div class="min-w-0">
     <div class="flex flex-wrap items-center gap-3">
       <%= store_mark(@storefront, size: "w-10 h-10") %>
-      <h1 class="text-xl font-semibold text-gray-900 truncate"><%= @storefront.display_name %></h1>
+      <h1 class="admin-title text-xl font-semibold text-gray-900 truncate"><%= @storefront.display_name %></h1>
       <%= entity_status_badge(@storefront.status) %>
       <% if @storefront.featured %>
         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">featured</span>
@@ -35,7 +35,7 @@
     <%= form_with model: @storefront, url: admin_storefront_path(@storefront), method: :patch,
         html: { multipart: true }, class: "bg-white rounded-xl border border-gray-200" do |form| %>
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Store settings</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Store settings</h2>
         <p class="text-xs text-gray-500 mt-0.5">Branding, copy and how buyers reach this store</p>
       </div>
 
@@ -168,10 +168,10 @@
       <% end %>
     <% end %>
 
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden admin-panel">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div>
-          <h2 class="text-sm font-semibold text-gray-900">Listings</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Listings</h2>
           <p class="text-xs text-gray-500 mt-0.5">Showing the <%= [ @products.size, @product_count ].min %> most recent</p>
         </div>
         <%= link_to admin_products_path(storefront: @storefront.id), class: "text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1" do %>
@@ -179,11 +179,11 @@
         <% end %>
       </div>
       <% if @products.any? %>
-        <table class="min-w-full divide-y divide-gray-100">
-          <tbody class="divide-y divide-gray-100">
+        <table class="admin-table">
+          <tbody>
             <% @products.each do |product| %>
               <tr class="hover:bg-gray-50">
-                <td class="px-5 py-3">
+                <td>
                   <div class="flex items-center gap-3">
                     <%= product_thumb(product) %>
                     <div class="min-w-0">
@@ -192,10 +192,10 @@
                     </div>
                   </div>
                 </td>
-                <td class="px-5 py-3 text-right text-sm text-gray-700 whitespace-nowrap"><%= pricing_label(product) %></td>
-                <td class="px-5 py-3 text-right"><%= entity_status_badge(product.status) %></td>
-                <td class="px-5 py-3 text-right">
-                  <%= link_to "Open", admin_product_path(product), class: "text-sm text-indigo-600 hover:text-indigo-900" %>
+                <td><%= pricing_label(product) %></td>
+                <td><%= entity_status_badge(product.status) %></td>
+                <td>
+                  <%= admin_detail_link "Open", admin_product_path(product), class: "text-sm text-indigo-600 hover:text-indigo-900" %>
                 </td>
               </tr>
             <% end %>
@@ -207,23 +207,23 @@
     </div>
 
     <% if @orders.any? %>
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden admin-panel">
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">Recent orders</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Recent orders</h2>
           <%= link_to admin_orders_path(merchant: @merchant.merchant_id), class: "text-xs font-medium text-indigo-600 hover:text-indigo-700" do %>
             All <%= number_with_delimiter(@order_count) %> orders
           <% end %>
         </div>
-        <table class="min-w-full divide-y divide-gray-100">
-          <tbody class="divide-y divide-gray-100">
+        <table class="admin-table">
+          <tbody>
             <% @orders.each do |order| %>
               <tr class="hover:bg-gray-50">
-                <td class="px-5 py-3 text-sm font-mono text-gray-900"><%= order.order_id %></td>
-                <td class="px-5 py-3 text-sm text-gray-600 truncate max-w-[12rem]"><%= order.buyer_user_id %></td>
-                <td class="px-5 py-3 text-sm text-gray-900"><%= money(order.total_cents, order.currency) %></td>
-                <td class="px-5 py-3"><%= order_status_badge(order.status) %></td>
-                <td class="px-5 py-3 text-right">
-                  <%= link_to "Manage", admin_order_path(order), class: "text-sm text-indigo-600 hover:text-indigo-900" %>
+                <td><%= order.order_id %></td>
+                <td><%= order.buyer_user_id %></td>
+                <td><%= money(order.total_cents, order.currency) %></td>
+                <td><%= order_status_badge(order.status) %></td>
+                <td>
+                  <%= admin_detail_link "Manage", admin_order_path(order), class: "text-sm text-indigo-600 hover:text-indigo-900" %>
                 </td>
               </tr>
             <% end %>
@@ -236,9 +236,9 @@
   <!-- Right: provenance and quick actions -->
   <div class="space-y-6">
     <% if can_manage %>
-      <div class="bg-white rounded-xl border border-gray-200">
+      <div class="bg-white rounded-xl border border-gray-200 admin-panel">
         <div class="px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">Quick actions</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Quick actions</h2>
         </div>
         <div class="p-5 space-y-3">
           <%= button_to "Pull branding from the source", enrich_admin_storefront_path(@storefront),
@@ -255,9 +255,9 @@
       </div>
     <% end %>
 
-    <div class="bg-white rounded-xl border border-gray-200">
+    <div class="bg-white rounded-xl border border-gray-200 admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Merchant</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Merchant</h2>
       </div>
       <div class="px-5 py-4 space-y-1 text-sm">
         <p class="text-gray-900"><%= @merchant.display_name %></p>
@@ -273,9 +273,9 @@
     </div>
 
     <% if @contact_channels.any? %>
-      <div class="bg-white rounded-xl border border-gray-200">
+      <div class="bg-white rounded-xl border border-gray-200 admin-panel">
         <div class="px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">How to reach them</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">How to reach them</h2>
         </div>
         <div class="px-5 py-4 space-y-2 text-sm">
           <% @contact_channels.each do |label, value| %>
@@ -287,9 +287,9 @@
         </div>
       </div>
     <% else %>
-      <div class="bg-white rounded-xl border border-amber-200 bg-amber-50">
+      <div class="bg-white rounded-xl border border-amber-200 bg-amber-50 admin-panel">
         <div class="px-5 py-4">
-          <h2 class="text-sm font-semibold text-amber-900">No contact on file</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-amber-900">No contact on file</h2>
           <p class="mt-1 text-xs text-amber-800">
             The source published no way to reach this seller. Add what the outreach team finds.
           </p>
@@ -298,9 +298,9 @@
     <% end %>
 
     <% if @storefront.source_platform.present? %>
-      <div class="bg-white rounded-xl border border-gray-200">
+      <div class="bg-white rounded-xl border border-gray-200 admin-panel">
         <div class="px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">Provenance</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Provenance</h2>
         </div>
         <div class="px-5 py-4 space-y-2 text-sm">
           <div class="flex justify-between gap-2">

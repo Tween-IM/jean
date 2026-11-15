@@ -1,0 +1,818 @@
+wallets:
+  label: Wallets
+  group: Money
+  icon: wallet
+  permission: view_wallets
+  service: payments
+  description: Monitor customer balances and account restrictions.
+  columns:
+  - key: identity
+    label: Wallet
+  - key: customer
+    label: Customer
+  - key: balance_cents
+    label: Available balance
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created
+  statuses:
+  - active
+  - frozen
+  - suspended
+transactions:
+  label: Transactions
+  group: Money
+  icon: wallet
+  permission: view_transactions
+  service: payments
+  description: Trace payments with their customer, amount and settlement status.
+  columns:
+  - key: identity
+    label: Payment
+  - key: customer
+    label: Customer
+  - key: amount_cents
+    label: Amount
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created
+  statuses:
+  - pending
+  - completed
+  - failed
+  - reversed
+cards:
+  label: Cards
+  group: Money
+  icon: clipboard
+  permission: view_cards
+  service: payments
+  description: Review virtual and physical cards without exposing sensitive card data.
+  columns:
+  - key: identity
+    label: Card
+  - key: customer
+    label: Customer
+  - key: balance_cents
+    label: Balance
+  - key: limit_cents
+    label: Spending limit
+  - key: status
+    label: Status
+  - key: expires_at
+    label: Expires
+  statuses:
+  - active
+  - frozen
+  - expired
+  - cancelled
+pending_transfers:
+  label: Pending transfers
+  group: Money
+  icon: wallet
+  permission: view_pending_transfers
+  service: payments
+  description: Review transfers waiting for authorization or recipient acceptance.
+  columns:
+  - key: identity
+    label: Transfer
+  - key: customer
+    label: Customer
+  - key: amount_cents
+    label: Amount
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created
+  statuses:
+  - initiated
+  - pending
+  - pending_recipient_acceptance
+  - cancelled
+  - completed
+payment_links:
+  label: Payment links
+  group: Money
+  icon: wallet
+  permission: view_transactions
+  service: payments
+  description: Track payment requests from creation through collection.
+  columns:
+  - key: identity
+    label: Payment link
+  - key: customer
+    label: Customer
+  - key: amount_cents
+    label: Amount
+  - key: status
+    label: Status
+  - key: expires_at
+    label: Expires
+  statuses:
+  - open
+  - paid
+  - cancelled
+  - expired
+protected_payments:
+  label: Protected payments
+  group: Money
+  icon: wallet
+  permission: view_transactions
+  service: payments
+  description: See funds held, released and refunded for protected orders.
+  columns:
+  - key: identity
+    label: Order payment
+  - key: gross_amount_cents
+    label: Payment amount
+  - key: released_amount_cents
+    label: Released
+  - key: refunded_amount_cents
+    label: Refunded
+  - key: status
+    label: Status
+  statuses:
+  - pending
+  - funded
+  - disputed
+  - released
+  - refunded
+refunds:
+  label: Refunds
+  group: Money
+  icon: wallet
+  permission: view_transactions
+  service: payments
+  description: Follow refund outcomes without issuing duplicate repayments.
+  columns:
+  - key: identity
+    label: Refund
+  - key: amount_cents
+    label: Amount
+  - key: status
+    label: Status
+  - key: reason
+    label: Reason
+  - key: created_at
+    label: Created
+  statuses:
+  - pending
+  - succeeded
+  - failed
+businesses:
+  label: Businesses
+  group: Money
+  icon: wallet
+  permission: view_businesses
+  service: payments
+  description: Review business accounts and their operating status.
+  columns:
+  - key: identity
+    label: Business
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created
+  statuses: []
+bank_accounts:
+  label: Bank accounts
+  group: Money
+  icon: wallet
+  permission: view_bank_accounts
+  service: payments
+  description: Identify collection and payout accounts by their owner and bank.
+  columns:
+  - key: identity
+    label: Bank account
+  - key: customer
+    label: Customer
+  - key: currency
+    label: Currency
+  - key: account_type
+    label: Account type
+  - key: provider
+    label: Provider
+  statuses: []
+bills:
+  label: Bills
+  group: Money
+  icon: wallet
+  permission: view_bills
+  service: payments
+  description: Review bill payments and upcoming obligations.
+  columns:
+  - key: identity
+    label: Bill
+  - key: customer
+    label: Customer
+  - key: amount_cents
+    label: Amount
+  - key: status
+    label: Status
+  - key: due_date
+    label: Due
+  statuses:
+  - pending
+  - paid
+  - overdue
+  - cancelled
+pockets:
+  label: Pockets
+  group: Savings
+  icon: wallet
+  permission: view_wallets
+  service: payments
+  description: Understand how customers organize their money.
+  columns:
+  - key: identity
+    label: Pocket
+  - key: customer
+    label: Customer
+  - key: balance_cents
+    label: Balance
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created
+  statuses: []
+stashes:
+  label: Stashes
+  group: Savings
+  icon: wallet
+  permission: view_wallets
+  service: payments
+  description: Review locked savings and their current status.
+  columns:
+  - key: identity
+    label: Stash
+  - key: customer
+    label: Customer
+  - key: balance_cents
+    label: Balance
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created
+  statuses: []
+scheduled_transfers:
+  label: Scheduled transfers
+  group: Savings
+  icon: wallet
+  permission: view_wallets
+  service: payments
+  description: See when money is scheduled to move into savings.
+  columns:
+  - key: identity
+    label: Schedule
+  - key: customer
+    label: Customer
+  - key: amount
+    label: Amount
+  - key: frequency
+    label: Frequency
+  - key: next_run_at
+    label: Next run
+  - key: status
+    label: Status
+  statuses:
+  - active
+  - paused
+  - cancelled
+saving_rules:
+  label: Savings rules
+  group: Savings
+  icon: wallet
+  permission: view_wallets
+  service: payments
+  description: Monitor percentage, fixed and round-up savings automation.
+  columns:
+  - key: identity
+    label: Rule
+  - key: customer
+    label: Customer
+  - key: rule_value
+    label: Rule value
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created
+  statuses:
+  - active
+  - paused
+  - disabled
+saving_sweeps:
+  label: Savings activity
+  group: Savings
+  icon: wallet
+  permission: view_transactions
+  service: payments
+  description: Trace automatic savings transfers and failed sweeps.
+  columns:
+  - key: identity
+    label: Savings transfer
+  - key: customer
+    label: Customer
+  - key: sweep_amount
+    label: Saved amount
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created
+  statuses:
+  - pending
+  - success
+  - skipped
+  - failed
+  - reversed
+compliance_checks:
+  label: Review queue
+  group: Compliance
+  icon: shield
+  permission: view_kyc
+  service: payments
+  description: Make clear, attributable decisions on customer compliance checks.
+  columns:
+  - key: identity
+    label: Review
+  - key: customer
+    label: Customer
+  - key: check_type
+    label: Check type
+  - key: status
+    label: Status
+  - key: reviewed_at
+    label: Reviewed
+  - key: created_at
+    label: Created
+  statuses:
+  - requires_review
+  - in_review
+  - passed
+  - failed
+verifications:
+  label: Customer verification
+  group: Compliance
+  icon: shield
+  permission: view_kyc
+  service: payments
+  description: Understand verification progress without exposing identity numbers.
+  columns:
+  - key: identity
+    label: Verification
+  - key: customer
+    label: Customer
+  - key: primary_identity_status
+    label: Identity
+  - key: liveness_status
+    label: Liveness
+  - key: address_status
+    label: Address
+  - key: completion_percentage
+    label: Completion
+  statuses: []
+identity_documents:
+  label: Identity documents
+  group: Compliance
+  icon: document
+  permission: view_kyc
+  service: payments
+  description: Review document metadata, validity and verification outcomes.
+  columns:
+  - key: identity
+    label: Document
+  - key: customer
+    label: Customer
+  - key: issuing_country
+    label: Country
+  - key: status
+    label: Status
+  - key: expiry_date
+    label: Expires
+  statuses:
+  - pending
+  - verified
+  - rejected
+  - expired
+risk_reviews:
+  label: Risk & AML
+  group: Compliance
+  icon: shield
+  permission: view_risk
+  service: payments
+  description: Review risk signals and screening flags with the customer in context.
+  columns:
+  - key: identity
+    label: Risk assessment
+  - key: customer
+    label: Customer
+  - key: risk_category
+    label: Risk
+  - key: pep_status
+    label: PEP
+  - key: sanctions_list_match
+    label: Sanctions match
+  - key: risk_assessed_at
+    label: Assessed
+  statuses: []
+exchange_rates:
+  label: Exchange rates
+  group: Operations
+  icon: arrow_swap
+  permission: view_finance
+  service: payments
+  description: Inspect published exchange rates and data freshness.
+  columns:
+  - key: identity
+    label: Currency pair
+  - key: rate
+    label: Rate
+  - key: source
+    label: Source
+  - key: last_updated
+    label: Updated
+  statuses: []
+rate_alerts:
+  label: Rate alerts
+  group: Operations
+  icon: alert
+  permission: view_transactions
+  service: payments
+  description: Understand customer exchange-rate notifications.
+  columns:
+  - key: identity
+    label: Alert
+  - key: customer
+    label: Customer
+  - key: target_rate
+    label: Target rate
+  - key: status
+    label: Status
+  - key: triggered_at
+    label: Triggered
+  statuses: []
+recipients:
+  label: Recipients
+  group: Operations
+  icon: people
+  permission: view_transactions
+  service: payments
+  description: Find saved recipients by name, without exposing bank account numbers.
+  columns:
+  - key: identity
+    label: Recipient
+  - key: customer
+    label: Customer
+  - key: bank_name
+    label: Bank
+  - key: recipient_type
+    label: Type
+  - key: last_sent_at
+    label: Last payment
+  statuses: []
+agents:
+  label: Agent network
+  group: Operations
+  icon: building
+  permission: view_businesses
+  service: payments
+  description: Review agent availability, verification and service locations.
+  columns:
+  - key: identity
+    label: Agent
+  - key: city
+    label: City
+  - key: state
+    label: State
+  - key: rating
+    label: Rating
+  - key: status
+    label: Status
+  statuses: []
+rooms:
+  label: Rooms
+  group: Messaging
+  icon: people
+  permission: view_messaging
+  service: matrix
+  description: Find rooms by name and understand their membership and access.
+  columns:
+  - key: identity
+    label: Room
+  - key: joined_members
+    label: Members
+  - key: encryption
+    label: Encryption
+  - key: canonical_alias
+    label: Room alias
+  statuses: []
+reports:
+  label: Message reports
+  group: Messaging
+  icon: alert
+  permission: view_messaging
+  service: matrix
+  description: Review reported messages in context and dismiss handled reports.
+  columns:
+  - key: identity
+    label: Reported content
+  - key: user_id
+    label: Reported by
+  - key: reason
+    label: Reason
+  - key: received_ts
+    label: Received
+  statuses: []
+api_keys:
+  label: API keys
+  group: Platform
+  icon: settings
+  permission: view_api_keys
+  service: payments
+  description: Review credentials by name. Secret values are never shown.
+  columns:
+  - key: identity
+    label: Key
+  - key: active
+    label: Enabled
+  - key: expires_at
+    label: Expires
+  - key: created_at
+    label: Created
+  statuses: []
+webhooks:
+  label: Webhooks
+  group: Platform
+  icon: settings
+  permission: view_webhooks
+  service: payments
+  description: Identify failing integrations and manage delivery state.
+  columns:
+  - key: identity
+    label: Webhook
+  - key: active
+    label: Enabled
+  - key: failure_count
+    label: Failures
+  - key: created_at
+    label: Created
+  statuses: []
+webhook_deliveries:
+  label: Webhook deliveries
+  group: Platform
+  icon: settings
+  permission: view_webhooks
+  service: payments
+  description: Inspect delivery outcomes without exposing request payloads or signing
+    secrets.
+  columns:
+  - key: identity
+    label: Delivery
+  - key: event_type
+    label: Event
+  - key: status
+    label: Status
+  - key: response_status
+    label: HTTP response
+  - key: created_at
+    label: Created
+  statuses: []
+notifications:
+  label: Notifications
+  group: Platform
+  icon: alert
+  permission: view_notifications
+  service: payments
+  description: Follow customer notifications and delivery context.
+  columns:
+  - key: identity
+    label: Notification
+  - key: customer
+    label: Customer
+  - key: notification_type
+    label: Type
+  - key: read_at
+    label: Read
+  - key: created_at
+    label: Created
+  statuses: []
+payment_audit:
+  label: Payment activity
+  group: Administration
+  icon: settings
+  permission: view_audit
+  service: payments
+  description: Review attributable payment administration activity.
+  columns:
+  - key: identity
+    label: Action
+  - key: resource_type
+    label: Resource
+  - key: created_at
+    label: Created
+  statuses: []
+disputes:
+  label: Order disputes
+  group: Commerce
+  icon: box
+  permission: view_orders
+  service: local
+  description: Review order disputes with the related customer, merchant and operational
+    context.
+  columns:
+  - key: identity
+    label: Order dispute
+  - key: reason
+    label: Reason
+  - key: status
+    label: Status
+  - key: opened_at
+    label: Opened At
+  statuses:
+  - open
+  - under_review
+  - resolved
+  - closed
+  model: CommerceDispute
+  fields:
+  - reason
+  - status
+  - opened_at
+payouts:
+  label: Merchant payouts
+  group: Commerce
+  icon: box
+  permission: view_merchants
+  service: local
+  description: Review merchant payouts with the related customer, merchant and operational
+    context.
+  columns:
+  - key: identity
+    label: Merchant payout
+  - key: amount_cents
+    label: Amount
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created At
+  statuses:
+  - pending
+  - completed
+  - failed
+  model: CommercePayout
+  fields:
+  - amount_cents
+  - currency
+  - status
+  - created_at
+reviews:
+  label: Product reviews
+  group: Commerce
+  icon: box
+  permission: view_catalog
+  service: local
+  description: Review product reviews with the related customer, merchant and operational
+    context.
+  columns:
+  - key: identity
+    label: Product review
+  - key: rating
+    label: Rating
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created At
+  statuses:
+  - pending
+  - approved
+  - rejected
+  model: CommerceReview
+  fields:
+  - rating
+  - status
+  - created_at
+warehouses:
+  label: Warehouses
+  group: Commerce
+  icon: box
+  permission: view_fulfillment
+  service: local
+  description: Review warehouses with the related customer, merchant and operational
+    context.
+  columns:
+  - key: identity
+    label: Warehouse
+  - key: name
+    label: Name
+  - key: city
+    label: City
+  - key: country
+    label: Country
+  - key: created_at
+    label: Created At
+  statuses: []
+  model: CommerceWarehouse
+  fields:
+  - name
+  - city
+  - country
+  - created_at
+shipping_profiles:
+  label: Shipping profiles
+  group: Commerce
+  icon: box
+  permission: view_fulfillment
+  service: local
+  description: Review shipping profiles with the related customer, merchant and operational
+    context.
+  columns:
+  - key: identity
+    label: Shipping profile
+  - key: name
+    label: Name
+  - key: created_at
+    label: Created At
+  statuses: []
+  model: CommerceShippingProfile
+  fields:
+  - name
+  - created_at
+social_posts:
+  label: Feed posts
+  group: Content
+  icon: people
+  permission: view_social_moderation
+  service: local
+  description: Review feed posts with the related customer, merchant and operational
+    context.
+  columns:
+  - key: identity
+    label: Feed post
+  - key: caption
+    label: Caption
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created At
+  statuses:
+  - published
+  - processing
+  - deleted
+  model: SocialPost
+  fields:
+  - caption
+  - status
+  - created_at
+social_reports:
+  label: Content reports
+  group: Content
+  icon: people
+  permission: view_social_moderation
+  service: local
+  description: Review content reports with the related customer, merchant and operational
+    context.
+  columns:
+  - key: identity
+    label: Content report
+  - key: reason
+    label: Reason
+  - key: status
+    label: Status
+  - key: created_at
+    label: Created At
+  statuses:
+  - open
+  - reviewed
+  - dismissed
+  model: SocialReport
+  fields:
+  - reason
+  - status
+  - created_at
+stories:
+  label: Stories
+  group: Content
+  icon: people
+  permission: view_social_moderation
+  service: local
+  description: Review stories with the related customer, merchant and operational
+    context.
+  columns:
+  - key: identity
+    label: Storie
+  - key: caption
+    label: Caption
+  - key: status
+    label: Status
+  - key: expires_at
+    label: Expires At
+  statuses:
+  - active
+  - deleted
+  - expired
+  model: SocialStory
+  fields:
+  - caption
+  - status
+  - expires_at

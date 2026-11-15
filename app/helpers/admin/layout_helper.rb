@@ -22,7 +22,7 @@ module Admin::LayoutHelper
     end
     Admin::Resources::CATALOG.each do |key, resource|
       next unless current_admin_user.has_admin_permission?(resource[:permission])
-      groups[resource[:group]] << { label: resource[:label], path: admin_resource_path(key), icon: resource[:icon] }
+      (groups[resource[:group]] ||= []) << { label: resource[:label], path: admin_resource_path(key), icon: resource[:icon] }
     end
     [ [ :view_mini_apps, "Mini-apps", admin_mini_apps_path, "clipboard" ],
      [ :view_mini_apps, "App reviews", admin_mini_app_reviews_path, "checkmark" ],

@@ -1,29 +1,22 @@
+<% presentation = local_assigns[:resource_key] && Admin::Resources::CATALOG[resource_key] %>
+<% columns = presentation ? presentation[:columns] : fields.map { |key| { key: key, label: admin_field_label(key) } } %>
 <% if records.empty? %>
-  <div class="admin-empty">
-    <h2>No records found</h2>
-    <p>Try another search or check back later.</p>
-  </div>
+  <%= render "admin/shared/empty", title: "No records found", description: "Try another search or adjust the filters to see more results." %>
 <% else %>
-  <div class="admin-table-wrap">
-    <table class="admin-table">
-      <thead>
-        <tr>
-          <% fields.first(6).each do |field| %>
-            <th scope="col"><%= field.delete_suffix('_cents').humanize %></th>
-          <% end %>
-          <th scope="col"><span class="sr-only">Open record</span></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% records.each do |record| %>
-          <tr>
-            <% fields.first(6).each do |field| %>
-              <td><%= admin_value(record[field], field, record) %></td>
-            <% end %>
-            <td><% record_id = record['id'] || record['room_id'] %><% if record_id && local_assigns[:resource_key] %><%= link_to "Open →", admin_resource_record_path(resource_key, record_id) %><% end %></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
+<div class="admin-table-wrap"><table class="admin-table"><thead><tr>
+  <% columns.each do |column| %><th scope="col"><%= column[:label] %></th><% end %><th scope="col"><span class="sr-only">Details</span></th>
+</tr></thead><tbody>
+<% records.each do |record| %><% record_id = record['id'] || record['room_id'] %><tr>
+  <% columns.each do |column| %><% key = column[:key] %><td>
+    <% if key == 'identity' %>
+      <% title = record['title'].presence || record['name'].presence || presentation[:label].singularize %>
+      <div class="admin-entity-copy"><strong><% if record_id && presentation %><%= admin_detail_link title, admin_resource_record_path(resource_key, record_id) %><% else %><%= title %><% end %></strong><small><%= record['subtitle'] %></small></div>
+    <% elsif key == 'customer' %><%= admin_person_cell(record['customer_name'].presence || 'Not linked', record['customer_matrix_id']) %>
+    <% elsif key.end_with?('_at', '_date', '_ts') || key == 'last_updated' %><%= admin_short_date(record[key]) %>
+    <% elsif key == 'user_id' %><%= admin_person_name(record[key]) %>
+    <% elsif key.end_with?('_status') || key == 'risk_category' %><%= admin_badge(record[key]) %>
+    <% else %><%= admin_value(record[key], key, record) %><% end %>
+  </td><% end %>
+  <td><% if record_id && presentation %><%= admin_detail_link "View details →", admin_resource_record_path(resource_key, record_id), class: "admin-row-action" %><% end %></td>
+</tr><% end %></tbody></table></div>
 <% end %>

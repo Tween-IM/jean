@@ -1,9 +1,9 @@
-<% content_for :title, "#{@mini_app.name} Review — TMCP Admin" %>
+<% content_for :title, "#{@mini_app.name} Review — Tween Admin" %>
 
 <div class="mb-6 flex items-center justify-between">
   <div>
     <%= link_to "← Back to Queue", admin_mini_app_reviews_path, class: "text-sm text-slate-500 hover:text-slate-700" %>
-    <h1 class="text-xl font-semibold text-gray-900 mt-2"><%= @mini_app.name %></h1>
+    <h1 class="admin-title text-xl font-semibold text-gray-900 mt-2"><%= @mini_app.name %></h1>
     <p class="text-sm text-slate-500"><%= @mini_app.app_id %> · v<%= @mini_app.version %></p>
   </div>
 
@@ -21,8 +21,8 @@
   <!-- Main Content -->
   <div class="col-span-2 space-y-6">
     <!-- App Details -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Application Details</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
+      <h2 class="admin-section-title text-lg font-semibold text-slate-900 mb-4">Application Details</h2>
       <dl class="grid grid-cols-2 gap-4">
         <div>
           <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Developer</dt>
@@ -56,8 +56,8 @@
     </div>
 
     <!-- Automated Checks -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Automated Security Checks</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
+      <h2 class="admin-section-title text-lg font-semibold text-slate-900 mb-4">Automated Security Checks</h2>
       <% if @automated_check %>
         <div class="space-y-3">
           <div class="flex items-center justify-between py-2 border-b border-slate-100">
@@ -98,8 +98,8 @@
     </div>
 
     <!-- Manifest -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Manifest</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
+      <h2 class="admin-section-title text-lg font-semibold text-slate-900 mb-4">Manifest</h2>
       <pre class="p-4 bg-slate-950 text-slate-100 text-xs rounded-lg overflow-x-auto"><%= JSON.pretty_generate(@mini_app.manifest) %></pre>
     </div>
   </div>
@@ -107,8 +107,8 @@
   <!-- Sidebar -->
   <div class="space-y-6">
     <!-- Review Actions -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Review Actions</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
+      <h2 class="admin-section-title text-lg font-semibold text-slate-900 mb-4">Review Actions</h2>
       <div class="space-y-3">
         <%= button_to "Approve & Activate", admin_approve_mini_app_review_path(@mini_app),
             method: :post,
@@ -120,15 +120,15 @@
         </button>
 
         <button type="button" onclick="showRequestChangesModal()"
-            class="w-full px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">
+            class="w-full px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors admin-panel">
           Request Changes
         </button>
       </div>
     </div>
 
     <!-- Recent Installations -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Recent Installations</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
+      <h2 class="admin-section-title text-lg font-semibold text-slate-900 mb-4">Recent Installations</h2>
       <% if @installations.any? %>
         <div class="divide-y divide-slate-100">
           <% @installations.each do |inst| %>
@@ -149,7 +149,7 @@
 <div id="requestChangesModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
   <div class="flex min-h-screen items-center justify-center px-4">
     <div class="fixed inset-0 bg-black/50 transition-opacity" onclick="hideRequestChangesModal()"></div>
-    <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+    <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 admin-panel">
       <h3 class="text-lg font-semibold text-slate-900 mb-4">Request Changes</h3>
       <p class="text-sm text-slate-600 mb-4">Describe what changes are needed before this application can be approved.</p>
       <form action="<%= admin_request_changes_mini_app_review_path(@mini_app) %>" method="post">
@@ -162,7 +162,7 @@
         </div>
         <div class="flex gap-3">
           <button type="button" onclick="hideRequestChangesModal()"
-              class="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+              class="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 admin-panel">
             Cancel
           </button>
           <button type="submit"
@@ -179,7 +179,7 @@
 <div id="rejectModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
   <div class="flex min-h-screen items-center justify-center px-4">
     <div class="fixed inset-0 bg-black/50 transition-opacity" onclick="hideRejectModal()"></div>
-    <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+    <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6 admin-panel">
       <h3 class="text-lg font-semibold text-slate-900 mb-4">Reject Application</h3>
       <form action="<%= admin_reject_mini_app_review_path(@mini_app) %>" method="post">
         <input type="hidden" name="authenticity_token" value="<%= form_authenticity_token %>">
@@ -191,7 +191,7 @@
         </div>
         <div class="flex gap-3">
           <button type="button" onclick="hideRejectModal()"
-              class="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+              class="flex-1 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 admin-panel">
             Cancel
           </button>
           <button type="submit"

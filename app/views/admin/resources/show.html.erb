@@ -2,8 +2,8 @@
 <div class="admin-eyebrow"><%= link_to @resource[:label], admin_resource_path(params[:resource]) %> / Details</div>
 <div class="admin-page-heading">
   <div>
-    <h1><%= @resource[:label].singularize %> details</h1>
-    <p><%= params[:id] %></p>
+    <h1><%= @record && @record["title"].presence || @resource[:label].singularize %></h1>
+    <p><%= @record && @record["subtitle"] %></p>
   </div>
   <%= link_to "← Back to #{@resource[:label].downcase}", admin_resource_path(params[:resource]), class: "admin-button" %></div>
 <% if @error %>
@@ -15,9 +15,9 @@
     </div>
     <div class="admin-panel-body">
       <dl class="admin-detail-grid">
-        <% @record.each do |key, value| %>
+        <% @record.except("id", "title", "subtitle", "accountable_id", "user_id", "wallet_id", "checkable_id", "business_id", "room_id").each do |key, value| %>
           <div>
-            <dt><%= key.delete_suffix('_cents').humanize %></dt>
+            <dt><%= admin_field_label(key) %></dt>
             <dd><%= admin_value(value, key, @record) %></dd>
           </div>
         <% end %>
@@ -51,3 +51,5 @@ end %>
     </details>
   <% end %>
 <% end %>
+
+<% if @related_transactions.present? %><section class="admin-panel"><div class="admin-panel-heading"><h2>Recent transactions</h2></div><%= render 'admin/shared/resource_table', records: @related_transactions, fields: [], resource_key: 'transactions' %></section><% end %>

@@ -1,0 +1,10 @@
+<dialog class="admin-drawer" data-admin-workspace-target="drawer" data-action="click->admin-workspace#backdrop cancel->admin-workspace#cancelDrawer" aria-label="Record details">
+  <div class="admin-drawer-bar"><span>Details</span><div class="admin-actions"><a data-admin-workspace-target="fullPage" class="admin-button" data-turbo-frame="_top">Open full page ↗</a><button type="button" class="admin-icon-button" data-action="admin-workspace#close" aria-label="Close details"><%= fluent_icon "dismiss" %></button></div></div>
+  <div class="admin-drawer-loading" data-admin-workspace-target="loading" role="status"><div class="admin-skeleton"></div><div class="admin-skeleton"></div><p>Loading details…</p></div>
+  <turbo-frame id="admin-detail" data-admin-workspace-target="frame" class="admin-drawer-content"></turbo-frame>
+</dialog>
+<dialog class="admin-confirm" data-admin-workspace-target="confirmation" aria-labelledby="admin-confirm-title">
+  <div class="admin-confirm-icon"><%= fluent_icon "shield" %></div><h2 id="admin-confirm-title">Confirm this action</h2><p data-admin-workspace-target="message"></p>
+  <div class="admin-actions"><button type="button" class="admin-button" data-admin-workspace-target="cancelButton">Keep unchanged</button><button type="button" class="admin-button admin-button-danger" data-admin-workspace-target="confirmButton">Confirm action</button></div>
+</dialog>
+<div class="admin-toast" data-admin-workspace-target="toast" role="status" hidden></div>

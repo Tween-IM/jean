@@ -1,14 +1,14 @@
-<% content_for :title, "Review Queue — TMCP Admin" %>
+<% content_for :title, "Review Queue — Tween Admin" %>
 
 <div class="mb-6">
-  <h1 class="text-xl font-semibold text-gray-900">Review Queue</h1>
+  <h1 class="admin-title text-xl font-semibold text-gray-900">Review Queue</h1>
   <p class="mt-1 text-sm text-gray-500">Mini-apps awaiting manual review</p>
 </div>
 
 <!-- Pending Reviews Section -->
-<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 admin-panel">
   <div class="px-6 py-4 border-b border-slate-100">
-    <h2 class="text-lg font-semibold text-slate-900">Pending Review (<%= @pending_apps.count %>)</h2>
+    <h2 class="admin-section-title text-lg font-semibold text-slate-900">Pending Review (<%= @pending_apps.count %>)</h2>
     <p class="text-sm text-slate-500">Apps submitted for review, awaiting approval</p>
   </div>
 
@@ -30,7 +30,7 @@
           </div>
 
           <div class="flex items-center gap-3 ml-4">
-            <%= link_to "Review", admin_mini_app_review_path(app),
+            <%= admin_detail_link "Review", admin_mini_app_review_path(app),
                 class: "px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors" %>
           </div>
         </div>
@@ -47,9 +47,9 @@
 </div>
 
 <!-- Appeals Section -->
-<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden admin-panel">
   <div class="px-6 py-4 border-b border-slate-100">
-    <h2 class="text-lg font-semibold text-slate-900">Appeals (<%= @appeals.count %>)</h2>
+    <h2 class="admin-section-title text-lg font-semibold text-slate-900">Appeals (<%= @appeals.count %>)</h2>
     <p class="text-sm text-slate-500">Rejection appeals requiring attention</p>
   </div>
 

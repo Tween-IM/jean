@@ -4,7 +4,7 @@
 
 <div class="mb-8 flex items-center justify-between">
   <div>
-    <h1 class="text-3xl font-bold text-slate-900"><%= @application.name %></h1>
+    <h1 class="admin-title text-3xl font-bold text-slate-900"><%= @application.name %></h1>
     <p class="text-slate-500 mt-1"><%= @application.uid %></p>
   </div>
   <% if current_admin_user&.has_admin_permission?(:manage_oauth) %>
@@ -15,8 +15,8 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
   <div class="lg:col-span-2 space-y-6">
     <!-- Details -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Application Details</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
+      <h2 class="admin-section-title text-lg font-semibold text-slate-900 mb-4">Application Details</h2>
       <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <dt class="text-sm font-medium text-slate-500">Name</dt>
@@ -46,8 +46,8 @@
     </div>
 
     <!-- Access Tokens -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Recent Access Tokens</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
+      <h2 class="admin-section-title text-lg font-semibold text-slate-900 mb-4">Recent Access Tokens</h2>
       <% if @access_tokens.any? %>
         <div class="divide-y divide-slate-100">
           <% @access_tokens.each do |token| %>
@@ -69,8 +69,8 @@
   <!-- Sidebar -->
   <div class="space-y-6">
     <!-- Access Grants -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Recent Access Grants</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 admin-panel">
+      <h2 class="admin-section-title text-lg font-semibold text-slate-900 mb-4">Recent Access Grants</h2>
       <% if @access_grants.any? %>
         <div class="divide-y divide-slate-100">
           <% @access_grants.each do |grant| %>

@@ -3,7 +3,7 @@
 <div class="admin-page-heading">
   <div>
     <h1><%= @resource[:label] %></h1>
-    <p>A clear view of what’s happening across Tween.</p>
+    <p><%= @resource[:description] %></p>
   </div>
   <%= link_to "Refresh", request.fullpath, class: "admin-button" %></div>
 <section class="admin-panel">
@@ -14,7 +14,8 @@
       <%= form_with url: admin_resource_path(params[:resource]), method: :get, class: "admin-toolbar" do %>
         <label for="resource-query" class="sr-only">Search <%= @resource[:label] %></label>
         <input class="admin-input" id="resource-query" type="search" name="query" placeholder="Search <%= @resource[:label].downcase %>…" value="<%= params[:query] %>">
-        <button class="admin-button">Search</button>
+        <% if @resource[:statuses].any? %><label for="resource-status" class="sr-only">Status</label><%= select_tag :status, options_for_select([["All statuses", ""]] + @resource[:statuses].map { |state| [state.humanize, state] }, params[:status]), id: "resource-status", class: "admin-input admin-select" %><% end %>
+        <button class="admin-button">Apply filters</button>
         <% if params[:query].present? %><%= link_to "Clear", admin_resource_path(params[:resource]), class: "admin-button" %><% end %>
       <% end %>
     <% end %>

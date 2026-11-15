@@ -2,7 +2,7 @@ module Admin
   class BaseController < ActionController::Base
     include Admin::Pagination
 
-    layout "admin"
+    layout -> { turbo_frame_request? && request.headers["Turbo-Frame"] == "admin-detail" ? "admin_drawer" : "admin" }
     protect_from_forgery with: :exception
 
     before_action :authenticate_admin!

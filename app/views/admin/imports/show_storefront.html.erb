@@ -4,7 +4,7 @@
 <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
   <div class="min-w-0">
     <div class="flex items-center gap-2">
-      <h1 class="text-xl font-semibold text-gray-900 truncate"><%= @storefront.display_name %></h1>
+      <h1 class="admin-title text-xl font-semibold text-gray-900 truncate"><%= @storefront.display_name %></h1>
       <%= platform_badge(@storefront.source_platform) %>
       <%= source_kind_badge(@storefront.source_kind) %>
     </div>
@@ -23,7 +23,7 @@
   <div class="lg:col-span-2 space-y-6">
     <%= form_with model: @storefront, url: admin_import_storefront_path(@storefront), method: :patch, class: "bg-white rounded-xl border border-gray-200" do |form| %>
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Store settings</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Store settings</h2>
         <p class="text-xs text-gray-500 mt-0.5">
           Correct what the scraper cannot know — branding and how to reach the seller.
         </p>
@@ -106,10 +106,10 @@
       </div>
     <% end %>
 
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden admin-panel">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div>
-          <h2 class="text-sm font-semibold text-gray-900">Listings</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Listings</h2>
           <p class="text-xs text-gray-500 mt-0.5">Showing the <%= [ @products.size, @product_count ].min %> most recent</p>
         </div>
         <%= link_to admin_import_products_path(platform: @storefront.source_platform),
@@ -141,9 +141,9 @@
 
   <!-- Right: provenance + imported reviews -->
   <div class="space-y-6">
-    <div class="bg-white rounded-xl border border-gray-200">
+    <div class="bg-white rounded-xl border border-gray-200 admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Provenance</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Provenance</h2>
         <p class="text-xs text-gray-500 mt-0.5">Where this store was mirrored from</p>
       </div>
 
@@ -206,10 +206,10 @@
       <% end %>
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200">
+    <div class="bg-white rounded-xl border border-gray-200 admin-panel">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div>
-          <h2 class="text-sm font-semibold text-gray-900">Imported reviews</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Imported reviews</h2>
           <p class="text-xs text-gray-500 mt-0.5">
             <%= number_with_delimiter(@reviews_count) %> mirrored, buyer identity preserved
           </p>
@@ -244,7 +244,7 @@
               <%= form_with url: admin_import_review_path(review), method: :patch,
                   class: "mt-3 flex flex-wrap items-center gap-2" do %>
                 <select name="commerce_review[status]"
-                  class="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  class="admin-select px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   <% review_status_options.each do |status| %>
                     <option value="<%= status %>" <%= "selected" if review.status == status %>><%= status %></option>
                   <% end %>

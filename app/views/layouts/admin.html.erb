@@ -7,13 +7,13 @@
     <%= stylesheet_link_tag "tailwind", "admin", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-  <body class="admin-app">
+  <body class="admin-app" data-controller="admin-workspace" data-action="turbo:frame-load->admin-workspace#loaded turbo:frame-missing->admin-workspace#missing">
     <% if current_admin_user %>
       <a href="#main" class="admin-skip">Skip to content</a>
       <div class="admin-shell" data-controller="admin-shell">
         <aside class="admin-sidebar" aria-label="Main navigation" id="admin-navigation">
           <%= link_to admin_dashboard_path, class: "admin-brand" do %>
-            <span class="admin-brand-mark">t</span><span>tween<small>Workspace</small></span>
+            <%= image_tag "tween-mark.svg", class: "admin-brand-logo", alt: "Tween" %><span>tween<small>Workspace</small></span>
           <% end %>
           <button class="admin-button admin-mobile-menu" data-action="admin-shell#toggle">Close navigation</button>
           <nav>
@@ -58,7 +58,7 @@
     <% else %>
       <main class="admin-login">
         <div class="admin-login-panel">
-          <div class="admin-brand"><span class="admin-brand-mark">t</span><span>tween<small>Staff workspace</small></span></div>
+          <div class="admin-brand"><%= image_tag "tween-mark.svg", class: "admin-brand-logo", alt: "Tween" %><span>tween<small>Staff workspace</small></span></div>
           <% flash.each do |kind, message| %>
             <div role="status" class="admin-flash admin-flash-alert"><%= message %></div>
           <% end %>
@@ -66,4 +66,5 @@
         </div>
       </main>
     <% end %>
+    <%= render "admin/shared/overlays" if current_admin_user %>
   </body></html>

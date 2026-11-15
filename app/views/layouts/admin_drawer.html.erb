@@ -1,0 +1,6 @@
+<turbo-frame id="admin-detail">
+  <div class="admin-detail-body">
+    <% flash.each do |kind, message| %><div role="status" class="admin-flash <%= 'admin-flash-alert' if kind == 'alert' %>"><%= message %></div><% end %>
+    <%= yield %>
+  </div>
+</turbo-frame>

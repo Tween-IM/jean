@@ -19,14 +19,14 @@ module Admin
       options[:search_term] = query[:query] if resource == "rooms" && query[:query].present?
       data = get("/_synapse/admin/v1/#{endpoint}", options)
       raise Unavailable, "The service returned an unexpected response." unless data[key].is_a?(Array)
-      { "records" => data.fetch(key), "total" => data["total_rooms"] || data["total"],
+      { "records" => data.fetch(key).map { |record| present(record, resource) }, "total" => data["total_rooms"] || data["total"],
         "next_cursor" => data["next_batch"] || data["next_token"], "previous_cursor" => data["prev_batch"],
         "page" => page, "next_page" => (page + 1 if data["next_batch"].present? || data["next_token"].present?) }
     end
 
     def detail(resource, id)
       endpoint = { "rooms" => "rooms", "reports" => "event_reports" }.fetch(resource)
-      { "record" => get("/_synapse/admin/v1/#{endpoint}/#{segment(id)}") }
+      { "record" => present(get("/_synapse/admin/v1/#{endpoint}/#{segment(id)}"), resource) }
     end
 
     def command(resource, id, action:, **)
@@ -41,5 +41,11 @@ module Admin
     def person(matrix_id)
       get("/_synapse/admin/v2/users/#{segment(matrix_id)}").slice("name", "displayname", "deactivated", "locked", "admin", "creation_ts")
     end
+    def present(record, resource)
+      record.merge("title" => record["name"].presence || record["canonical_alias"].presence ||
+        (resource == "reports" ? "Reported message" : "Unnamed room"),
+        "subtitle" => record["canonical_alias"].presence || record["reason"].presence)
+    end
+
   end
 end

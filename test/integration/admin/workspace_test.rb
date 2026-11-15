@@ -121,4 +121,17 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "detail drawers render a frame without another application shell" do
+    get admin_user_path(@staff), headers: { "Turbo-Frame" => "admin-detail" }
+    assert_response :success
+    assert_select 'turbo-frame#admin-detail', count: 1
+    assert_select '.admin-sidebar', count: 0
+  end
+
+  test "official logo and card navigation are present" do
+    get admin_dashboard_path
+    assert_select 'img[alt="Tween"]'
+    assert_select 'a[href=?]', admin_resource_path('cards'), text: 'Cards'
+  end
+
 end

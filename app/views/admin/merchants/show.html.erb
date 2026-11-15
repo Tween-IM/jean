@@ -6,7 +6,7 @@
 <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
   <div class="min-w-0">
     <div class="flex flex-wrap items-center gap-2">
-      <h1 class="text-xl font-semibold text-gray-900 truncate"><%= @merchant.display_name %></h1>
+      <h1 class="admin-title text-xl font-semibold text-gray-900 truncate"><%= @merchant.display_name %></h1>
       <%= entity_status_badge(@merchant.status) %>
       <% if @merchant.system_owned? %>
         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">system merchant</span>
@@ -32,7 +32,7 @@
   <div class="lg:col-span-2 space-y-6">
     <%= form_with model: @merchant, url: admin_merchant_path(@merchant), method: :patch, class: "bg-white rounded-xl border border-gray-200" do |form| %>
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Merchant profile</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Merchant profile</h2>
         <p class="text-xs text-gray-500 mt-0.5">Commercial terms and how the platform reaches them</p>
       </div>
       <div class="p-5 space-y-5">
@@ -100,17 +100,17 @@
       <% end %>
     <% end %>
 
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Stores</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Stores</h2>
         <p class="text-xs text-gray-500 mt-0.5"><%= number_with_delimiter(@storefronts.size) %> storefront(s)</p>
       </div>
       <% if @storefronts.any? %>
-        <table class="min-w-full divide-y divide-gray-100">
-          <tbody class="divide-y divide-gray-100">
+        <table class="admin-table">
+          <tbody>
             <% @storefronts.each do |storefront| %>
               <tr class="hover:bg-gray-50">
-                <td class="px-5 py-3">
+                <td>
                   <div class="flex items-center gap-3">
                     <%= store_mark(storefront) %>
                     <div class="min-w-0">
@@ -122,9 +122,9 @@
                     </div>
                   </div>
                 </td>
-                <td class="px-5 py-3"><%= entity_status_badge(storefront.status) %></td>
-                <td class="px-5 py-3 text-right">
-                  <%= link_to "Manage", admin_storefront_path(storefront), class: "text-sm text-indigo-600 hover:text-indigo-900" %>
+                <td><%= entity_status_badge(storefront.status) %></td>
+                <td>
+                  <%= admin_detail_link "Manage", admin_storefront_path(storefront), class: "text-sm text-indigo-600 hover:text-indigo-900" %>
                 </td>
               </tr>
             <% end %>
@@ -135,21 +135,21 @@
       <% end %>
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Recent orders</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Recent orders</h2>
       </div>
       <% if @orders.any? %>
-        <table class="min-w-full divide-y divide-gray-100">
-          <tbody class="divide-y divide-gray-100">
+        <table class="admin-table">
+          <tbody>
             <% @orders.each do |order| %>
               <tr class="hover:bg-gray-50">
-                <td class="px-5 py-3 text-sm font-mono text-gray-900"><%= order.order_id %></td>
-                <td class="px-5 py-3 text-sm text-gray-600 truncate max-w-[12rem]"><%= order.buyer_user_id %></td>
-                <td class="px-5 py-3 text-sm text-gray-900"><%= money(order.total_cents, order.currency) %></td>
-                <td class="px-5 py-3"><%= order_status_badge(order.status) %></td>
-                <td class="px-5 py-3 text-right">
-                  <%= link_to "Manage", admin_order_path(order), class: "text-sm text-indigo-600 hover:text-indigo-900" %>
+                <td><%= order.order_id %></td>
+                <td><%= order.buyer_user_id %></td>
+                <td><%= money(order.total_cents, order.currency) %></td>
+                <td><%= order_status_badge(order.status) %></td>
+                <td>
+                  <%= admin_detail_link "Manage", admin_order_path(order), class: "text-sm text-indigo-600 hover:text-indigo-900" %>
                 </td>
               </tr>
             <% end %>
@@ -162,7 +162,7 @@
   </div>
 
   <div class="space-y-6">
-    <div class="bg-white rounded-xl border border-gray-200 p-5">
+    <div class="bg-white rounded-xl border border-gray-200 p-5 admin-panel">
       <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Value on platform</p>
       <p class="mt-1 text-2xl font-semibold text-gray-900"><%= money(@gmv_cents, "NGN") %></p>
       <p class="mt-0.5 text-xs text-gray-500">paid and fulfilled orders</p>
@@ -179,9 +179,9 @@
     </div>
 
     <% if can_manage %>
-      <div class="bg-white rounded-xl border border-gray-200">
+      <div class="bg-white rounded-xl border border-gray-200 admin-panel">
         <div class="px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">Account actions</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Account actions</h2>
         </div>
         <div class="p-5 space-y-3">
           <% unless @merchant.verified? %>
@@ -209,9 +209,9 @@
       </div>
     <% end %>
 
-    <div class="bg-white rounded-xl border border-gray-200">
+    <div class="bg-white rounded-xl border border-gray-200 admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Owner</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Owner</h2>
       </div>
       <div class="px-5 py-4 text-sm space-y-1">
         <% if @owner %>
@@ -228,9 +228,9 @@
     </div>
 
     <% if @payouts.any? %>
-      <div class="bg-white rounded-xl border border-gray-200">
+      <div class="bg-white rounded-xl border border-gray-200 admin-panel">
         <div class="px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">Recent payouts</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Recent payouts</h2>
         </div>
         <div class="divide-y divide-gray-100">
           <% @payouts.each do |payout| %>

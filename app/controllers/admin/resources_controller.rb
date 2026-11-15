@@ -11,7 +11,9 @@ module Admin
     end
 
     def show
-      @record = client.detail(params[:resource], params[:id]).fetch("record")
+      payload = client.detail(params[:resource], params[:id])
+      @record = payload.fetch("record")
+      @related_transactions = payload["transactions"]
     rescue RemoteClient::Unavailable, RemoteClient::Forbidden, RemoteClient::NotFound, RemoteClient::Rejected => e
       @needs_authorization = e.is_a?(AdminOauthGrant::ConnectionRequired)
       @error = e.message
@@ -53,7 +55,11 @@ module Admin
     end
 
     def client
-      @client ||= @resource[:service] == :matrix ? SynapseClient.new(grant: admin_oauth_grant) : TweenPay::AdminClient.new(current_admin_user)
+      @client ||= case @resource[:service]
+      when :matrix then SynapseClient.new(grant: admin_oauth_grant)
+      when :local then LocalResourceClient.new(@resource)
+      else TweenPay::AdminClient.new(current_admin_user)
+      end
     end
   end
 end

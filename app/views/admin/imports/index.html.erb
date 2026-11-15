@@ -1,9 +1,9 @@
-<% content_for :title, "Imports — TMCP Admin" %>
+<% content_for :title, "Imports — Tween Admin" %>
 <% content_for :page_title, "Imports" %>
 
 <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
   <div>
-    <h1 class="text-xl font-semibold text-gray-900">External catalog imports</h1>
+    <h1 class="admin-title text-xl font-semibold text-gray-900">External catalog imports</h1>
     <p class="mt-1 text-sm text-gray-500">
       Catalogs mirrored from Jumia and Konga by the scraper. Last sync:
       <span class="font-medium text-gray-700"><%= sync_label(@stats[:last_synced_at]) %></span>
@@ -19,7 +19,7 @@
 
 <!-- Metric cards -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-  <div class="bg-white rounded-xl border border-gray-200 p-5">
+  <div class="bg-white rounded-xl border border-gray-200 p-5 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Source stores</p>
     <p class="mt-2 text-3xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@stats[:storefronts]) %></p>
     <div class="mt-3">
@@ -27,7 +27,7 @@
     </div>
   </div>
 
-  <div class="bg-white rounded-xl border border-gray-200 p-5">
+  <div class="bg-white rounded-xl border border-gray-200 p-5 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Imported listings</p>
     <p class="mt-2 text-3xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@stats[:products]) %></p>
     <div class="mt-3">
@@ -43,7 +43,7 @@
     </div>
   </div>
 
-  <div class="bg-white rounded-xl border border-gray-200 p-5">
+  <div class="bg-white rounded-xl border border-gray-200 p-5 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Imported reviews</p>
     <p class="mt-2 text-3xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@stats[:reviews]) %></p>
     <div class="mt-3">
@@ -51,7 +51,7 @@
     </div>
   </div>
 
-  <div class="bg-white rounded-xl border border-gray-200 p-5">
+  <div class="bg-white rounded-xl border border-gray-200 p-5 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Outreach needed</p>
     <p class="mt-2 text-3xl font-semibold text-gray-900 tracking-tight"><%= number_with_delimiter(@stats[:stores_without_contact]) %></p>
     <div class="mt-3">
@@ -61,11 +61,11 @@
 </div>
 
 <!-- Merchant that owns everything imported -->
-<div class="bg-white rounded-xl border border-gray-200 p-5 mb-8">
+<div class="bg-white rounded-xl border border-gray-200 p-5 mb-8 admin-panel">
   <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
       <div class="flex items-center gap-2">
-        <h2 class="text-sm font-semibold text-gray-900">Platform merchant</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Platform merchant</h2>
         <% if @system_merchant %>
           <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">system-owned</span>
         <% end %>
@@ -96,33 +96,33 @@
 </div>
 
 <!-- Per-platform breakdown -->
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8">
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-8 admin-panel">
   <div class="px-5 py-4 border-b border-gray-100">
-    <h2 class="text-sm font-semibold text-gray-900">By source platform</h2>
+    <h2 class="admin-section-title text-sm font-semibold text-gray-900">By source platform</h2>
     <p class="text-xs text-gray-500 mt-0.5">What each marketplace contributed</p>
   </div>
   <% if @platforms.any? %>
     <div class="overflow-x-auto">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-gray-50 text-xs font-medium text-gray-500 uppercase">
+      <table class="admin-table">
+        <thead>
           <tr>
-            <th class="px-5 py-3">Platform</th>
-            <th class="px-5 py-3">Source stores</th>
-            <th class="px-5 py-3">Listings</th>
-            <th class="px-5 py-3">Reviews</th>
-            <th class="px-5 py-3">Last sync</th>
-            <th class="px-5 py-3"></th>
+            <th scope="col">Platform</th>
+            <th scope="col">Source stores</th>
+            <th scope="col">Listings</th>
+            <th scope="col">Reviews</th>
+            <th scope="col">Last sync</th>
+            <th scope="col"></th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
+        <tbody>
           <% @platforms.each do |row| %>
             <tr class="hover:bg-gray-50/50">
-              <td class="px-5 py-3"><%= platform_badge(row[:platform]) %></td>
-              <td class="px-5 py-3 text-gray-900"><%= number_with_delimiter(row[:storefronts]) %></td>
-              <td class="px-5 py-3 text-gray-900"><%= number_with_delimiter(row[:products]) %></td>
-              <td class="px-5 py-3 text-gray-900"><%= number_with_delimiter(row[:reviews]) %></td>
-              <td class="px-5 py-3 text-gray-500"><%= sync_label(row[:last_synced_at]) %></td>
-              <td class="px-5 py-3 text-right">
+              <td><%= platform_badge(row[:platform]) %></td>
+              <td><%= number_with_delimiter(row[:storefronts]) %></td>
+              <td><%= number_with_delimiter(row[:products]) %></td>
+              <td><%= number_with_delimiter(row[:reviews]) %></td>
+              <td><%= sync_label(row[:last_synced_at]) %></td>
+              <td>
                 <%= link_to "Stores", admin_import_storefronts_path(platform: row[:platform]), class: "text-indigo-600 hover:text-indigo-800 text-sm font-medium" %>
               </td>
             </tr>
@@ -142,10 +142,10 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
   <!-- Recently imported listings -->
-  <div class="bg-white rounded-xl border border-gray-200">
+  <div class="bg-white rounded-xl border border-gray-200 admin-panel">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
       <div>
-        <h2 class="text-sm font-semibold text-gray-900">Recently imported</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Recently imported</h2>
         <p class="text-xs text-gray-500 mt-0.5">Latest listings to land</p>
       </div>
       <%= link_to admin_import_products_path, class: "text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1" do %>
@@ -180,10 +180,10 @@
 
   <!-- Outreach queue + stale listings -->
   <div class="space-y-6">
-    <div class="bg-white rounded-xl border border-gray-200">
+    <div class="bg-white rounded-xl border border-gray-200 admin-panel">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div>
-          <h2 class="text-sm font-semibold text-gray-900">Sellers to reach</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Sellers to reach</h2>
           <p class="text-xs text-gray-500 mt-0.5">Imported stores with no contact details</p>
         </div>
         <%= link_to admin_import_storefronts_path, class: "text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1" do %>
@@ -212,9 +212,9 @@
       <% end %>
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200">
+    <div class="bg-white rounded-xl border border-gray-200 admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Needs a re-sync</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Needs a re-sync</h2>
         <p class="text-xs text-gray-500 mt-0.5">Not refreshed in the last 7 days</p>
       </div>
       <% if @stale_products.any? %>

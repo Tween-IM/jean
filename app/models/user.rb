@@ -59,6 +59,12 @@ class User < ApplicationRecord
     when :manage_users then false
     when :manage_messaging, :manage_identity then admin_operations_manager?
     when :view_messaging, :view_identity then admin_support? || admin_operations_manager?
+    when :view_cards then admin_support? || commerce_operator? || admin_finance_analyst? || admin_finance_manager?
+    when :manage_cards then admin_operations_manager? || admin_finance_manager?
+    when :view_risk then admin_risk_analyst? || admin_risk_manager? || admin_compliance_manager?
+    when :view_finance then admin_finance_analyst? || admin_finance_manager?
+    when :view_social_moderation then admin_support? || admin_operations_manager? || admin_compliance_manager?
+    when :manage_social_moderation then admin_operations_manager? || admin_compliance_manager?
     when :view_transactions then !admin_product_manager?
     when :view_wallets, :view_bank_accounts then admin_support? || admin_operations_manager? || admin_finance_analyst? || admin_finance_manager?
     when :manage_wallets then admin_operations_manager? || admin_finance_manager?

@@ -8,7 +8,7 @@
     <%= product_thumb(@product, size: "w-16 h-16") %>
     <div class="min-w-0">
       <div class="flex flex-wrap items-center gap-2">
-        <h1 class="text-xl font-semibold text-gray-900 truncate"><%= @product.title %></h1>
+        <h1 class="admin-title text-xl font-semibold text-gray-900 truncate"><%= @product.title %></h1>
         <%= entity_status_badge(@product.status) %>
         <% if @product.featured %>
           <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">featured</span>
@@ -44,7 +44,7 @@
   <div class="lg:col-span-2 space-y-6">
     <%= form_with model: @product, url: admin_product_path(@product), method: :patch, class: "bg-white rounded-xl border border-gray-200" do |form| %>
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Listing settings</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Listing settings</h2>
         <p class="text-xs text-gray-500 mt-0.5">What the buyer reads, and where the listing sits in the taxonomy</p>
       </div>
       <div class="p-5 space-y-5">
@@ -114,9 +114,9 @@
       <% end %>
     <% end %>
 
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Variants (SKUs)</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Variants (SKUs)</h2>
         <p class="text-xs text-gray-500 mt-0.5">Price and stock live here — one row per variant</p>
       </div>
       <% if @skus.any? %>
@@ -152,7 +152,7 @@
                   </div>
                   <div>
                     <label class="block text-xs text-gray-500 mb-1">Stock state</label>
-                    <select name="commerce_sku[inventory_status]" class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <select name="commerce_sku[inventory_status]" class="admin-select w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                       <% %w[in_stock low_stock out_of_stock preorder backorder].each do |state| %>
                         <option value="<%= state %>" <%= "selected" if sku.inventory_status == state %>><%= state.humanize %></option>
                       <% end %>
@@ -176,9 +176,9 @@
     </div>
 
     <% if @reviews.any? %>
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden admin-panel">
         <div class="px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">Reviews</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Reviews</h2>
           <p class="text-xs text-gray-500 mt-0.5">Imported reviews keep their source attribution</p>
         </div>
         <div class="divide-y divide-gray-100">
@@ -209,9 +209,9 @@
 
   <!-- Right: media, provenance, facts -->
   <div class="space-y-6">
-    <div class="bg-white rounded-xl border border-gray-200">
+    <div class="bg-white rounded-xl border border-gray-200 admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Media</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Media</h2>
         <p class="text-xs text-gray-500 mt-0.5"><%= @media.size %> image(s)</p>
       </div>
       <div class="px-5 py-4">
@@ -246,9 +246,9 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-xl border border-gray-200">
+    <div class="bg-white rounded-xl border border-gray-200 admin-panel">
       <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="text-sm font-semibold text-gray-900">Facts</h2>
+        <h2 class="admin-section-title text-sm font-semibold text-gray-900">Facts</h2>
       </div>
       <div class="px-5 py-4 space-y-2 text-sm">
         <div class="flex justify-between gap-2"><span class="text-gray-500">Sales</span><span class="text-gray-900"><%= number_with_delimiter(@product.sales_count.to_i) %></span></div>
@@ -260,9 +260,9 @@
     </div>
 
     <% if @identifiers.any? || @specifications.any? %>
-      <div class="bg-white rounded-xl border border-gray-200">
+      <div class="bg-white rounded-xl border border-gray-200 admin-panel">
         <div class="px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">Source detail</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Source detail</h2>
           <p class="text-xs text-gray-500 mt-0.5">As the marketplace published it</p>
         </div>
         <div class="px-5 py-4 space-y-3 text-sm">
@@ -283,9 +283,9 @@
     <% end %>
 
     <% if @product.source_platform.present? %>
-      <div class="bg-white rounded-xl border border-gray-200">
+      <div class="bg-white rounded-xl border border-gray-200 admin-panel">
         <div class="px-5 py-4 border-b border-gray-100">
-          <h2 class="text-sm font-semibold text-gray-900">Provenance</h2>
+          <h2 class="admin-section-title text-sm font-semibold text-gray-900">Provenance</h2>
         </div>
         <div class="px-5 py-4 space-y-2 text-sm">
           <% if @product.brand.present? %>

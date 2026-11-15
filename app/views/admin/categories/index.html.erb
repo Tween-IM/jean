@@ -1,15 +1,12 @@
-<% content_for :title, "Categories — TMCP Admin" %>
+<% content_for :title, "Categories — Tween Admin" %>
 <% content_for :page_title, "Categories" %>
 
 <% can_manage = current_admin_user.has_admin_permission?(:manage_categories) %>
 
 <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
   <div>
-    <h1 class="text-xl font-semibold text-gray-900">Categories</h1>
-    <p class="mt-1 text-sm text-gray-500">
-      The taxonomy buyers browse by. Imported listings arrive with the source's own path,
-      so this tree grows as catalogues sync.
-    </p>
+    <h1 class="admin-title text-xl font-semibold text-gray-900">Categories</h1>
+    <p class="mt-1 text-sm text-gray-500">Organize the catalog so customers can find the right products.</p>
   </div>
   <%= link_to "Listings →", admin_products_path, class: "text-sm font-medium text-indigo-600 hover:text-indigo-800" %>
 </div>
@@ -24,7 +21,7 @@
     </div>
     <div>
       <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Parent</label>
-      <select name="commerce_category[parent_id]" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <select name="commerce_category[parent_id]" class="admin-select px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
         <option value="">Top level</option>
         <% @all_categories.each do |category| %>
           <option value="<%= category.id %>"><%= category.name %></option>
@@ -37,26 +34,26 @@
 <% end %>
 
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
-  <div class="bg-white rounded-xl border border-gray-200 p-4">
+  <div class="bg-white rounded-xl border border-gray-200 p-4 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Categories</p>
     <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:total]) %></p>
     <p class="mt-0.5 text-xs text-gray-500"><%= number_with_delimiter(@stats[:top_level]) %> top level</p>
   </div>
-  <div class="bg-white rounded-xl border border-gray-200 p-4">
+  <div class="bg-white rounded-xl border border-gray-200 p-4 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">In use</p>
     <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:with_products]) %></p>
     <p class="mt-0.5 text-xs text-gray-500">hold listings or children</p>
   </div>
-  <div class="bg-white rounded-xl border border-gray-200 p-4">
+  <div class="bg-white rounded-xl border border-gray-200 p-4 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Empty</p>
     <p class="mt-1 text-2xl font-semibold <%= @stats[:empty].positive? ? 'text-amber-600' : 'text-gray-900' %>"><%= number_with_delimiter(@stats[:empty]) %></p>
     <p class="mt-0.5 text-xs text-gray-500">safe to remove</p>
   </div>
-  <div class="bg-white rounded-xl border border-gray-200 p-4">
+  <div class="bg-white rounded-xl border border-gray-200 p-4 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Filed listings</p>
     <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:filed_listings]) %></p>
   </div>
-  <div class="bg-white rounded-xl border border-gray-200 p-4">
+  <div class="bg-white rounded-xl border border-gray-200 p-4 admin-panel">
     <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Inactive</p>
     <p class="mt-1 text-2xl font-semibold text-gray-900"><%= number_with_delimiter(@stats[:inactive]) %></p>
     <p class="mt-0.5 text-xs text-gray-500">hidden from browse</p>
@@ -72,14 +69,14 @@
     </div>
     <div>
       <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Scope</label>
-      <select name="depth" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <select name="depth" class="admin-select px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
         <option value="">All levels</option>
         <option value="top" <%= "selected" if params[:depth] == "top" %>>Top level only</option>
       </select>
     </div>
     <div>
       <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Contents</label>
-      <select name="filled" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <select name="filled" class="admin-select px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
         <option value="">Any</option>
         <option value="with_products" <%= "selected" if params[:filled] == "with_products" %>>In use (holds listings)</option>
         <option value="empty" <%= "selected" if params[:filled] == "empty" %>>Empty branch</option>
@@ -87,7 +84,7 @@
     </div>
     <div>
       <label class="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Status</label>
-      <select name="status" class="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <select name="status" class="admin-select px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
         <option value="">All</option>
         <option value="active" <%= "selected" if params[:status] == "active" %>>Active</option>
         <option value="inactive" <%= "selected" if params[:status] == "inactive" %>>Inactive</option>
@@ -105,25 +102,25 @@
   <% end %>
 </div>
 
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden admin-panel">
   <% if @categories.any? %>
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
+    <table class="admin-table">
+      <thead>
         <tr>
-          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-          <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Listings</th>
-          <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Children</th>
-          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health</th>
-          <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-          <% if can_manage %><th class="px-5 py-3"></th><% end %>
+          <th scope="col">Category</th>
+          <th scope="col">Listings</th>
+          <th scope="col">Children</th>
+          <th scope="col">Health</th>
+          <th scope="col">Status</th>
+          <% if can_manage %><th scope="col"></th><% end %>
         </tr>
       </thead>
-      <tbody class="bg-white divide-y divide-gray-100">
+      <tbody>
         <% @categories.each do |category| %>
           <% listings = @product_counts[category.id].to_i %>
           <% children = @children_counts[category.id].to_i %>
           <tr class="hover:bg-gray-50">
-            <td class="px-5 py-3">
+            <td>
               <div class="<%= category.parent_id? ? 'pl-6' : '' %>">
                 <div class="flex items-center gap-2">
                   <% if category.parent_id? %>
@@ -137,21 +134,21 @@
                 <div class="text-xs text-gray-500 font-mono"><%= category.slug %></div>
               </div>
             </td>
-            <td class="px-5 py-3 text-right text-sm text-gray-900"><%= number_with_delimiter(listings) %></td>
-            <td class="px-5 py-3 text-right text-sm text-gray-700"><%= number_with_delimiter(children) %></td>
-            <td class="px-5 py-3">
+            <td><%= number_with_delimiter(listings) %></td>
+            <td><%= number_with_delimiter(children) %></td>
+            <td>
               <% if @in_use_ids.include?(category.id) %>
                 <%= signal("in use", ok: true, detail: listings.positive? ? "#{listings} listing(s) here" : "listings under this branch") %>
               <% else %>
                 <%= signal("empty", ok: false, detail: "nothing filed here or below") %>
               <% end %>
             </td>
-            <td class="px-5 py-3"><%= entity_status_badge(category.status) %></td>
+            <td><%= entity_status_badge(category.status) %></td>
             <% if can_manage %>
-              <td class="px-5 py-3 text-right">
+              <td>
                 <details class="relative">
                   <summary class="cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-900 list-none">Edit</summary>
-                  <div class="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-4 shadow-lg text-left">
+                  <div class="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-4 shadow-lg text-left admin-panel">
                     <%= form_with model: category, url: admin_category_path(category), method: :patch, class: "space-y-3" do |form| %>
                       <div>
                         <%= form.label :name, class: "block text-xs text-gray-500 mb-1" %>
