@@ -134,4 +134,38 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
     assert_select 'a[href=?]', admin_resource_path('cards'), text: 'Cards'
   end
 
+  test "document evidence is served privately through the staff boundary" do
+    ENV["TWEEN_PAY_ADMIN_URL"] = "https://pay.test"
+    ENV["TWEEN_ADMIN_SECRET"] = "x" * 48
+    stub_request(:get, "https://pay.test/internal/admin/v1/resources/identity_documents/7/evidence")
+      .to_return(body: { content: Base64.strict_encode64("%PDF-test"), content_type: "application/pdf" }.to_json)
+    get admin_resource_evidence_path("identity_documents", 7)
+    assert_response :success
+    assert_equal "%PDF-test", response.body
+    assert_includes response.headers["Cache-Control"], "no-store"
+    assert_equal "nosniff", response.headers["X-Content-Type-Options"]
+    @staff.update!(platform_role: "product_manager")
+    get admin_resource_evidence_path("identity_documents", 7)
+    assert_response :forbidden
+  ensure
+    ENV.delete("TWEEN_PAY_ADMIN_URL")
+    ENV.delete("TWEEN_ADMIN_SECRET")
+  end
+
+  test "savings details show movement context and a controlled reversal form" do
+    ENV["TWEEN_PAY_ADMIN_URL"] = "https://pay.test"
+    ENV["TWEEN_ADMIN_SECRET"] = "x" * 48
+    stub_request(:get, "https://pay.test/internal/admin/v1/resources/pockets/7")
+      .to_return(body: { record: { id: 7, title: "School fees", currency: "NGN", balance_cents: 5000, status: "active" },
+        savings_transactions: [{ id: 11, direction: "credit", amount_cents: 5000, currency: "NGN", transfer_source: "manual", created_at: Time.current.iso8601, reversed: false }] }.to_json)
+    get admin_resource_record_path("pockets", 7)
+    assert_response :success
+    assert_select "h1", "School fees"
+    assert_select 'input[name="arguments[transaction_id]"][value="11"]'
+    assert_select 'form[data-turbo-confirm]'
+  ensure
+    ENV.delete("TWEEN_PAY_ADMIN_URL")
+    ENV.delete("TWEEN_ADMIN_SECRET")
+  end
+
 end

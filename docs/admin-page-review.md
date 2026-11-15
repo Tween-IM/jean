@@ -31,16 +31,35 @@ secrets. Verification responses exclude identity numbers, provider payloads and
 document-storage credentials. Lists resolve customers and account names rather
 than presenting foreign keys as the primary content.
 
-## Boundaries and remaining work
+## Operational controls completed in the follow-up
 
-This is not a claim that all missing workflows are finished. Card issuance,
-provider-changing card actions, evidence-file review, identity-document approval,
-pocket/stash reversal and advanced dispute settlement need dedicated validated
-staff service contracts. This push adds no speculative controls for them.
-Document review currently exposes metadata and outcomes, not sensitive evidence.
-Existing approved commerce actions remain available through their domain forms.
-Detail pages retain their existing rich business forms within shared components;
-further page-specific interaction polish remains appropriate after visual review.
+- Payment-account lookup, KYC reset and card issuance from current reviewed
+  provider quotes, with explicit charge confirmation and verified customer identity.
+- Card freeze/unfreeze/termination, provider refresh and persistent command
+  receipts. Unknown issuance uses the original provider reference for reconciliation;
+  queued provider operations are shown as accepted until confirmed.
+- Authenticated document evidence viewing with an exact storage-host allowlist,
+  public-IP validation, bounded downloads and an audit tied to the document version.
+  Approval requires the reviewing staff member's evidence-view audit; expired
+  documents cannot be approved. Evidence and identity numbers stay out of lists.
+- Pocket/stash refunds and individual movement reversals conserve funds between
+  the savings account and its own active wallet. Reversals cannot be repeated.
+- Savings rule/schedule pause and resume, local review/content/report moderation,
+  and commerce dispute settlement through the existing protected-payment service.
+  Unknown settlement outcomes retain the original request for safe reconciliation.
+
+## Deployment prerequisites and remaining boundaries
+
+Run Tween Pay's new savings-reversal migration. Configure
+`IDENTITY_DOCUMENT_ALLOWED_HOSTS` on Tween Pay with the exact HTTPS storage hosts
+used for customer uploads. Evidence access fails closed without this allowlist.
+Card issuance requires a configured Clover integration and an active reviewed
+issuance quote; the UI offers no speculative or unpriced issuance option.
+
+General MAS client/provider/session management, advanced Synapse maintenance and
+business provisioning remain engineering-console workflows. Existing commerce
+forms remain within the shared design. No production financial/compliance actions
+were used to validate this work.
 
 Verification: existing admin regression tests, new drawer/brand checks, payment
 API contracts, asset compilation and Rails autoload checks. Test data only.

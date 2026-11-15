@@ -337,6 +337,7 @@ Rails.application.routes.draw do
   namespace :admin do
     get "activity", to: "activity#index", as: :activity
     get "workspace/:resource", to: "resources#index", as: :resource
+    get "workspace/:resource/:id/evidence", to: "resources#evidence", as: :resource_evidence
     get "workspace/:resource/:id", to: "resources#show", as: :resource_record, constraints: { id: /[^\/]+/ }
     post "workspace/:resource/:id/commands", to: "resources#command", as: :resource_command, constraints: { id: /[^\/]+/ }
     get "dashboard", to: "dashboard#index", as: :dashboard

@@ -15,7 +15,7 @@
     </div>
     <div class="admin-panel-body">
       <dl class="admin-detail-grid">
-        <% @record.except("id", "title", "subtitle", "accountable_id", "user_id", "wallet_id", "checkable_id", "business_id", "room_id").each do |key, value| %>
+        <% @record.except("id", "title", "subtitle", "resolution", "accountable_id", "user_id", "wallet_id", "checkable_id", "business_id", "room_id").each do |key, value| %>
           <div>
             <dt><%= admin_field_label(key) %></dt>
             <dd><%= admin_value(value, key, @record) %></dd>
@@ -24,28 +24,45 @@
       </dl>
     </div>
   </section>
-  <% operations = case params[:resource]
-when 'wallets' then current_admin_user.has_admin_permission?(:manage_wallets) ? [['Freeze wallet', 'set_status', 'frozen'], ['Activate wallet', 'set_status', 'active']] : []
-when 'pending_transfers' then current_admin_user.has_admin_permission?(:manage_pending_transfers) ? [['Cancel transfer', 'cancel', nil]] : []
-when 'api_keys' then current_admin_user.has_admin_permission?(:manage_api_keys) ? [['Revoke key', 'revoke', nil]] : []
-when 'webhooks' then current_admin_user.has_admin_permission?(:manage_webhooks) ? [['Enable webhook', 'set_active', 'true'], ['Disable webhook', 'set_active', 'false'], ['Reset failures', 'reset_failures', nil]] : []
-when 'compliance_checks' then current_admin_user.has_admin_permission?(:approve_kyc) ? [['Approve review', 'review', 'passed'], ['Reject review', 'review', 'failed'], ['Mark in review', 'review', 'in_review']] : []
-when 'rooms' then current_admin_user.has_admin_permission?(:manage_messaging) ? [['Block room', 'block', nil], ['Unblock room', 'unblock', nil]] : []
-when 'reports' then current_admin_user.has_admin_permission?(:manage_messaging) ? [['Dismiss report', 'dismiss', nil]] : []
-else []
-end %>
+  <% if @record["resolution"].is_a?(Hash) && @record["resolution"].present? %>
+    <section class="admin-panel">
+      <div class="admin-panel-heading"><h2>Settlement decision</h2></div>
+      <div class="admin-panel-body"><dl class="admin-detail-grid">
+        <% @record["resolution"].slice("outcome", "seller_amount_cents", "buyer_refund_cents", "reason", "phase").each do |key, value| %>
+          <div><dt><%= admin_field_label(key) %></dt><dd><%= admin_value(value, key, @record) %></dd></div>
+        <% end %>
+      </dl></div>
+    </section>
+  <% end %>
+  <% operations = admin_operations(params[:resource], @record) %>
   <% operations.each do |label, operation, value| %>
-    <details class="admin-panel"><summary class="admin-panel-heading" style="cursor:pointer"><%= label %></summary>
-      <%= form_with url: admin_resource_command_path(params[:resource], params[:id]), class: "admin-panel-body admin-command" do |form| %>
+    <details class="admin-panel admin-action-panel"><summary class="admin-panel-heading"><%= label %></summary>
+      <%= form_with url: admin_resource_command_path(params[:resource], params[:id]), class: "admin-panel-body admin-command", data: { turbo_confirm: "Confirm #{label.downcase}? This action will be attributed to you and may affect customer access or money." } do |form| %>
         <% if params[:resource] == 'rooms' %>
           <p class="mb-4">Blocking prevents new joins. Existing members remain in the room.</p>
         <% end %>
         <% if params[:resource] == 'reports' %>
           <p class="mb-4">Dismissing removes this report from the review queue. The reported event remains in the room.</p>
         <% end %>
-        <p class="mb-4">This will <%= label.downcase %> for <strong><%= params[:id] %></strong>. The action and your reason will be recorded.</p>
-        <%= form.hidden_field :operation, value: operation %><%= form.hidden_field :value, value: value %><%= form.hidden_field :command_id, value: SecureRandom.uuid %>
-        <%= form.label :reason, "Reason for this action", for: "reason-#{operation}-#{value}" %><%= form.text_area :reason, required: true, minlength: 5, maxlength: 1000, class: "admin-input", id: "reason-#{operation}-#{value}" %>
+        <p class="mb-4">This will <%= label.downcase %> for <strong><%= @record["title"].presence || @resource[:label].singularize %></strong>. The action and your reason will be recorded.</p>
+        <%= form.hidden_field :operation, value: operation %><%= form.hidden_field :value, value: value %><%= form.hidden_field :command_id, value: (operation == "resolve_dispute" ? @record.dig("resolution", "command_id").presence : nil) || SecureRandom.uuid %>
+        <% if operation == 'refund_balance' %>
+          <%= label_tag 'arguments_amount', "Amount in #{@record['currency']} (maximum #{admin_value(@record['balance_cents'], 'balance_cents', @record)})" %>
+          <%= number_field_tag 'arguments[amount]', nil, required: true, min: '0.01', step: '0.01', class: 'admin-input' %>
+        <% elsif operation == 'resolve_dispute' %>
+          <p class="mb-4">The release and refund must exactly allocate the remaining protected funds. A release includes the platform commission. Rechecking a pending request must use the original decision.</p>
+          <%= label_tag 'arguments_outcome', 'Settlement decision' %>
+          <%= select_tag 'arguments[outcome]', options_for_select([['Refund buyer', 'resolved_buyer'], ['Release seller settlement', 'resolved_seller'], ['Split settlement', 'resolved_split']], @record.dig('resolution', 'outcome')), class: 'admin-input admin-select', required: true %>
+          <%= label_tag 'arguments_seller_amount', 'Amount released for seller settlement' %><%= number_field_tag 'arguments[seller_amount]', (BigDecimal(@record.dig('resolution', 'seller_amount_cents').to_i.to_s) / 100).to_s('F'), min: 0, step: '0.01', required: true, class: 'admin-input' %>
+          <%= label_tag 'arguments_buyer_amount', 'Amount refunded to buyer' %><%= number_field_tag 'arguments[buyer_amount]', (BigDecimal(@record.dig('resolution', 'buyer_refund_cents').to_i.to_s) / 100).to_s('F'), min: 0, step: '0.01', required: true, class: 'admin-input' %>
+        <% elsif operation == 'issue_card' %>
+          <p class="mb-4">The customer must pass card compliance checks and have verified identity/contact information. This issues an unfunded virtual card. The selected reviewed price is the total provider charge.</p>
+          <%= label_tag 'arguments_price', 'Reviewed card program and issuance price' %>
+          <%= select_tag 'arguments[price]', options_for_select(@card_options.map { |option| ["#{option['name']} · #{option['currency']} · charge #{option['charge_currency']} #{number_with_precision(BigDecimal(option['charge_cents'].to_s) / 100, precision: 2)}", { program_id: option['program_id'], price_id: option['id'], charge_cents: option['charge_cents'], charge_currency: option['charge_currency'] }.to_json] }), class: 'admin-input admin-select', required: true %>
+        <% elsif operation == 'approve_document' %>
+          <p class="mb-4">Open and inspect the uploaded evidence first. The backend requires your audited evidence view of this exact document version before approving it.</p>
+        <% end %>
+        <%= form.label :reason, "Reason for this action", for: "reason-#{operation}-#{value}" %><%= form.text_area :reason, value: (operation == "resolve_dispute" ? @record.dig("resolution", "reason") : nil), required: true, minlength: 5, maxlength: 1000, class: "admin-input", id: "reason-#{operation}-#{value}" %>
         <%= form.submit "Confirm: #{label.downcase}", class: "admin-button admin-button-danger", data: { turbo_submits_with: "Processing…" } %>
       <% end %>
     </details>
@@ -53,3 +70,12 @@ end %>
 <% end %>
 
 <% if @related_transactions.present? %><section class="admin-panel"><div class="admin-panel-heading"><h2>Recent transactions</h2></div><%= render 'admin/shared/resource_table', records: @related_transactions, fields: [], resource_key: 'transactions' %></section><% end %>
+
+<% unless @error %>
+<% if params[:resource] == 'identity_documents' %><section class="admin-panel"><div class="admin-panel-heading"><h2>Document evidence</h2></div><div class="admin-panel-body"><p>Evidence is delivered through an authenticated, audited connection. Identity numbers and storage credentials are not shown.</p><%= link_to 'Inspect uploaded evidence ↗', admin_resource_evidence_path('identity_documents', params[:id]), target: '_blank', rel: 'noopener noreferrer', class: 'admin-button' %></div></section><% end %>
+<% if params[:resource] == 'payment_accounts' && current_admin_user.has_admin_permission?(:manage_cards) && @card_options.blank? %><section class="admin-panel"><div class="admin-panel-body"><h2>Card issuance is not currently available</h2><p>No active virtual card program with an unexpired, reviewed issuance price is available from the provider. Refresh after its pricing is reviewed.</p></div></section><% end %>
+<% if @evidence.present? %><section class="admin-panel"><div class="admin-panel-heading"><h2>Case evidence</h2></div><div class="admin-panel-body"><% @evidence.each do |entry| %><article class="admin-evidence-item"><strong><%= entry['caption'].presence || entry['media_type'].to_s.humanize %></strong><p><%= admin_short_date(entry['uploaded_at']) %></p><% if (url = admin_safe_evidence_url(entry['url'])) %><%= link_to "Open #{entry['media_type']} evidence ↗", url, target: '_blank', rel: 'noopener noreferrer', class: 'admin-button' %><% end %></article><% end %></div></section><% end %>
+<% if @savings_transactions.present? %><section class="admin-panel"><div class="admin-panel-heading"><h2>Savings ledger</h2></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Direction</th><th>Amount</th><th>Source</th><th>When</th><th>Adjustment</th></tr></thead><tbody><% @savings_transactions.each do |entry| %><tr><td><%= entry['direction'].humanize %></td><td><%= admin_value(entry['amount_cents'], 'amount_cents', entry) %></td><td><%= entry['transfer_source'].humanize %></td><td><%= admin_short_date(entry['created_at']) %></td><td><% if entry['reversed'] %>Reversed<% elsif entry['transfer_source'] != 'reversal' && current_admin_user.has_admin_permission?(:manage_savings) %><details><summary>Reverse transaction</summary><%= form_with url: admin_resource_command_path(params[:resource], params[:id]), class: "admin-inline-command", data: { turbo_confirm: 'Reverse this ledger movement between these savings and the customer wallet?' } do |form| %><%= form.hidden_field :operation, value: 'reverse_transaction' %><%= form.hidden_field :command_id, value: SecureRandom.uuid %><%= hidden_field_tag 'arguments[transaction_id]', entry['id'] %><%= form.label :reason, 'Reason' %><%= form.text_area :reason, required: true, minlength: 5, maxlength: 1000, class: 'admin-input' %><%= form.submit 'Confirm reversal', class: 'admin-button admin-button-danger' %><% end %></details><% else %>No reversal available<% end %></td></tr><% end %></tbody></table></div></section><% end %>
+<% end %>
+
+<% if @card_requests.present? && !@error %><section class="admin-panel"><div class="admin-panel-heading"><h2>Card issuance requests</h2></div><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Submitted</th><th>Outcome</th><th>Follow-up</th></tr></thead><tbody><% @card_requests.each do |entry| %><tr><td><%= admin_short_date(entry['created_at']) %></td><td><%= admin_badge(entry['state']) %></td><td><% if entry['can_reconcile'] %><details><summary>Reconcile original request</summary><%= form_with url: admin_resource_command_path('payment_accounts', params[:id]), class: "admin-inline-command", data: { turbo_confirm: 'Recheck this exact provider issuance reference? This does not submit a new issuance reference.' } do |form| %><%= form.hidden_field :operation, value: 'reconcile_issuance' %><%= form.hidden_field :value, value: entry['request_id'] %><%= form.hidden_field :command_id, value: SecureRandom.uuid %><%= form.label :reason, 'Reconciliation reason' %><%= form.text_area :reason, required: true, minlength: 5, maxlength: 1000, class: 'admin-input' %><%= form.submit 'Reconcile request', class: 'admin-button' %><% end %></details><% else %>Refresh account for updates<% end %></td></tr><% end %></tbody></table></div></section><% end %>

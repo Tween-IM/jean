@@ -5,6 +5,7 @@ require "uri"
 module Admin
   class RemoteClient
     class Unavailable < StandardError; end
+    class OutcomeUnknown < Unavailable; end
     class Forbidden < StandardError; end
     class Unauthorized < Forbidden; end
     class NotFound < StandardError; end
@@ -43,6 +44,15 @@ module Admin
       raise Forbidden, "You do not have access to this information." if response.code == "403"
       raise NotFound, "No matching record was found." if response.code == "404"
       if %w[400 409 422].include?(response.code)
+        state = begin
+          parsed = JSON.parse(response.body.to_s)
+          parsed.is_a?(Hash) ? parsed["state"] : nil
+        rescue JSON::ParserError
+          nil
+        end
+        if %w[unknown processing].include?(state)
+          raise OutcomeUnknown, "The provider outcome is not confirmed. Reconcile the original request from the payment account before submitting another one."
+        end
         raise Rejected, "The action was rejected. Refresh the record and check its current state before trying again."
       end
       raise Unavailable, "The service could not complete this request." unless response.is_a?(Net::HTTPSuccess)

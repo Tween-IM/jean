@@ -30,6 +30,14 @@ module TweenPay
       data
     end
 
+    def card_options
+      get("/internal/admin/v1/card_options")
+    end
+
+    def evidence(id)
+      get("/internal/admin/v1/resources/identity_documents/#{segment(id)}/evidence")
+    end
+
     def command(resource, id, action:, reason:, request_id:, value: nil)
       request(:post, "/internal/admin/v1/resources/#{segment(resource)}/#{segment(id)}/commands",
         body: { operation: action, reason: reason, request_id: request_id, value: value })

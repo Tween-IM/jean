@@ -92,7 +92,7 @@ balance or a newly provisioned account.
 
 ## Deployment order
 
-1. Deploy Tween Pay's internal API and run its `admin_workspace_commands`
+1. Deploy Tween Pay's internal API and run its `admin_workspace_commands` and `admin_savings_reversals`
    migration. Restrict `/internal/admin/v1` at the network/proxy layer to the
    dashboard server where possible; signed authentication is still required.
 2. Configure the same dedicated signing secret in both services. Verify staff mappings/roles and each administrator's own MAS permissions.
@@ -110,8 +110,8 @@ Do not grant every staff member a super-admin role to make a connection work.
 
 The unified dashboard is functional, but this is not complete parity with every
 old admin tool. These operations are intentionally not exposed as placeholder
-buttons: payment-user status/role editing and KYC reset, business provisioning,
-pocket/stash refund/reversal commands, general MAS client/provider/session
+buttons: payment-user status/role editing, business provisioning,
+general MAS client/provider/session
 management, media moderation, and advanced Synapse maintenance. Existing
 engineering consoles remain fallback tools until those workflows are migrated.
 
@@ -146,3 +146,17 @@ TYPELIZER=false bundle exec rspec spec/requests/internal/admin/workspace_spec.rb
 Browser review: overview, people, person workspace at 1440px and 390px; confirm
 menu operation, no page-wide overflow, keyboard focus and error states. Local
 preview screenshots are under `tmp/admin-preview/` and are not committed assets.
+
+## Evidence and card operations
+
+On Tween Pay, set `IDENTITY_DOCUMENT_ALLOWED_HOSTS` to a comma-separated list of
+exact HTTPS storage hostnames used for identity uploads (no schemes or paths).
+Private-network hosts and redirects are rejected. This setting is required for
+evidence viewing and document approval, not for dashboard login or ordinary reads.
+Do not use a wildcard. Document approval requires the same staff member to view
+the current evidence version first.
+
+Card issuance uses existing Clover credentials and current reviewed issuance
+quotes. No new Jean URL or card-provider credential is needed. Provider timeouts
+retain command receipts: use reconciliation from the payment account, or refresh
+the existing card, before submitting another provider change.

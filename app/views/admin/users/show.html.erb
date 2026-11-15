@@ -28,7 +28,7 @@
 <% elsif @tab == 'payments' %>
   <section class="admin-panel">
     <div class="admin-panel-heading">
-      <h2>Payment account</h2>
+      <h2>Payment account</h2><%= admin_detail_link "Manage payment account →", admin_resource_record_path("payment_accounts", @remote.dig("user", "id")), class: "admin-button" %>
       <%= admin_badge(@remote.dig('user', 'status')) %></div>
     <div class="admin-panel-body">
       <dl class="admin-detail-grid">

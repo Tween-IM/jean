@@ -64,6 +64,7 @@ cards:
   - key: expires_at
     label: Expires
   statuses:
+  - issuing
   - active
   - frozen
   - expired
@@ -783,7 +784,8 @@ social_reports:
     label: Created At
   statuses:
   - open
-  - reviewed
+  - reviewing
+  - resolved
   - dismissed
   model: SocialReport
   fields:
@@ -816,3 +818,24 @@ stories:
   - caption
   - status
   - expires_at
+payment_accounts:
+  label: Payment accounts
+  group: Money
+  icon: people
+  permission: view_users
+  service: payments
+  description: Manage customer payment access, KYC resets and card issuance.
+  columns:
+  - key: identity
+    label: Account
+  - key: customer
+    label: Customer
+  - key: kyc_tier
+    label: KYC tier
+  - key: status
+    label: Status
+  statuses:
+  - active
+  - suspended
+  - frozen
+  - closed
