@@ -4,7 +4,7 @@ module TweenPay
   class AdminClient < Admin::RemoteClient
     def initialize(actor)
       @actor = actor
-      secret = ENV["TWEEN_PAY_ADMIN_SECRET"].to_s
+      secret = ENV["TWEEN_ADMIN_SECRET"].to_s
       token = if secret.bytesize >= 32
         JWT.encode({ iss: "tween-admin", aud: "tween-pay-admin", sub: actor.matrix_user_id,
           iat: Time.current.to_i, exp: 1.minute.from_now.to_i }, secret, "HS256")

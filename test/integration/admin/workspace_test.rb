@@ -33,7 +33,7 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
 
   test "payment requests carry signed short lived actor delegation" do
     ENV["TWEEN_PAY_ADMIN_URL"] = "https://pay.test"
-    ENV["TWEEN_PAY_ADMIN_SECRET"] = "x" * 48
+    ENV["TWEEN_ADMIN_SECRET"] = "x" * 48
     stub_request(:get, /pay.test\/internal\/admin\/v1\/resources\/wallets/).with do |request|
       token = request.headers.fetch("Authorization").delete_prefix("Bearer ")
       claims, = JWT.decode(token, "x" * 48, true, algorithm: "HS256")
@@ -44,7 +44,7 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
     assert_select "td", "NGN 123.45"
   ensure
     ENV.delete("TWEEN_PAY_ADMIN_URL")
-    ENV.delete("TWEEN_PAY_ADMIN_SECRET")
+    ENV.delete("TWEEN_ADMIN_SECRET")
   end
 
   test "direct resource requests enforce permissions" do
@@ -82,7 +82,7 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
   end
   test "payment command records its actor and outcome" do
     ENV["TWEEN_PAY_ADMIN_URL"] = "https://pay.test"
-    ENV["TWEEN_PAY_ADMIN_SECRET"] = "x" * 48
+    ENV["TWEEN_ADMIN_SECRET"] = "x" * 48
     command_id = SecureRandom.uuid
     stub_request(:post, "https://pay.test/internal/admin/v1/resources/wallets/7/commands")
       .with(body: hash_including("operation" => "set_status", "reason" => "Support case 123", "request_id" => command_id))
@@ -99,7 +99,7 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
     assert_equal command_id, event.request_id
   ensure
     ENV.delete("TWEEN_PAY_ADMIN_URL")
-    ENV.delete("TWEEN_PAY_ADMIN_SECRET")
+    ENV.delete("TWEEN_ADMIN_SECRET")
   end
 
   test "dedicated hostname serves the same dashboard at its root" do

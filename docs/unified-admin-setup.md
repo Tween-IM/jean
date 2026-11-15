@@ -50,7 +50,7 @@ URLs continue to work.
 | Jean | `ADMIN_REQUIRE_MFA` | Defaults to `true` in production; enroll staff authenticators before cutover |
 | Jean | `ADMIN_ACCESS_TOKEN` | Optional explicitly configured emergency access; store as a secret |
 | Jean | `TWEEN_PAY_ADMIN_URL` | Optional HTTPS base URL override; defaults to existing `WALLET_API_BASE_URL`, without `/internal/admin/v1` |
-| Both | `TWEEN_PAY_ADMIN_SECRET` | Dedicated shared signing secret of at least 32 bytes, supplied through secret configuration |
+| Both | `TWEEN_ADMIN_SECRET` | Dedicated shared signing secret of at least 32 bytes, supplied through secret configuration |
 | Jean | `SYNAPSE_ADMIN_URL`, `SYNAPSE_ADMIN_TOKEN` | Optional Synapse URL override (defaults to existing `MATRIX_API_URL`), plus the required server-admin credential |
 | Jean | `MAS_ADMIN_CLIENT_ID`, `MAS_ADMIN_CLIENT_SECRET` | Dedicated privileged client; when no static token is set, Jean obtains a fresh `urn:mas:admin` access token using client credentials |
 | Jean | `MAS_ADMIN_URL`, `MAS_ADMIN_TOKEN` | Optional MAS URL override (defaults to existing `MAS_AUTH_URL` / `MAS_URL`) and an optional admin-scoped access token; refresh/rotate before expiry |

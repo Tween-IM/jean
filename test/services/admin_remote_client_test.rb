@@ -59,11 +59,11 @@ class AdminRemoteClientTest < ActiveSupport::TestCase
   end
 
   test "admin integrations reuse existing service URLs without new URL variables" do
-    previous = ENV.to_h.slice('TWEEN_PAY_ADMIN_URL', 'TWEEN_PAY_ADMIN_SECRET', 'WALLET_API_BASE_URL',
+    previous = ENV.to_h.slice('TWEEN_PAY_ADMIN_URL', 'TWEEN_ADMIN_SECRET', 'WALLET_API_BASE_URL',
       'SYNAPSE_ADMIN_URL', 'SYNAPSE_ADMIN_TOKEN', 'MATRIX_API_URL', 'MAS_ADMIN_URL', 'MAS_ADMIN_TOKEN', 'MAS_AUTH_URL', 'MAS_URL')
     %w[TWEEN_PAY_ADMIN_URL SYNAPSE_ADMIN_URL MAS_ADMIN_URL MAS_AUTH_URL].each { |key| ENV.delete(key) }
     ENV['WALLET_API_BASE_URL'] = 'https://wallet.test'
-    ENV['TWEEN_PAY_ADMIN_SECRET'] = 'x' * 48
+    ENV['TWEEN_ADMIN_SECRET'] = 'x' * 48
     ENV['MATRIX_API_URL'] = 'https://matrix.test'
     ENV['SYNAPSE_ADMIN_TOKEN'] = 'test-token'
     ENV['MAS_URL'] = 'https://id.test'
@@ -79,7 +79,7 @@ class AdminRemoteClientTest < ActiveSupport::TestCase
     assert_equal '@staff:tween.im', Admin::SynapseClient.new.person('@staff:tween.im')['name']
     assert_equal 'staff', Admin::MasClient.new.person('staff')['username']
   ensure
-    %w[TWEEN_PAY_ADMIN_URL TWEEN_PAY_ADMIN_SECRET WALLET_API_BASE_URL SYNAPSE_ADMIN_URL SYNAPSE_ADMIN_TOKEN
+    %w[TWEEN_PAY_ADMIN_URL TWEEN_ADMIN_SECRET WALLET_API_BASE_URL SYNAPSE_ADMIN_URL SYNAPSE_ADMIN_TOKEN
       MATRIX_API_URL MAS_ADMIN_URL MAS_ADMIN_TOKEN MAS_AUTH_URL MAS_URL].each { |key| ENV.delete(key) }
     previous.each { |key, value| ENV[key] = value }
   end
