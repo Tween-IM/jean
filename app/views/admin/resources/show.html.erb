@@ -1,0 +1,53 @@
+<% content_for :title, "#{@resource[:label]} · Tween Admin" %>
+<div class="admin-eyebrow"><%= link_to @resource[:label], admin_resource_path(params[:resource]) %> / Details</div>
+<div class="admin-page-heading">
+  <div>
+    <h1><%= @resource[:label].singularize %> details</h1>
+    <p><%= params[:id] %></p>
+  </div>
+  <%= link_to "← Back to #{@resource[:label].downcase}", admin_resource_path(params[:resource]), class: "admin-button" %></div>
+<% if @error %>
+  <section class="admin-panel"><%= render "admin/shared/unavailable", message: @error %></section>
+<% else %>
+  <section class="admin-panel">
+    <div class="admin-panel-heading">
+      <h2>Record overview</h2>
+    </div>
+    <div class="admin-panel-body">
+      <dl class="admin-detail-grid">
+        <% @record.each do |key, value| %>
+          <div>
+            <dt><%= key.delete_suffix('_cents').humanize %></dt>
+            <dd><%= admin_value(value, key, @record) %></dd>
+          </div>
+        <% end %>
+      </dl>
+    </div>
+  </section>
+  <% operations = case params[:resource]
+when 'wallets' then current_admin_user.has_admin_permission?(:manage_wallets) ? [['Freeze wallet', 'set_status', 'frozen'], ['Activate wallet', 'set_status', 'active']] : []
+when 'pending_transfers' then current_admin_user.has_admin_permission?(:manage_pending_transfers) ? [['Cancel transfer', 'cancel', nil]] : []
+when 'api_keys' then current_admin_user.has_admin_permission?(:manage_api_keys) ? [['Revoke key', 'revoke', nil]] : []
+when 'webhooks' then current_admin_user.has_admin_permission?(:manage_webhooks) ? [['Enable webhook', 'set_active', 'true'], ['Disable webhook', 'set_active', 'false'], ['Reset failures', 'reset_failures', nil]] : []
+when 'compliance_checks' then current_admin_user.has_admin_permission?(:approve_kyc) ? [['Approve review', 'review', 'passed'], ['Reject review', 'review', 'failed'], ['Mark in review', 'review', 'in_review']] : []
+when 'rooms' then current_admin_user.has_admin_permission?(:manage_messaging) ? [['Block room', 'block', nil], ['Unblock room', 'unblock', nil]] : []
+when 'reports' then current_admin_user.has_admin_permission?(:manage_messaging) ? [['Dismiss report', 'dismiss', nil]] : []
+else []
+end %>
+  <% operations.each do |label, operation, value| %>
+    <details class="admin-panel"><summary class="admin-panel-heading" style="cursor:pointer"><%= label %></summary>
+      <%= form_with url: admin_resource_command_path(params[:resource], params[:id]), class: "admin-panel-body admin-command" do |form| %>
+        <% if params[:resource] == 'rooms' %>
+          <p class="mb-4">Blocking prevents new joins. Existing members remain in the room.</p>
+        <% end %>
+        <% if params[:resource] == 'reports' %>
+          <p class="mb-4">Dismissing removes this report from the review queue. The reported event remains in the room.</p>
+        <% end %>
+        <p class="mb-4">This will <%= label.downcase %> for <strong><%= params[:id] %></strong>. The action and your reason will be recorded.</p>
+        <%= form.hidden_field :operation, value: operation %><%= form.hidden_field :value, value: value %><%= form.hidden_field :command_id, value: SecureRandom.uuid %>
+        <%= form.label :reason, "Reason for this action", for: "reason-#{operation}-#{value}" %><%= form.text_area :reason, required: true, minlength: 5, maxlength: 1000, class: "admin-input", id: "reason-#{operation}-#{value}" %>
+        <%= form.submit "Confirm: #{label.downcase}", class: "admin-button admin-button-danger", data: { turbo_submits_with: "Processing…" } %>
+      <% end %>
+    </details>
+  <% end %>
+<% end %>

@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 class User < ApplicationRecord
   # TMCP Protocol Section 4.1: Matrix identity mapping
   enum :status, { active: 0, suspended: 1, deactivated: 2 }, default: :active
@@ -11,6 +12,11 @@ class User < ApplicationRecord
     compliance_manager: "compliance_manager",
     operations_analyst: "operations_analyst",
     operations_manager: "operations_manager",
+    finance_analyst: "finance_analyst",
+    finance_manager: "finance_manager",
+    risk_analyst: "risk_analyst",
+    risk_manager: "risk_manager",
+    product_manager: "product_manager",
     super_admin: "super_admin"
   }, prefix: :admin, default: :none
 
@@ -49,7 +55,20 @@ class User < ApplicationRecord
     return true if admin_super_admin?
 
     case permission
-    when :view_users, :manage_users then admin_super_admin?
+    when :view_users then true
+    when :manage_users then false
+    when :manage_messaging, :manage_identity then admin_operations_manager?
+    when :view_messaging, :view_identity then admin_support? || admin_operations_manager?
+    when :view_transactions then !admin_product_manager?
+    when :view_wallets, :view_bank_accounts then admin_support? || admin_operations_manager? || admin_finance_analyst? || admin_finance_manager?
+    when :manage_wallets then admin_operations_manager? || admin_finance_manager?
+    when :view_pending_transfers, :manage_pending_transfers then admin_operations_manager?
+    when :view_businesses then commerce_operator? || admin_finance_manager?
+    when :view_kyc, :approve_kyc then admin_compliance_officer? || admin_compliance_manager?
+    when :view_bills then admin_support? || admin_operations_analyst? || admin_operations_manager? || admin_finance_analyst? || admin_finance_manager?
+    when :view_notifications then admin_support? || admin_operations_manager?
+    when :view_api_keys, :manage_api_keys then false
+    when :view_webhooks, :manage_webhooks then admin_operations_manager?
     when :view_mini_apps then admin_support? || admin_operations_analyst? || admin_operations_manager? || admin_compliance_officer? || admin_compliance_manager?
     when :manage_mini_apps then admin_operations_manager? || admin_compliance_manager? || admin_super_admin?
     when :view_oauth then admin_operations_manager? || admin_super_admin?

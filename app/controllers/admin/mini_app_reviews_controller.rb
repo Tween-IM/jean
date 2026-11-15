@@ -1,6 +1,8 @@
 module Admin
   class MiniAppReviewsController < BaseController
-    before_action :set_mini_app, only: [:show, :approve, :reject, :request_changes]
+    before_action -> { require_admin_permission!(:view_mini_apps) }, only: [ :index, :show ]
+    before_action -> { require_admin_permission!(:manage_mini_apps) }, except: [ :index, :show ]
+    before_action :set_mini_app, only: [ :show, :approve, :reject, :request_changes ]
 
     def index
       @pending_apps = MiniApp.under_review.order(submitted_at: :asc)

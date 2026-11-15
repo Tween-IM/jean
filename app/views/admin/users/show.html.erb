@@ -1,122 +1,148 @@
-<div class="mb-6">
-  <%= link_to "← Back to Users", admin_users_path, class: "text-sm text-slate-500 hover:text-slate-700" %>
-</div>
-
-<div class="mb-8 flex items-center justify-between">
+<% content_for :title, "#{@user.matrix_username} · Tween Admin" %>
+<div class="admin-eyebrow"><%= link_to 'People', admin_users_path %> / Person</div>
+<div class="admin-page-heading">
   <div>
-    <h1 class="text-3xl font-bold text-slate-900"><%= @user.matrix_username || @user.matrix_user_id %></h1>
-    <p class="text-slate-500 mt-1"><%= @user.wallet_id %></p>
+    <h1><%= @user.matrix_username %></h1>
+    <p><%= @user.matrix_user_id %></p>
   </div>
-  <% if current_admin_user&.has_admin_permission?(:manage_users) %>
-    <%= link_to "Edit", edit_admin_user_path(@user), class: "bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors" %>
-  <% end %>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 space-y-6">
-    <!-- Details -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Details</h2>
-      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <% if current_admin_user.has_admin_permission?(:manage_users) %><%= link_to 'Manage account', edit_admin_user_path(@user), class: 'admin-button' %><% end %></div>
+<nav class="admin-tabs" aria-label="Person sections"><% @tabs.each do |key, label| %><%= link_to label, admin_user_path(@user, tab: key), class: 'admin-tab', aria: { current: @tab == key ? 'page' : nil } %><% end %></nav>
+<% if @remote_error %>
+  <section class="admin-panel"><%= render 'admin/shared/unavailable', message: @remote_error %></section>
+<% elsif @tab == 'profile' %>
+  <section class="admin-panel">
+    <div class="admin-panel-heading">
+      <h2>Account overview</h2>
+      <%= admin_badge(@user.status) %></div>
+    <div class="admin-panel-body">
+      <dl class="admin-detail-grid">
+        <% { 'Matrix ID' => @user.matrix_user_id, 'Homeserver' => @user.matrix_homeserver, 'Identity ID' => @user.mas_user_id, 'Staff role' => @user.platform_role.humanize, 'Joined' => @user.created_at.strftime('%d %B %Y'), 'Local account status' => @user.status.humanize }.each do |label, value| %>
+          <div>
+            <dt><%= label %></dt>
+            <dd><%= value.presence || 'Not linked' %></dd>
+          </div>
+        <% end %>
+      </dl>
+    </div>
+  </section>
+<% elsif @tab == 'payments' %>
+  <section class="admin-panel">
+    <div class="admin-panel-heading">
+      <h2>Payment account</h2>
+      <%= admin_badge(@remote.dig('user', 'status')) %></div>
+    <div class="admin-panel-body">
+      <dl class="admin-detail-grid">
         <div>
-          <dt class="text-sm font-medium text-slate-500">Matrix User ID</dt>
-          <dd class="mt-1 text-sm text-slate-900 font-mono"><%= @user.matrix_user_id %></dd>
+          <dt>Payment user ID</dt>
+          <dd><%= @remote.dig('user', 'id') %></dd>
         </div>
         <div>
-          <dt class="text-sm font-medium text-slate-500">Matrix Username</dt>
-          <dd class="mt-1 text-sm text-slate-900"><%= @user.matrix_username %></dd>
-        </div>
-        <div>
-          <dt class="text-sm font-medium text-slate-500">Homeserver</dt>
-          <dd class="mt-1 text-sm text-slate-900"><%= @user.matrix_homeserver %></dd>
-        </div>
-        <div>
-          <dt class="text-sm font-medium text-slate-500">Wallet ID</dt>
-          <dd class="mt-1 text-sm text-slate-900 font-mono"><%= @user.wallet_id %></dd>
-        </div>
-        <div>
-          <dt class="text-sm font-medium text-slate-500">MAS User ID</dt>
-          <dd class="mt-1 text-sm text-slate-900 font-mono"><%= @user.mas_user_id || "—" %></dd>
-        </div>
-        <div>
-          <dt class="text-sm font-medium text-slate-500">Status</dt>
-          <dd class="mt-1">
-            <span class="px-2 py-1 text-xs font-medium rounded-full <%= @user.active? ? 'bg-green-100 text-green-700' : @user.suspended? ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700' %>">
-              <%= @user.status %>
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt class="text-sm font-medium text-slate-500">Platform Role</dt>
-          <dd class="mt-1 text-sm text-slate-900"><%= @user.platform_role %></dd>
-        </div>
-        <div>
-          <dt class="text-sm font-medium text-slate-500">Joined</dt>
-          <dd class="mt-1 text-sm text-slate-900"><%= @user.created_at.strftime("%b %d, %Y %H:%M") %></dd>
+          <dt>KYC tier</dt>
+          <dd><%= @remote.dig('user', 'kyc_tier') %></dd>
         </div>
       </dl>
     </div>
-
-    <!-- Installations -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Mini-App Installations</h2>
-      <% if @installations.any? %>
-        <div class="divide-y divide-slate-100">
-          <% @installations.each do |inst| %>
-            <div class="py-3 flex items-center justify-between">
-              <div>
-                <p class="text-sm font-medium text-slate-900"><%= inst.mini_app&.name || inst.mini_app_id %></p>
-                <p class="text-xs text-slate-500">Version <%= inst.version %> · <%= inst.status %></p>
-              </div>
-              <span class="text-xs text-slate-400"><%= time_ago_in_words(inst.created_at) %> ago</span>
-            </div>
-          <% end %>
-        </div>
-      <% else %>
-        <p class="text-slate-500 text-sm">No installations yet.</p>
-      <% end %>
+  </section>
+  <% { 'wallets' => 'Wallets', 'transactions' => 'Recent transactions' }.each do |key, label| %><% next unless @remote.key?(key) %>
+    <section class="admin-panel">
+      <div class="admin-panel-heading">
+        <h2><%= label %></h2>
+      </div>
+      <%= render 'admin/shared/resource_table', records: @remote[key], fields: Admin::Resources::CATALOG.fetch(key)[:fields], resource_key: key %></section>
+  <% end %>
+<% elsif @tab == 'apps' %>
+  <section class="admin-panel">
+    <div class="admin-panel-heading">
+      <h2>Mini-app installations</h2>
     </div>
-  </div>
-
-  <!-- Sidebar -->
-  <div class="space-y-6">
-    <!-- MFA Methods -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">MFA Methods</h2>
-      <% if @mfa_methods.any? %>
-        <div class="space-y-3">
-          <% @mfa_methods.each do |mfa| %>
-            <div class="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-              <div>
-                <p class="text-sm font-medium text-slate-900"><%= mfa.method_type %></p>
-                <p class="text-xs text-slate-500"><%= mfa.device_id %></p>
-              </div>
-              <span class="px-2 py-1 text-xs font-medium rounded-full <%= mfa.enabled? ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700' %>">
-                <%= mfa.enabled? ? "Enabled" : "Disabled" %>
-              </span>
-            </div>
-          <% end %>
-        </div>
-      <% else %>
-        <p class="text-slate-500 text-sm">No MFA methods registered.</p>
-      <% end %>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>App</th>
+            <th>Version</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody><% @installations.each do |installation| %>
+            <tr>
+              <td><%= installation.mini_app&.name || installation.mini_app_id %></td>
+              <td><%= installation.version %></td>
+              <td><%= admin_badge(installation.status) %></td>
+            </tr>
+          <% end %></tbody>
+      </table>
     </div>
-
-    <!-- Storage Entries -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <h2 class="text-lg font-semibold text-slate-900 mb-4">Recent Storage</h2>
-      <% if @storage_entries.any? %>
-        <div class="divide-y divide-slate-100">
-          <% @storage_entries.each do |entry| %>
-            <div class="py-3">
-              <p class="text-sm font-medium text-slate-900"><%= entry.key %></p>
-              <p class="text-xs text-slate-500"><%= entry.miniapp_id %> · <%= time_ago_in_words(entry.created_at) %> ago</p>
-            </div>
-          <% end %>
-        </div>
-      <% else %>
-        <p class="text-slate-500 text-sm">No storage entries.</p>
-      <% end %>
+    <% if @installations.empty? %>
+      <div class="admin-empty">No apps installed yet.</div>
+    <% end %></section>
+  <section class="admin-panel">
+    <div class="admin-panel-heading">
+      <h2>Registered authentication methods</h2>
     </div>
-  </div>
-</div>
+    <div class="admin-panel-body"><% @mfa_methods.each do |method| %>
+        <p><%= method.method_type %> · <%= method.enabled? ? 'Enabled' : 'Disabled' %></p>
+      <% end %><% if @mfa_methods.empty? %>
+        <p>No methods registered in this account.</p>
+      <% end %></div>
+  </section>
+  <% if @storage_entries %>
+    <section class="admin-panel">
+      <div class="admin-panel-heading">
+        <h2>Recent app storage</h2>
+      </div>
+      <div class="admin-panel-body">
+        <p><%= @storage_entries.size %> recent entries. Storage values are not displayed in the staff workspace.</p>
+      </div>
+    </section>
+  <% end %>
+<% elsif @tab == 'commerce' %>
+  <section class="admin-panel">
+    <div class="admin-panel-heading">
+      <h2>Recent orders</h2>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Status</th>
+            <th>Placed</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody><% @orders.each do |order| %>
+            <tr>
+              <td><%= order.id %></td>
+              <td><%= admin_badge(order.status) %></td>
+              <td><%= order.created_at.strftime('%d %b %Y') %></td>
+              <td><%= link_to 'Open →', admin_order_path(order) %></td>
+            </tr>
+          <% end %></tbody>
+      </table>
+    </div>
+    <% if @orders.empty? %>
+      <div class="admin-empty">No orders for this person yet.</div>
+    <% end %></section>
+<% else %>
+  <section class="admin-panel">
+    <div class="admin-panel-heading">
+      <h2><%= @tabs[@tab] %> account</h2>
+    </div>
+    <div class="admin-panel-body">
+      <dl class="admin-detail-grid"><% @remote.each do |key, value| %>
+          <div>
+            <dt><%= key.humanize %></dt>
+            <dd><%= admin_value(value, key, @remote) %></dd>
+          </div>
+        <% end %></dl>
+    </div>
+  </section>
+<% end %>
+<% if @tab == 'identity' && !@remote_error && current_admin_user.has_admin_permission?(:manage_identity) %>
+  <% %w[lock unlock].each do |operation| %>
+    <details class="admin-panel"><summary class="admin-panel-heading"><%= operation.humanize %> identity account</summary><%= form_with url: identity_command_admin_user_path(@user), class: 'admin-panel-body admin-command' do |form| %>
+        <p class="mb-4">This changes sign-in access for this identity account. Payment restrictions and messaging account status are managed separately.</p>
+        <%= form.hidden_field :operation, value: operation %><%= form.label :reason, 'Reason for this action', for: "identity-reason-#{operation}" %><%= form.text_area :reason, class: 'admin-input', required: true, minlength: 5, maxlength: 1000, id: "identity-reason-#{operation}" %><%= form.submit "Confirm: #{operation} account", class: 'admin-button admin-button-danger' %><% end %></details>
+  <% end %>
+<% end %>

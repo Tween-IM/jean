@@ -13,7 +13,10 @@ module Admin
     private
 
     def authenticate_admin!
-      redirect_to admin_login_path unless current_admin_user&.platform_admin?
+      unless current_admin_user&.platform_admin? && current_admin_user.active?
+        reset_admin_session!
+        redirect_to admin_login_path
+      end
     end
 
     def current_admin_user
@@ -22,8 +25,11 @@ module Admin
     end
 
     def check_admin_session_timeout!
-      return unless session[:admin_last_activity_at]
-      timeout = ENV.fetch("ADMIN_SESSION_TIMEOUT_MINUTES", 30).to_i.minutes
+      unless session[:admin_last_activity_at]
+        reset_admin_session!
+        return redirect_to admin_login_path
+      end
+      timeout = [ ENV.fetch("ADMIN_SESSION_TIMEOUT_MINUTES", 30).to_i, 5 ].max.minutes
       if Time.iso8601(session[:admin_last_activity_at]) < timeout.ago
         reset_admin_session!
         redirect_to admin_login_path, alert: "Your session has expired. Please sign in again."
@@ -46,20 +52,16 @@ module Admin
       session.delete(:admin_last_activity_at)
       session.delete(:admin_mfa_verified)
       session.delete(:admin_mfa_pending_user_id)
+      session.delete(:admin_mfa_started_at)
       session.delete(:admin_mas_state)
       session.delete(:admin_mas_verifier)
       session.delete(:admin_mas_started_at)
     end
 
     def log_admin_action(action, resource = nil, details = {})
-      Rails.logger.info "[ADMIN_AUDIT] user=#{current_admin_user&.id} action=#{action} resource=#{resource} details=#{sanitize_audit_details(details).to_json}"
-    rescue => e
-      Rails.logger.error "[ADMIN_AUDIT_FAILED] #{e.message}"
-    end
-
-    def sanitize_audit_details(details)
-      forbidden = %w[password secret token mfa_secret pin credit_card ssn]
-      details.deep_stringify_keys.except(*forbidden)
+      AdminAuditEvent.create!(actor_matrix_id: current_admin_user.matrix_user_id,
+        action: action, target: resource.to_s, request_id: request.request_id,
+        details: AdminAuditEvent.safe_details(details))
     end
   end
 end

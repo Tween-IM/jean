@@ -1,7 +1,8 @@
 module Admin
   class OauthApplicationsController < BaseController
-    before_action :require_admin_permission!, only: [:destroy]
-    before_action :set_application, only: [:show, :destroy]
+    before_action -> { require_admin_permission!(:view_oauth) }, only: [ :index, :show ]
+    before_action :require_admin_permission!, only: [ :destroy ]
+    before_action :set_application, only: [ :show, :destroy ]
 
     def index
       @applications = paginate(Doorkeeper::Application.order(created_at: :desc))
@@ -28,8 +29,8 @@ module Admin
       redirect_to admin_oauth_applications_path, alert: "OAuth application not found."
     end
 
-    def require_admin_permission!
-      super(:manage_oauth)
+    def require_admin_permission!(permission = :manage_oauth)
+      super(permission)
     end
   end
 end

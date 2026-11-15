@@ -1,8 +1,9 @@
 module Admin
   class MiniAppsController < BaseController
-    before_action :require_admin_permission!, only: [:new, :create, :edit, :update, :destroy, :hard_delete]
-    before_action :set_mini_app, only: [:show, :edit, :update, :destroy, :hard_delete]
-    before_action :set_mini_app_for_edit, only: [:new, :create]
+    before_action -> { require_admin_permission!(:view_mini_apps) }, only: [ :index, :show ]
+    before_action :require_admin_permission!, only: [ :new, :create, :edit, :update, :destroy, :hard_delete ]
+    before_action :set_mini_app, only: [ :show, :edit, :update, :destroy, :hard_delete ]
+    before_action :set_mini_app_for_edit, only: [ :new, :create ]
 
     def index
       @mini_apps = paginate(MiniApp.order(created_at: :desc))
@@ -91,7 +92,7 @@ module Admin
         end
 
         scopes = params[:manifest][:permissions]
-        manifest["scopes"] = scopes.is_a?(Array) ? scopes : [scopes].compact
+        manifest["scopes"] = scopes.is_a?(Array) ? scopes : [ scopes ].compact
 
         permitted = permitted.merge(manifest: manifest)
       end
@@ -99,8 +100,8 @@ module Admin
       permitted
     end
 
-    def require_admin_permission!
-      super(:manage_mini_apps)
+    def require_admin_permission!(permission = :manage_mini_apps)
+      super(permission)
     end
   end
 end

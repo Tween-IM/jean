@@ -316,6 +316,11 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
+  # The dedicated staff hostname opens the same workspace as /admin.
+  get "/", to: "admin/dashboard#index", constraints: ->(request) {
+    request.host == ENV.fetch("ADMIN_HOST", "admin.tween.im")
+  }
+
   # Admin routes
   get "admin/login", to: "admin/sessions#new", as: :admin_login
   post "admin/login", to: "admin/sessions#create"
@@ -329,6 +334,10 @@ Rails.application.routes.draw do
   get "admin/auth/mas/callback", to: "admin/mas_sessions#create", as: :admin_mas_callback
 
   namespace :admin do
+    get "activity", to: "activity#index", as: :activity
+    get "workspace/:resource", to: "resources#index", as: :resource
+    get "workspace/:resource/:id", to: "resources#show", as: :resource_record, constraints: { id: /[^\/]+/ }
+    post "workspace/:resource/:id/commands", to: "resources#command", as: :resource_command, constraints: { id: /[^\/]+/ }
     get "dashboard", to: "dashboard#index", as: :dashboard
     resources :mini_apps, only: [ :index, :show, :new, :create, :edit, :destroy ], path: "mini-apps" do
       member do
@@ -340,7 +349,9 @@ Rails.application.routes.draw do
         delete :hard_delete
       end
     end
-    resources :users, only: [ :index, :show, :edit, :update ]
+    resources :users, only: [ :index, :show, :edit, :update ] do
+      post :identity_command, on: :member
+    end
 
     # Commerce operations: the platform runs the storefronts it mirrors, so
     # orders, stores, listings, merchants and the category tree all need an

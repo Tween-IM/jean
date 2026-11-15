@@ -11,9 +11,9 @@ class Admin::DashboardTest < ActionDispatch::IntegrationTest
   end
 
   test "dashboard displays stats" do
-    post admin_login_path, params: { matrix_user_id: @admin.matrix_user_id }
+    post admin_login_path, params: { admin_token: ENV["ADMIN_ACCESS_TOKEN"], matrix_user_id: @admin.matrix_user_id }
     get admin_dashboard_path
     assert_response :success
-    assert_select "h1", "Dashboard"
+    assert_select "h1", "Overview"
   end
 end

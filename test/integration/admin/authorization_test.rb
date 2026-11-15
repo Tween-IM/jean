@@ -23,7 +23,7 @@ class Admin::AuthorizationTest < ActionDispatch::IntegrationTest
   end
 
   def login_as(user)
-    post admin_login_path, params: { matrix_user_id: user.matrix_user_id }
+    post admin_login_path, params: { admin_token: ENV["ADMIN_ACCESS_TOKEN"], matrix_user_id: user.matrix_user_id }
   end
 
   test "super admin can access dashboard" do

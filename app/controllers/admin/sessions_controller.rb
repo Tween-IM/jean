@@ -10,10 +10,13 @@ module Admin
     end
 
     def create
-      # Verify admin access token if configured
+      # Production must never authenticate by a publicly known Matrix ID alone.
+      if Rails.env.production? && ADMIN_ACCESS_TOKEN.blank?
+        return redirect_to admin_login_path, alert: "Use Tween ID to sign in."
+      end
       if ADMIN_ACCESS_TOKEN.present?
         provided_token = params[:admin_token]&.strip
-        if provided_token != ADMIN_ACCESS_TOKEN
+        if !ActiveSupport::SecurityUtils.secure_compare(provided_token.to_s, ADMIN_ACCESS_TOKEN)
           flash.now[:alert] = "Invalid admin access token."
           render :new, status: :unprocessable_entity
           return
@@ -22,16 +25,21 @@ module Admin
 
       user = User.find_by(matrix_user_id: params[:matrix_user_id]&.strip)
 
-      if user.nil? || !user.platform_admin?
+      if user.nil? || !user.platform_admin? || !user.active?
         flash.now[:alert] = "Invalid credentials or insufficient privileges."
         render :new, status: :unprocessable_entity
         return
       end
 
+      if Rails.env.production? && ENV.fetch("ADMIN_REQUIRE_MFA", "true") == "true" && !user.admin_mfa_enabled?
+        return redirect_to admin_login_path, alert: "Staff access requires an enrolled authenticator. Contact your administrator."
+      end
+      reset_session
       # Check MFA if enabled
       if user.admin_mfa_enabled?
         if params[:mfa_code].blank?
           session[:admin_mfa_pending_user_id] = user.id
+          session[:admin_mfa_started_at] = Time.current.to_i
           render :mfa, status: :ok
           return
         end
@@ -59,13 +67,14 @@ module Admin
     def verify_mfa
       user = User.find_by(id: session[:admin_mfa_pending_user_id])
 
-      unless user && verify_admin_mfa!(user, params[:mfa_code])
+      fresh = session[:admin_mfa_started_at].to_i > 10.minutes.ago.to_i
+      unless user&.platform_admin? && user.active? && fresh && verify_admin_mfa!(user, params[:mfa_code])
         flash.now[:alert] = "Invalid MFA code. Please try again."
         render :mfa, status: :unprocessable_entity
         return
       end
 
-      session.delete(:admin_mfa_pending_user_id)
+      reset_session
       session[:admin_user_id] = user.id
       session[:admin_last_activity_at] = Time.current.iso8601
       session[:admin_mfa_verified] = true
@@ -90,6 +99,7 @@ module Admin
       session.delete(:admin_last_activity_at)
       session.delete(:admin_mfa_verified)
       session.delete(:admin_mfa_pending_user_id)
+      session.delete(:admin_mfa_started_at)
     end
 
     def verify_admin_mfa!(user, code)

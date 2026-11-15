@@ -1,0 +1,28 @@
+<% content_for :title, "#{@resource[:label]} · Tween Admin" %>
+<div class="admin-eyebrow"><%= @resource[:group] %></div>
+<div class="admin-page-heading">
+  <div>
+    <h1><%= @resource[:label] %></h1>
+    <p>A clear view of what’s happening across Tween.</p>
+  </div>
+  <%= link_to "Refresh", request.fullpath, class: "admin-button" %></div>
+<section class="admin-panel">
+  <% if @error %>
+    <%= render "admin/shared/unavailable", message: @error %>
+  <% else %>
+    <% unless params[:resource] == 'reports' %>
+      <%= form_with url: admin_resource_path(params[:resource]), method: :get, class: "admin-toolbar" do %>
+        <label for="resource-query" class="sr-only">Search <%= @resource[:label] %></label>
+        <input class="admin-input" id="resource-query" type="search" name="query" placeholder="Search <%= @resource[:label].downcase %>…" value="<%= params[:query] %>">
+        <button class="admin-button">Search</button>
+        <% if params[:query].present? %><%= link_to "Clear", admin_resource_path(params[:resource]), class: "admin-button" %><% end %>
+      <% end %>
+    <% end %>
+    <%= render "admin/shared/resource_table", records: @data.fetch('records'), fields: @resource[:fields], resource_key: params[:resource] %>
+    <div class="admin-pagination">
+      <span><%= @data['total'] ? "#{number_with_delimiter(@data['total'])} records" : "Page #{@data['page']}" %></span>
+      <div><% if @data['page'].to_i > 1 %><%= link_to "← Previous", request.query_parameters.merge(page: @data['page'].to_i - 1, cursor: @data['previous_cursor']), class: "admin-button" %><% end %>
+        <% if @data['next_page'] %><%= link_to "Next →", request.query_parameters.merge(page: @data['next_page'], cursor: @data['next_cursor']), class: "admin-button" %><% end %></div>
+    </div>
+  <% end %>
+</section>

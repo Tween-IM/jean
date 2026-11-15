@@ -57,8 +57,13 @@ module Admin
 
       Rails.logger.info "[MAS_ADMIN_LOGIN] user=#{user.id} matrix_user_id=#{user.matrix_user_id}"
 
+      if Rails.env.production? && ENV.fetch("ADMIN_REQUIRE_MFA", "true") == "true" && !user.admin_mfa_enabled?
+        return fail_login("Staff access requires an enrolled authenticator. Contact your administrator.")
+      end
+      reset_session
       if user.admin_mfa_enabled?
         session[:admin_mfa_pending_user_id] = user.id
+        session[:admin_mfa_started_at] = Time.current.to_i
         return redirect_to admin_mfa_path
       end
 

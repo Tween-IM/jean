@@ -1,142 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title><%= content_for?(:title) ? yield(:title) : "TMCP Admin" %></title>
+    <title><%= content_for?(:title) ? yield(:title).gsub("TMCP Admin", "Tween Admin") : "Tween Admin" %></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <%= csrf_meta_tags %>
-    <%= csp_meta_tag %>
-    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-      body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-    </style>
+    <%= csrf_meta_tags %><%= csp_meta_tag %>
+    <%= stylesheet_link_tag "tailwind", "admin", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
   </head>
-  <body class="bg-white text-gray-900 antialiased">
+  <body class="admin-app">
     <% if current_admin_user %>
-      <div class="flex h-screen">
-        <!-- Sidebar -->
-        <aside class="w-60 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col">
-          <!-- Logo -->
-          <div class="h-14 flex items-center px-5 border-b border-gray-100">
-            <div class="w-7 h-7 rounded-md bg-indigo-600 flex items-center justify-center mr-3">
-              <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <span class="text-sm font-semibold tracking-tight text-gray-900">TMCP</span>
-          </div>
-
-          <!-- Navigation -->
-          <nav class="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
-            <%= sidebar_link admin_dashboard_path, "Dashboard", "home" %>
-
-            <% if current_admin_user.has_admin_permission?(:view_orders) %>
-              <p class="px-3 pt-4 pb-1 text-xs font-medium text-gray-400 uppercase tracking-wide">Commerce</p>
-              <% attention_count = commerce_attention_count %>
-              <%= sidebar_link admin_orders_path, "Orders", "money", badge_count: attention_count.positive? ? attention_count : nil %>
-              <% if current_admin_user.has_admin_permission?(:view_storefronts) %>
-                <%= sidebar_link admin_storefronts_path, "Stores", "building" %>
-              <% end %>
-              <% if current_admin_user.has_admin_permission?(:view_catalog) %>
-                <%= sidebar_link admin_products_path, "Listings", "clipboard" %>
-              <% end %>
-              <% if current_admin_user.has_admin_permission?(:view_fulfillment) %>
-                <% sourcing_count = sourcing_queue_count %>
-                <%= sidebar_link admin_procurements_path, "Sourcing", "box", badge_count: sourcing_count.positive? ? sourcing_count : nil %>
-              <% end %>
-              <% if current_admin_user.has_admin_permission?(:view_merchants) %>
-                <%= sidebar_link admin_merchants_path, "Merchants", "people" %>
-              <% end %>
-              <% if current_admin_user.has_admin_permission?(:view_categories) %>
-                <%= sidebar_link admin_categories_path, "Categories", "filter" %>
-              <% end %>
-              <% if current_admin_user.has_admin_permission?(:view_imports) %>
-                <%= sidebar_link admin_imports_path, "Imports", "document" %>
+      <a href="#main" class="admin-skip">Skip to content</a>
+      <div class="admin-shell" data-controller="admin-shell">
+        <aside class="admin-sidebar" aria-label="Main navigation" id="admin-navigation">
+          <%= link_to admin_dashboard_path, class: "admin-brand" do %>
+            <span class="admin-brand-mark">t</span><span>tween<small>Workspace</small></span>
+          <% end %>
+          <button class="admin-button admin-mobile-menu" data-action="admin-shell#toggle">Close navigation</button>
+          <nav>
+            <% admin_navigation.each do |group, items| %>
+              <% next if items.empty? %>
+              <% if group.present? %>
+                <details class="admin-nav-group" <%= 'open' if group == 'Workspace' || items.any? { |item| request.path == item[:path] || request.path.start_with?("#{item[:path]}/") } %>>
+                  <summary class="admin-nav-section"><%= group %></summary>
+                  <% items.each do |item| %><%= sidebar_link(item[:path], item[:label], item[:icon]) %><% end %>
+                </details>
+              <% else %>
+                <% items.each do |item| %><%= sidebar_link(item[:path], item[:label], item[:icon]) %><% end %>
               <% end %>
             <% end %>
-
-            <p class="px-3 pt-4 pb-1 text-xs font-medium text-gray-400 uppercase tracking-wide">Platform</p>
-            <%= sidebar_link admin_users_path, "Users", "person" %>
-            <%= sidebar_link admin_mini_apps_path, "Mini Apps", "clipboard" %>
-            <% pending_count = safe_count(MiniApp.under_review) + safe_count(MiniApp.appeal_submitted) %>
-            <%= sidebar_link admin_mini_app_reviews_path, "Review Queue", "checkmark", badge_count: pending_count > 0 ? pending_count : nil %>
-            <%= sidebar_link admin_oauth_applications_path, "OAuth Apps", "settings" %>
           </nav>
-
-          <!-- Bottom: User + Sign out -->
-          <div class="border-t border-gray-100 p-3">
-            <div class="flex items-center gap-3 px-2 py-2">
-              <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                <%= fluent_icon "person", class: "w-4 h-4 text-indigo-600" %>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate"><%= current_admin_user.matrix_user_id %></p>
-                <p class="text-xs text-gray-500 capitalize"><%= current_admin_user.platform_role.to_s.gsub("_", " ") %></p>
-              </div>
-            </div>
-            <%= button_to admin_logout_path, method: :delete, class: "mt-1 w-full flex items-center gap-2.5 px-2 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-50 transition-colors" do %>
-              <%= fluent_icon "sign_out", class: "w-5 h-5" %>
-              Sign out
-            <% end %>
+          <div class="admin-sidebar-footer">
+            <p>One workspace. All of Tween.</p>
+            <%= button_to "Sign out", admin_logout_path, method: :delete, class: "admin-button", style: "margin-top:12px;width:100%" %>
           </div>
         </aside>
-
-        <!-- Main Content -->
-        <div class="flex-1 flex flex-col min-w-0">
-          <!-- Top Header -->
-          <header class="h-14 border-b border-gray-100 bg-white flex items-center justify-between px-6">
-            <div class="flex items-center gap-2">
-              <% if content_for?(:page_title) %>
-                <h1 class="text-base font-semibold text-gray-900"><%= yield(:page_title) %></h1>
-              <% end %>
-            </div>
-            <div class="flex items-center gap-3">
-              <% if current_admin_user.has_admin_permission?(:view_orders) %>
-                <%= form_with url: admin_orders_path, method: :get, class: "relative" do %>
-                  <%= fluent_icon "search", class: "w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" %>
-                  <input type="text" name="query" value="<%= params[:query] if controller_path == "admin/orders" %>"
-                    placeholder="Search orders, payments, buyers"
-                    class="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64 placeholder-gray-400">
-                <% end %>
-                <% attention_count = commerce_attention_count %>
-                <%= link_to admin_orders_path(attention: 1),
-                    class: "relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors",
-                    title: attention_count.positive? ? "#{attention_count} orders need attention" : "No orders need attention" do %>
-                  <%= fluent_icon "alert", class: "w-5 h-5" %>
-                  <% if attention_count.positive? %>
-                    <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-                  <% end %>
-                <% end %>
-              <% end %>
+        <div class="admin-main">
+          <header class="admin-topbar">
+            <button class="admin-button admin-mobile-menu" aria-controls="admin-navigation" aria-expanded="false" data-admin-shell-target="toggle" data-action="admin-shell#toggle">Menu</button>
+            <%= form_with url: admin_users_path, method: :get, role: "search" do %>
+              <%= fluent_icon "search" %>
+              <label for="workspace-search" class="sr-only">Find a person by Matrix ID</label>
+              <input id="workspace-search" type="search" name="query" placeholder="Find a person by name or Matrix ID…" value="<%= params[:query] if controller_name == 'users' %>">
+            <% end %>
+            <div class="admin-topbar-account">
+              <span class="admin-account-label"><%= current_admin_user.matrix_username %><small><%= current_admin_user.platform_role.humanize %></small></span>
+              <span class="admin-avatar" aria-hidden="true"><%= current_admin_user.matrix_username.to_s.first(2).upcase %></span>
             </div>
           </header>
-
-          <!-- Flash Messages -->
-          <main class="flex-1 overflow-y-auto bg-gray-50/50 p-6">
-            <div class="max-w-7xl mx-auto">
-            <% if flash[:notice] %>
-              <div class="mb-4 p-4 rounded-xl border border-green-200 bg-green-50 text-green-800 text-sm flex items-start gap-3">
-                <%= fluent_icon "checkmark", class: "w-5 h-5 flex-shrink-0 text-green-600 mt-0.5" %>
-                <p><%= flash[:notice] %></p>
-              </div>
+          <main id="main" class="admin-content" tabindex="-1">
+            <% flash.each do |kind, message| %>
+              <div role="status" class="admin-flash <%= 'admin-flash-alert' if kind == 'alert' %>"><%= message %></div>
             <% end %>
-            <% if flash[:alert] %>
-              <div class="mb-4 p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-sm flex items-start gap-3">
-                <%= fluent_icon "alert", class: "w-5 h-5 flex-shrink-0 text-red-600 mt-0.5" %>
-                <p><%= flash[:alert] %></p>
-              </div>
-            <% end %>
-
             <%= yield %>
-            </div>
           </main>
         </div>
       </div>
     <% else %>
-      <!-- Login/MFA pages: full-bleed layout without sidebar -->
-      <%= yield %>
+      <main class="admin-login">
+        <div class="admin-login-panel">
+          <div class="admin-brand"><span class="admin-brand-mark">t</span><span>tween<small>Staff workspace</small></span></div>
+          <% flash.each do |kind, message| %>
+            <div role="status" class="admin-flash admin-flash-alert"><%= message %></div>
+          <% end %>
+          <%= yield %>
+        </div>
+      </main>
     <% end %>
-  </body>
-</html>
+  </body></html>

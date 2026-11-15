@@ -1,0 +1,29 @@
+<% if records.empty? %>
+  <div class="admin-empty">
+    <h2>No records found</h2>
+    <p>Try another search or check back later.</p>
+  </div>
+<% else %>
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <% fields.first(6).each do |field| %>
+            <th scope="col"><%= field.delete_suffix('_cents').humanize %></th>
+          <% end %>
+          <th scope="col"><span class="sr-only">Open record</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% records.each do |record| %>
+          <tr>
+            <% fields.first(6).each do |field| %>
+              <td><%= admin_value(record[field], field, record) %></td>
+            <% end %>
+            <td><% record_id = record['id'] || record['room_id'] %><% if record_id && local_assigns[:resource_key] %><%= link_to "Open →", admin_resource_record_path(resource_key, record_id) %><% end %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

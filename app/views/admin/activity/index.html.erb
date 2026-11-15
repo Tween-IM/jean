@@ -1,0 +1,41 @@
+<% content_for :title, "Activity · Tween Admin" %>
+<div class="admin-eyebrow">Administration</div>
+<div class="admin-page-heading">
+  <div>
+    <h1>Activity log</h1>
+    <p>A record of staff actions across the workspace.</p>
+  </div>
+</div>
+<section class="admin-panel">
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Staff member</th>
+          <th>Action</th>
+          <th>Target</th>
+          <th>Outcome</th>
+          <th>Reason</th>
+          <th>Request</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @events.records.each do |event| %>
+          <tr>
+            <td><%= event.created_at.strftime('%d %b %Y, %H:%M %Z') %></td>
+            <td><%= event.actor_matrix_id %></td>
+            <td><%= event.action.humanize %></td>
+            <td><%= event.target %></td>
+            <td><%= admin_badge(event.outcome) %></td>
+            <td><%= event.details['reason'].presence || '—' %></td>
+            <td><%= event.request_id %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <% if @events.records.empty? %>
+    <div class="admin-empty">Staff actions will appear here.</div>
+  <% end %>
+  <%= render 'admin/shared/pagination', collection: @events %></section>
