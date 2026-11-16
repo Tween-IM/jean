@@ -60,6 +60,8 @@ mini_app_packages:
   region:            <%= ENV.fetch("AWS_REGION", "us-east-1") %>
   bucket:            <%= ENV.fetch("AWS_S3_BUCKET", "tween-uploads-#{Rails.env}") %>
   public:            false
+  # Rails already supplies Content-MD5; avoid adding a second SDK checksum.
+  request_checksum_calculation: when_required
   <% if ENV["AWS_S3_ENDPOINT"].present? %>
   endpoint:          <%= ENV["AWS_S3_ENDPOINT"] %>
   force_path_style:  true
