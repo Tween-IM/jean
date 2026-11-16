@@ -7,7 +7,7 @@ module Admin
     end
 
     def list(_key, query = {})
-      scope = @model.order(created_at: :desc)
+      scope = @model.order(created_at: query[:sort] == 'oldest' ? :asc : :desc, id: query[:sort] == 'oldest' ? :asc : :desc)
       if query[:status].present? && @model.column_names.include?("status")
         scope = scope.where(status: query[:status])
       end

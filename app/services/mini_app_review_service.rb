@@ -195,13 +195,12 @@ class MiniAppReviewService
 
   def self.create_oauth_application(miniapp)
     # Create Doorkeeper OAuth application for the approved mini-app
-    oauth_app = Doorkeeper::Application.find_or_create_by!(uid: miniapp.app_id) do |app|
-      app.name = miniapp.name
-      app.secret = SecureRandom.hex(32)
-      app.redirect_uri = miniapp.manifest["redirect_uris"]&.join("\n")
-      app.scopes = miniapp.manifest["scopes"]&.join(" ")
-      app.confidential = true
-    end
+    oauth_app = Doorkeeper::Application.find_or_initialize_by(uid: miniapp.app_id)
+    oauth_app.secret ||= SecureRandom.hex(32)
+    oauth_app.assign_attributes(name: miniapp.name,
+      redirect_uri: Array(miniapp.manifest['redirect_uris']).join("\n"),
+      scopes: Array(miniapp.manifest['scopes']).join(' '), confidential: miniapp.client_type != 'public')
+    oauth_app.save!
 
     Rails.logger.info "Created OAuth application for mini-app #{miniapp.app_id}: #{oauth_app.uid}"
 

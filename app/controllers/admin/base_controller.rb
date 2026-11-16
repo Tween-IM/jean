@@ -5,12 +5,18 @@ module Admin
     layout -> { turbo_frame_request? && request.headers["Turbo-Frame"] == "admin-detail" ? "admin_drawer" : "admin" }
     protect_from_forgery with: :exception
 
+    before_action :private_staff_response
     before_action :authenticate_admin!
     before_action :check_admin_session_timeout!
 
     helper_method :current_admin_user
 
     private
+
+    def private_staff_response
+      response.headers['Cache-Control'] = 'private, no-store'
+      response.headers['Referrer-Policy'] = 'same-origin'
+    end
 
     def authenticate_admin!
       unless current_admin_user&.platform_admin? && current_admin_user.active?

@@ -6,6 +6,7 @@
     <p><%= @resource[:description] %></p>
   </div>
   <%= link_to "Refresh", request.fullpath, class: "admin-button" %></div>
+<%= render "admin/shared/workflow_tabs" %>
 <section class="admin-panel">
   <% if @error %>
     <%= render "admin/shared/unavailable", message: @error %>
@@ -15,6 +16,7 @@
         <label for="resource-query" class="sr-only">Search <%= @resource[:label] %></label>
         <input class="admin-input" id="resource-query" type="search" name="query" placeholder="Search <%= @resource[:label].downcase %>…" value="<%= params[:query] %>">
         <% if @resource[:statuses].any? %><label for="resource-status" class="sr-only">Status</label><%= select_tag :status, options_for_select([["All statuses", ""]] + @resource[:statuses].map { |state| [state.humanize, state] }, params[:status]), id: "resource-status", class: "admin-input admin-select" %><% end %>
+        <% if @resource[:service] != :matrix %><%= select_tag :sort, options_for_select([['Newest first', 'newest'], ['Oldest first', 'oldest']], params[:sort]), class: 'admin-input', aria: { label: 'Sort' } %><% end %>
         <button class="admin-button">Apply filters</button>
         <% if params[:query].present? %><%= link_to "Clear", admin_resource_path(params[:resource]), class: "admin-button" %><% end %>
       <% end %>

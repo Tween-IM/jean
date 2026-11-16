@@ -1,5 +1,6 @@
 <% content_for :title, 'People · Tween Admin' %>
 <div class="admin-eyebrow">Workspace</div>
+<% if @refine_search %><div class="admin-flash" role="status">Too many names match. Add a surname or enter a Tween ID to narrow the search.</div><% elsif @name_search_unavailable %><div class="admin-flash" role="status">Name search is temporarily unavailable. You can still search by Tween ID.</div><% end %>
 <div class="admin-page-heading">
   <div>
     <h1>People</h1>
@@ -10,6 +11,7 @@
   <%= form_with url: admin_users_path, method: :get, class: 'admin-toolbar' do |form| %>
     <label for="people-query" class="sr-only">Search people</label><%= form.search_field :query, value: params[:query], placeholder: 'Search by name or Matrix ID…', class: 'admin-input', id: 'people-query' %>
     <label for="people-status" class="sr-only">Account status</label><%= form.select :status, [['All statuses', '']] + User.statuses.keys.map { |status| [status.humanize, status] }, { selected: params[:status] }, class: 'admin-input', id: 'people-status' %>
+    <%= form.select :sort, [['Newest first', 'newest'], ['Oldest first', 'oldest'], ['Tween ID A–Z', 'name']], { selected: params[:sort] }, class: 'admin-input', aria: { label: 'Sort' } %>
     <%= form.submit 'Filter', class: 'admin-button' %><% if params[:query].present? || params[:status].present? %><%= link_to 'Clear', admin_users_path, class: 'admin-button' %><% end %>
   <% end %>
   <div class="admin-table-wrap">
@@ -18,7 +20,7 @@
         <tr>
           <th>Person</th>
           <th>Account</th>
-          <th>Staff role</th>
+          <th>Staff role</th><% if current_admin_user.has_admin_permission?(:view_kyc) %><th>Verification</th><% end %>
           <th>Joined</th>
           <th></th>
         </tr>
@@ -26,9 +28,9 @@
       <tbody>
         <% @users.records.each do |user| %>
           <tr>
-            <td><%= user.matrix_username %><small><%= user.matrix_user_id %></small></td>
+            <td><%= admin_person_cell(@people_context.dig(user.matrix_user_id, 'display_name').presence || admin_person_name(user.matrix_user_id), user.matrix_user_id) %></td>
             <td><%= admin_badge(user.status) %></td>
-            <td><%= user.platform_role == 'none' ? 'Member' : user.platform_role.humanize %></td>
+            <td><%= user.platform_role == 'none' ? 'Member' : user.platform_role.humanize %></td><% if current_admin_user.has_admin_permission?(:view_kyc) %><td><% if (context = @people_context[user.matrix_user_id]) %>Tier <%= context['kyc_tier'] %><small><%= context.dig('verification', 'bvn_status')&.humanize || 'Not started' %></small><% else %><span class="admin-muted">Unavailable</span><% end %></td><% end %>
             <td><%= user.created_at.strftime('%d %b %Y') %></td>
             <td><%= admin_detail_link 'Open profile →', admin_user_path(user) %></td>
           </tr>

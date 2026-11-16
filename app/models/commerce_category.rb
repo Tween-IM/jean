@@ -14,6 +14,8 @@ class CommerceCategory < ApplicationRecord
   validates :slug, uniqueness: true
   validates :status, inclusion: { in: %w[active inactive] }
 
+  validate :parent_must_not_create_cycle
+
   scope :active, -> { where(status: "active") }
   scope :top_level, -> { where(parent_id: nil) }
 
@@ -28,6 +30,19 @@ class CommerceCategory < ApplicationRecord
   end
 
   private
+    def parent_must_not_create_cycle
+      ancestor = parent_category
+      seen = [id].compact
+      while ancestor
+        if seen.include?(ancestor.id)
+          errors.add(:parent_id, 'cannot be this category or one of its descendants')
+          break
+        end
+        seen << ancestor.id
+        ancestor = ancestor.parent_category
+      end
+    end
+
     def assign_category_id
       return if category_id.present?
 

@@ -5,13 +5,33 @@ module Admin
     before_action :set_user, only: [ :show, :edit, :update, :identity_command ]
 
     def index
-      scope = User.order(created_at: :desc)
+      scope = case params[:sort]
+      when 'oldest' then User.order(created_at: :asc, id: :asc)
+      when 'name' then User.order(matrix_username: :asc, id: :asc)
+      else User.order(created_at: :desc, id: :desc)
+      end
       if params[:query].present?
-        pattern = "%#{User.sanitize_sql_like(params[:query].to_s.first(200))}%"
-        scope = scope.where("matrix_user_id ILIKE :query OR matrix_username ILIKE :query", query: pattern)
+        query = params[:query].to_s.strip.first(200)
+        pattern = "%#{User.sanitize_sql_like(query)}%"
+        remote_ids = []
+        if query.length >= 2
+          begin
+            match = TweenPay::AdminClient.new(current_admin_user).search_people(query)
+            remote_ids = match.fetch('matrix_ids')
+            @refine_search = match['refine_search']
+          rescue RemoteClient::Unavailable, RemoteClient::Forbidden, RemoteClient::NotFound, RemoteClient::Rejected
+            @name_search_unavailable = true
+          end
+        end
+        scope = scope.where("matrix_user_id ILIKE :query OR matrix_username ILIKE :query", query: pattern).or(scope.where(matrix_user_id: remote_ids))
+        scope = scope.none if @refine_search
       end
       scope = scope.where(status: params[:status]) if User.statuses.key?(params[:status])
       @users = paginate(scope)
+      @people_context = TweenPay::AdminClient.new(current_admin_user).people_context(@users.records.map(&:matrix_user_id))
+    rescue RemoteClient::Unavailable, RemoteClient::Forbidden, RemoteClient::NotFound, RemoteClient::Rejected
+      @people_context = {}
+      @people_context_unavailable = true
     end
 
     def show
@@ -25,12 +45,24 @@ module Admin
       @tab = params[:tab].presence || "profile"
       return head :forbidden unless @tabs.key?(@tab)
       case @tab
-      when "compliance" then @remote = TweenPay::AdminClient.new(current_admin_user).person(@user.matrix_user_id)
-      when "payments" then @remote = TweenPay::AdminClient.new(current_admin_user).person(@user.matrix_user_id)
+      when "compliance"
+        @remote = TweenPay::AdminClient.new(current_admin_user).person(@user.matrix_user_id)
+        @verification = @remote["verification"]
+      when "payments"
+        client = TweenPay::AdminClient.new(current_admin_user)
+        @remote = client.person(@user.matrix_user_id)
+        if current_admin_user.has_admin_permission?(:manage_cards)
+          begin
+            @card_options = client.card_options.fetch("options")
+          rescue RemoteClient::Unavailable, RemoteClient::Rejected, RemoteClient::Forbidden
+            @card_options = []
+          end
+        end
       when "messaging" then @remote = SynapseClient.new(grant: admin_oauth_grant).person(@user.matrix_user_id)
       when "identity" then @remote = MasClient.new(grant: admin_oauth_grant).person(@user.mas_user_id)
       when "apps"
-        @installations = @user.miniapp_installations.includes(:mini_app).order(created_at: :desc).limit(20)
+        @installation_page = paginate(@user.miniapp_installations.includes(:mini_app).order(created_at: :desc))
+        @installations = @installation_page.records
         @mfa_methods = @user.mfa_methods
         @storage_entries = @user.storage_entries.order(created_at: :desc).limit(10) if current_admin_user.has_admin_permission?(:view_storage)
       when "commerce"

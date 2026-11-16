@@ -20,7 +20,7 @@ module Admin::OperationsHelper
     when "pending_transfers" then %w[completed cancelled].include?(state) ? [] : [ [ "Cancel transfer", "cancel", nil ] ]
     when "api_keys" then record["active"] ? [ [ "Revoke key", "revoke", nil ] ] : []
     when "webhooks" then [ [ "Enable webhook", "set_active", "true" ], [ "Disable webhook", "set_active", "false" ], [ "Reset failures", "reset_failures", nil ] ]
-    when "compliance_checks" then [ [ "Approve review", "review", "passed" ], [ "Reject review", "review", "failed" ], [ "Mark in review", "review", "in_review" ] ]
+    when "compliance_checks" then %w[passed failed].include?(state) ? [] : [ [ "Approve review", "review", "passed" ], [ "Reject review", "review", "failed" ], [ "Mark in review", "review", "in_review" ] ]
     when "disputes" then %w[open under_review].include?(state) ? [ [ "Start case review", "review", nil ], [ "Resolve protected-payment dispute", "resolve_dispute", nil ] ] : []
     when "reviews" then [ [ "Approve review", "approve", nil ], [ "Reject review", "reject", nil ] ]
     when "social_posts" then [ [ "Hide post from feeds", "hide", nil ], [ "Restore post moderation approval", "restore", nil ] ]

@@ -51,3 +51,16 @@ amazon:
 #   service: Mirror
 #   primary: local
 #   mirrors: [ amazon, google, microsoft ]
+
+# Pending distribution packages use private objects and signed download URLs.
+mini_app_packages:
+  service: S3
+  access_key_id:     <%= ENV["AWS_ACCESS_KEY_ID"] %>
+  secret_access_key: <%= ENV["AWS_SECRET_ACCESS_KEY"] %>
+  region:            <%= ENV.fetch("AWS_REGION", "us-east-1") %>
+  bucket:            <%= ENV.fetch("AWS_S3_BUCKET", "tween-uploads-#{Rails.env}") %>
+  public:            false
+  <% if ENV["AWS_S3_ENDPOINT"].present? %>
+  endpoint:          <%= ENV["AWS_S3_ENDPOINT"] %>
+  force_path_style:  true
+  <% end %>

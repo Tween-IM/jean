@@ -1,22 +1,16 @@
 <% presentation = local_assigns[:resource_key] && Admin::Resources::CATALOG[resource_key] %>
 <% columns = presentation ? presentation[:columns] : fields.map { |key| { key: key, label: admin_field_label(key) } } %>
-<% if records.empty? %>
-  <%= render "admin/shared/empty", title: "No records found", description: "Try another search or adjust the filters to see more results." %>
-<% else %>
-<div class="admin-table-wrap"><table class="admin-table"><thead><tr>
-  <% columns.each do |column| %><th scope="col"><%= column[:label] %></th><% end %><th scope="col"><span class="sr-only">Details</span></th>
-</tr></thead><tbody>
-<% records.each do |record| %><% record_id = record['id'] || record['room_id'] %><tr>
+<% people = current_admin_user.has_admin_permission?(:view_users) ? User.where(matrix_user_id: records.filter_map { |r| r['customer_matrix_id'] }).index_by(&:matrix_user_id) : {} %>
+<%= admin_data_table(records: records, columns: columns + [{ label: 'Details' }], caption: presentation&.dig(:label)) do |record| %><% record_id = record['id'] || record['room_id'] %>
   <% columns.each do |column| %><% key = column[:key] %><td>
     <% if key == 'identity' %>
       <% title = record['title'].presence || record['name'].presence || presentation[:label].singularize %>
       <div class="admin-entity-copy"><strong><% if record_id && presentation %><%= admin_detail_link title, admin_resource_record_path(resource_key, record_id) %><% else %><%= title %><% end %></strong><small><%= record['subtitle'] %></small></div>
-    <% elsif key == 'customer' %><%= admin_person_cell(record['customer_name'].presence || 'Not linked', record['customer_matrix_id']) %>
+    <% elsif key == 'customer' %><% if (person = people[record['customer_matrix_id']]) %><%= admin_detail_link admin_person_cell(record['customer_name'].presence || person.matrix_username, record['customer_matrix_id']), admin_user_path(person) %><% else %><%= admin_person_cell(record['customer_name'].presence || 'Not linked', record['customer_matrix_id']) %><% end %>
     <% elsif key.end_with?('_at', '_date', '_ts') || key == 'last_updated' %><%= admin_short_date(record[key]) %>
     <% elsif key == 'user_id' %><%= admin_person_name(record[key]) %>
     <% elsif key.end_with?('_status') || key == 'risk_category' %><%= admin_badge(record[key]) %>
     <% else %><%= admin_value(record[key], key, record) %><% end %>
   </td><% end %>
   <td><% if record_id && presentation %><%= admin_detail_link "View details →", admin_resource_record_path(resource_key, record_id), class: "admin-row-action" %><% end %></td>
-</tr><% end %></tbody></table></div>
 <% end %>

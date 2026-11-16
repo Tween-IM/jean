@@ -146,34 +146,7 @@
             <td><%= entity_status_badge(category.status) %></td>
             <% if can_manage %>
               <td>
-                <details class="relative">
-                  <summary class="cursor-pointer text-sm font-medium text-indigo-600 hover:text-indigo-900 list-none">Edit</summary>
-                  <div class="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-4 shadow-lg text-left admin-panel">
-                    <%= form_with model: category, url: admin_category_path(category), method: :patch, class: "space-y-3" do |form| %>
-                      <div>
-                        <%= form.label :name, class: "block text-xs text-gray-500 mb-1" %>
-                        <%= form.text_field :name, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
-                      </div>
-                      <div>
-                        <%= form.label :parent_id, "Parent", class: "block text-xs text-gray-500 mb-1" %>
-                        <%= form.collection_select :parent_id, @parents, :id, :name, { include_blank: "Top level" },
-                            class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
-                      </div>
-                      <div class="grid grid-cols-2 gap-3">
-                        <div>
-                          <%= form.label :status, class: "block text-xs text-gray-500 mb-1" %>
-                          <%= form.select :status, [ [ "Active", "active" ], [ "Inactive", "inactive" ] ], {},
-                              class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
-                        </div>
-                        <div>
-                          <%= form.label :sort_order, "Order", class: "block text-xs text-gray-500 mb-1" %>
-                          <%= form.number_field :sort_order, class: "w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" %>
-                        </div>
-                      </div>
-                      <%= form.submit "Save", class: "w-full px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg" %>
-                    <% end %>
-                  </div>
-                </details>
+                <%= admin_detail_link 'Edit category →', admin_category_path(category), class: 'admin-row-action' %>
               </td>
             <% end %>
           </tr>
@@ -186,3 +159,5 @@
     </div>
   <% end %>
 </div>
+
+<%= render 'admin/shared/pagination', collection: @category_page %>

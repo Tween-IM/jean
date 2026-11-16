@@ -1,0 +1,20 @@
+<%= form_with model: [:admin, @mini_app], multipart: true, class: "admin-panel", data: { controller: "admin-mini-app", action: "change->admin-mini-app#refresh" } do |form| %>
+<div class="admin-panel-heading"><h2>App identity & distribution</h2></div>
+<div class="admin-panel-body">
+<% if @mini_app.errors.any? %><div class="admin-flash admin-flash-alert" role="alert"><%= @mini_app.errors.full_messages.to_sentence %></div><% end %>
+<div class="admin-form-grid">
+<% { app_id: 'App ID (ma_ followed by letters and numbers)', name: 'App name', version: 'Version', developer_name: 'Developer' }.each do |key, label| %><%= admin_input "mini_app[#{key}]", label: label, value: @mini_app.public_send(key), required: key != :developer_name, readonly: key == :app_id && @mini_app.persisted? %><% end %>
+<%= admin_select 'mini_app[classification]', label: 'Classification', choices: MiniApp.classifications.keys.map { |x| [x.humanize, x] }, selected: @mini_app.classification %>
+<div class="admin-form-field"><%= form.label :client_type %><%= form.select :client_type, %w[public confidential hybrid].map { |x| [x.humanize, x] }, {}, class: 'admin-input admin-select' %></div>
+<div class="admin-form-field admin-form-field-wide"><%= form.label :description %><%= form.text_area :description, rows: 3, class: 'admin-input' %></div>
+<div class="admin-form-field admin-form-field-wide"><%= label_tag 'manifest_entry_url', 'Launch URL' %><%= text_field_tag 'manifest[entry_url]', @mini_app.manifest&.dig('entry_url'), required: true, class: 'admin-input', placeholder: 'https://app.example.com' %><small>Hosted apps launch over HTTPS. Official embedded apps may use tween-internal://.</small></div>
+<div class="admin-form-field"><%= label_tag 'manifest_icon_url', 'Icon URL' %><%= url_field_tag 'manifest[icon_url]', @mini_app.manifest&.dig('icon_url'), class: 'admin-input' %></div>
+<div class="admin-form-field"><%= label_tag 'manifest_webhook_url', 'Webhook URL' %><%= url_field_tag 'manifest[webhook_url]', @mini_app.manifest&.dig('webhook_url'), class: 'admin-input' %></div>
+<div class="admin-form-field admin-form-field-wide"><%= label_tag 'manifest_redirect_uris', 'OAuth redirect URLs — one per line' %><%= text_area_tag 'manifest[redirect_uris]', Array(@mini_app.manifest&.dig('redirect_uris')).join("\n"), rows: 3, class: 'admin-input' %></div>
+<fieldset class="admin-form-field admin-form-field-wide"><legend>Requested permissions</legend><%= hidden_field_tag 'manifest[permissions][]', '' %><div class="admin-permission-grid"><% (%w[public user:read storage:read storage:write wallet:read wallet:pay system:notifications wallet:admin messaging:broadcast analytics:detailed] + Array(@mini_app.manifest&.dig('scopes'))).uniq.each do |scope| %><%= admin_checkbox 'manifest[permissions][]', label: scope, value: scope, checked: Array(@mini_app.manifest&.dig('scopes')).include?(scope) %><% end %></div><small>Classification restrictions are enforced on the server.</small></fieldset>
+<div class="admin-form-field admin-form-field-wide"><%= form.label :bundle, 'Distribution bundle (optional)' %><%= form.file_field :bundle, accept: '.zip,.bundle', class: 'admin-input' %><small>ZIP or .bundle, up to 25 MB. Stored as an attachment, hashed and signed with the platform key. Uploading does not execute or publish code. Use a new version when replacing a package.</small></div>
+</div>
+<% if @mini_app.active? %><p class="admin-muted">Editing an active app pauses its availability until the new configuration is approved and activated.</p><% end %>
+<p class="admin-muted">Saving submits the configuration for review. Approval and activation remain explicit staff actions.</p>
+<div class="admin-actions"><%= form.submit 'Save for review', class: 'admin-button admin-button-primary', data: { turbo_submits_with: 'Saving…' } %><%= link_to 'Cancel', admin_mini_apps_path, class: 'admin-button' %></div>
+</div><% end %>

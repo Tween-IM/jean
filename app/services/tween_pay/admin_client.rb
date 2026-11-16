@@ -24,6 +24,18 @@ module TweenPay
       data
     end
 
+    def search_people(query)
+      data = get('/internal/admin/v1/people-context', query: query)
+      raise Unavailable, 'The service returned an unexpected response.' unless data['matrix_ids'].is_a?(Array)
+      data
+    end
+
+    def people_context(matrix_ids)
+      data = get('/internal/admin/v1/people-context', matrix_ids: matrix_ids.to_json)
+      raise Unavailable, 'The service returned an unexpected response.' unless data['records'].is_a?(Array)
+      data['records'].index_by { |row| row['matrix_user_id'] }
+    end
+
     def person(matrix_id)
       data = get("/internal/admin/v1/person", matrix_user_id: matrix_id)
       raise Unavailable, "The service returned an unexpected response." unless data["user"].is_a?(Hash)

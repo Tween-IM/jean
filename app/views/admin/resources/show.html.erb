@@ -35,43 +35,7 @@
     </section>
   <% end %>
   <%= render "admin/shared/verification_evidence", evidence: @verification_evidence if @verification_evidence %>
-  <% operations = admin_operations(params[:resource], @record) %>
-  <% operations.each do |label, operation, value| %>
-    <details class="admin-panel admin-action-panel"><summary class="admin-panel-heading"><%= label %></summary>
-      <%= form_with url: admin_resource_command_path(params[:resource], params[:id]), class: "admin-panel-body admin-command", data: { turbo_confirm: "Confirm #{label.downcase}? This action will be attributed to you and may affect customer access or money." } do |form| %>
-        <% if params[:resource] == 'rooms' %>
-          <p class="mb-4">Blocking prevents new joins. Existing members remain in the room.</p>
-        <% end %>
-        <% if params[:resource] == 'reports' %>
-          <p class="mb-4">Dismissing removes this report from the review queue. The reported event remains in the room.</p>
-        <% end %>
-        <p class="mb-4">This will <%= label.downcase %> for <strong><%= @record["title"].presence || @resource[:label].singularize %></strong>. The action and your reason will be recorded.</p>
-        <%= form.hidden_field :operation, value: operation %><%= form.hidden_field :value, value: value %><%= form.hidden_field :command_id, value: (operation == "resolve_dispute" ? @record.dig("resolution", "command_id").presence : nil) || SecureRandom.uuid %>
-        <% if %w[approve_attempt reject_attempt].include?(operation) %>
-          <%= hidden_field_tag 'arguments[evidence_digest]', @verification_evidence['evidence_digest'] %>
-          <label class="admin-review-ack"><%= check_box_tag 'arguments[acknowledged]', '1', false, required: true %> I inspected the retained evidence and independently confirmed the basis for this decision.</label>
-          <p class="mb-4">The original result stays unchanged. Approval updates this person's KYC status under your name and may trigger normal tier/account provisioning. No verification fee is charged. Superseded identities and incomplete face evidence cannot be approved.</p>
-        <% elsif operation == 'refund_balance' %>
-          <%= label_tag 'arguments_amount', "Amount in #{@record['currency']} (maximum #{admin_value(@record['balance_cents'], 'balance_cents', @record)})" %>
-          <%= number_field_tag 'arguments[amount]', nil, required: true, min: '0.01', step: '0.01', class: 'admin-input' %>
-        <% elsif operation == 'resolve_dispute' %>
-          <p class="mb-4">The release and refund must exactly allocate the remaining protected funds. A release includes the platform commission. Rechecking a pending request must use the original decision.</p>
-          <%= label_tag 'arguments_outcome', 'Settlement decision' %>
-          <%= select_tag 'arguments[outcome]', options_for_select([['Refund buyer', 'resolved_buyer'], ['Release seller settlement', 'resolved_seller'], ['Split settlement', 'resolved_split']], @record.dig('resolution', 'outcome')), class: 'admin-input admin-select', required: true %>
-          <%= label_tag 'arguments_seller_amount', 'Amount released for seller settlement' %><%= number_field_tag 'arguments[seller_amount]', (BigDecimal(@record.dig('resolution', 'seller_amount_cents').to_i.to_s) / 100).to_s('F'), min: 0, step: '0.01', required: true, class: 'admin-input' %>
-          <%= label_tag 'arguments_buyer_amount', 'Amount refunded to buyer' %><%= number_field_tag 'arguments[buyer_amount]', (BigDecimal(@record.dig('resolution', 'buyer_refund_cents').to_i.to_s) / 100).to_s('F'), min: 0, step: '0.01', required: true, class: 'admin-input' %>
-        <% elsif operation == 'issue_card' %>
-          <p class="mb-4">The customer must pass card compliance checks and have verified identity/contact information. This issues an unfunded virtual card. The selected reviewed price is the total provider charge.</p>
-          <%= label_tag 'arguments_price', 'Reviewed card program and issuance price' %>
-          <%= select_tag 'arguments[price]', options_for_select(@card_options.map { |option| ["#{option['name']} · #{option['currency']} · charge #{option['charge_currency']} #{number_with_precision(BigDecimal(option['charge_cents'].to_s) / 100, precision: 2)}", { program_id: option['program_id'], price_id: option['id'], charge_cents: option['charge_cents'], charge_currency: option['charge_currency'] }.to_json] }), class: 'admin-input admin-select', required: true %>
-        <% elsif operation == 'approve_document' %>
-          <p class="mb-4">Open and inspect the uploaded evidence first. The backend requires your audited evidence view of this exact document version before approving it.</p>
-        <% end %>
-        <%= form.label :reason, "Reason for this action", for: "reason-#{operation}-#{value}" %><%= form.text_area :reason, value: (operation == "resolve_dispute" ? @record.dig("resolution", "reason") : nil), required: true, minlength: 5, maxlength: 1000, class: "admin-input", id: "reason-#{operation}-#{value}" %>
-        <%= form.submit "Confirm: #{label.downcase}", class: "admin-button admin-button-danger", data: { turbo_submits_with: "Processing…" } %>
-      <% end %>
-    </details>
-  <% end %>
+  <%= render 'admin/shared/record_operations', resource_key: params[:resource], record: @record %>
 <% end %>
 
 <% if @related_transactions.present? %><section class="admin-panel"><div class="admin-panel-heading"><h2>Recent transactions</h2></div><%= render 'admin/shared/resource_table', records: @related_transactions, fields: [], resource_key: 'transactions' %></section><% end %>

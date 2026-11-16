@@ -1,0 +1,5 @@
+<% content_for :title, 'Monitoring · Tween Admin' %>
+<div class="admin-eyebrow">Trust & safety</div><div class="admin-page-heading"><div><h1>Monitoring</h1><p>Review recorded risk signals, customer cases and operational failures.</p></div><%= link_to 'Refresh queues', admin_monitoring_path, class: 'admin-button' %></div>
+<% @queues.each do |key, (title, status)| %>
+<%= turbo_frame_tag "monitoring-#{key}", src: admin_monitoring_queue_path(key), loading: 'lazy' do %><section class="admin-panel"><div class="admin-panel-heading"><h2><%= title %></h2></div><div class="admin-panel-body" role="status">Loading queue… <%= link_to 'Open queue', admin_resource_path(key, status: status), data: { turbo_frame: '_top' } %></div></section><% end %>
+<% end %>

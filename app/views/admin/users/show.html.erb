@@ -26,25 +26,11 @@
     </div>
   </section>
 <% elsif @tab == 'compliance' %>
+<% if @verification %><section class="admin-panel"><div class="admin-panel-heading"><h2>Identity & verification</h2></div><div class="admin-panel-body"><dl class="admin-detail-grid"><% @verification.except('id', 'user_id', 'title', 'subtitle', 'customer_name', 'customer_matrix_id').each do |key, value| %><div><dt><%= admin_field_label(key) %></dt><dd><%= admin_value(value, key, @verification) %></dd></div><% end %></dl></div></section><% end %>
 <section class="admin-panel"><div class="admin-panel-heading"><h2>Verification history</h2><%= link_to "Review inbox", admin_resource_path("verification_attempts"), class: "admin-button" %></div><%= render "admin/shared/resource_table", records: @remote.fetch('verification_attempts', []), fields: [], resource_key: 'verification_attempts' %></section>
 <% elsif @tab == 'payments' %>
-  <section class="admin-panel">
-    <div class="admin-panel-heading">
-      <h2>Payment account</h2><%= admin_detail_link "Manage payment account →", admin_resource_record_path("payment_accounts", @remote.dig("user", "id")), class: "admin-button" %>
-      <%= admin_badge(@remote.dig('user', 'status')) %></div>
-    <div class="admin-panel-body">
-      <dl class="admin-detail-grid">
-        <div>
-          <dt>Payment user ID</dt>
-          <dd><%= @remote.dig('user', 'id') %></dd>
-        </div>
-        <div>
-          <dt>KYC tier</dt>
-          <dd><%= @remote.dig('user', 'kyc_tier') %></dd>
-        </div>
-      </dl>
-    </div>
-  </section>
+  <section class="admin-panel"><div class="admin-panel-heading"><h2>Financial access</h2><%= admin_badge(@remote.dig('user', 'status')) %></div><div class="admin-panel-body"><dl class="admin-detail-grid"><div><dt>KYC tier</dt><dd><%= @remote.dig('user', 'kyc_tier') %></dd></div></dl></div></section>
+  <%= render 'admin/shared/record_operations', resource_key: 'payment_accounts', record: @remote.fetch('user').merge('title' => @user.matrix_username) %>
   <% { 'wallets' => 'Wallets', 'transactions' => 'Recent transactions' }.each do |key, label| %><% next unless @remote.key?(key) %>
     <section class="admin-panel">
       <div class="admin-panel-heading">
@@ -78,6 +64,7 @@
     <% if @installations.empty? %>
       <div class="admin-empty">No apps installed yet.</div>
     <% end %></section>
+  <%= render 'admin/shared/pagination', collection: @installation_page %>
   <section class="admin-panel">
     <div class="admin-panel-heading">
       <h2>Registered authentication methods</h2>
@@ -101,7 +88,7 @@
 <% elsif @tab == 'commerce' %>
   <section class="admin-panel">
     <div class="admin-panel-heading">
-      <h2>Recent orders</h2>
+      <h2>Recent orders</h2><%= link_to "All orders for this person", admin_orders_path(query: @user.matrix_user_id), class: "admin-button" %>
     </div>
     <div class="admin-table-wrap">
       <table class="admin-table">

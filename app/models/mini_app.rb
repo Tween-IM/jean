@@ -7,6 +7,10 @@ class MiniApp < ApplicationRecord
   # Client type: public, confidential, or hybrid
   validates :client_type, presence: true, inclusion: { in: %w[public confidential hybrid], message: "must be public, confidential, or hybrid" }
 
+  BUNDLE_STORAGE_SERVICE = Rails.env.production? ? :mini_app_packages : (Rails.env.test? ? :test : :local)
+  has_one_attached :bundle, service: BUNDLE_STORAGE_SERVICE
+  has_many_attached :previous_bundles, service: BUNDLE_STORAGE_SERVICE
+
   # Relationships
   has_many :miniapp_installations, foreign_key: :mini_app_id
   has_many :installed_users, through: :miniapp_installations, source: :user
@@ -99,23 +103,23 @@ class MiniApp < ApplicationRecord
   end
 
   def can_submit_for_review?
-    status == :pending_review
+    status == "pending_review"
   end
 
   def can_approve?
-    status == :under_review
+    status == "under_review"
   end
 
   def can_reject?
-    status == :under_review
+    status == "under_review"
   end
 
   def can_appeal?
-    status == :rejected
+    status == "rejected"
   end
 
   def awaiting_review?
-    status == :under_review
+    status == "under_review"
   end
 
   def needs_attention?
@@ -128,12 +132,15 @@ class MiniApp < ApplicationRecord
     return unless manifest.present?
 
     scopes = manifest["scopes"] || []
+    return unless scopes.is_a?(Array)
+    reserved = %w[system:notifications wallet:admin messaging:broadcast analytics:detailed]
+    errors.add(:manifest, 'requests scopes reserved for official apps') if classification != 'official' && (scopes & reserved).any?
     case classification
     when "official"
       # Official apps can have all scopes including privileged
     when "verified"
       # Verified apps can have standard scopes
-      privileged_scopes = scopes.select { |s| s.start_with?("privileged") }
+      privileged_scopes = scopes.select { |s| s.to_s.start_with?("privileged") }
       errors.add(:manifest, "verified apps cannot have privileged scopes") if privileged_scopes.any?
     when "community"
       # Community apps have limited scopes

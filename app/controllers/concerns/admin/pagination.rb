@@ -5,10 +5,11 @@ module Admin
     extend ActiveSupport::Concern
 
     def paginate(scope, per_page: 20)
+      per_page = params[:per_page].to_i if [20, 50, 100].include?(params[:per_page].to_i)
       page = [params[:page].to_i, 1].max
-      offset = (page - 1) * per_page
-
       total = scope.count
+      page = [page, [(total.to_f / per_page).ceil, 1].max].min
+      offset = (page - 1) * per_page
       records = scope.limit(per_page).offset(offset)
 
       total_pages = (total.to_f / per_page).ceil

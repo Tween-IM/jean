@@ -1,4 +1,6 @@
 Rails.application.routes.draw do
+  get 'mini-app-packages/:app_id/:version', to: 'mini_app_packages#show', as: :mini_app_package,
+    constraints: { version: /[^\/]+/ }, format: false
   # JWKS endpoint for TEP token verification (RFC 7517)
   get "/.well-known/jwks.json", to: "api/well_known/jwks#jwks"
   get "health/check"
@@ -335,14 +337,18 @@ Rails.application.routes.draw do
   get "admin/auth/mas/callback", to: "admin/mas_sessions#create", as: :admin_mas_callback
 
   namespace :admin do
+    get "monitoring", to: "monitoring#index", as: :monitoring
+    get "monitoring/queues/:queue", to: "monitoring#queue", as: :monitoring_queue
     get "activity", to: "activity#index", as: :activity
     get "workspace/:resource", to: "resources#index", as: :resource
     get "workspace/:resource/:id/evidence", to: "resources#evidence", as: :resource_evidence
     get "workspace/:resource/:id", to: "resources#show", as: :resource_record, constraints: { id: /[^\/]+/ }
     post "workspace/:resource/:id/commands", to: "resources#command", as: :resource_command, constraints: { id: /[^\/]+/ }
     get "dashboard", to: "dashboard#index", as: :dashboard
-    resources :mini_apps, only: [ :index, :show, :new, :create, :edit, :destroy ], path: "mini-apps" do
+    get "mini-apps/:id/bundle", to: "mini_apps#bundle", as: :mini_app_bundle
+    resources :mini_apps, only: [ :index, :show, :new, :create, :edit, :update, :destroy ], path: "mini-apps" do
       member do
+        post :activate
         post :update
         patch :update
         put :update
@@ -397,7 +403,7 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :categories, only: [ :index, :create, :update ] do
+    resources :categories, only: [ :index, :show, :create, :update ] do
       collection do
         post :prune_empty
       end

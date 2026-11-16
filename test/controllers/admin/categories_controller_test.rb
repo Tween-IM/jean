@@ -146,4 +146,20 @@ class Admin::CategoriesControllerTest < ActionDispatch::IntegrationTest
       matrix_homeserver: "example.com"
     )
   end
+  test "category browsing paginates with filters instead of truncating the directory" do
+    sign_in_as(@super_admin)
+    21.times { |n| CommerceCategory.create!(name: "Pagination marker #{n}", slug: "pagination-#{SecureRandom.hex(5)}") }
+    get admin_categories_path(query: 'Pagination marker')
+    assert_response :success
+    assert_select '.admin-table tbody tr', count: 20
+    assert_select 'nav[aria-label=Pagination] a', text: 'Next →'
+    get admin_categories_path(query: 'Pagination marker', page: 2)
+    assert_select '.admin-table tbody tr', count: 1
+  end
+
+  test "a category cannot be moved below its own descendant" do
+    assert_not @used.update(parent_id: @used_child.id)
+    assert_includes @used.errors[:parent_id].join, 'descendants'
+  end
+
 end

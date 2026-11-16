@@ -1,0 +1,5 @@
+<%= turbo_frame_tag "monitoring-#{@key}" do %>
+<section class="admin-panel"><div class="admin-panel-heading"><div><h2><%= @title %></h2><% if @data %><p class="admin-muted"><%= number_with_delimiter(@data['total']) %> records · checked <%= admin_short_date(Time.current) %></p><% end %></div><%= link_to 'Open queue', admin_resource_path(@key, status: @status), class: 'admin-button', data: { turbo_frame: '_top' } %></div>
+<% if @error %><div class="admin-panel-body"><p role="status"><%= @error %></p><%= link_to 'Retry', admin_monitoring_queue_path(@key), class: 'admin-button' %></div><% else %><%= render 'admin/shared/resource_table', records: @data.fetch('records').first(5), fields: [], resource_key: @key %><% end %>
+</section>
+<% end %>

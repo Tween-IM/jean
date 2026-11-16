@@ -1,33 +1,40 @@
 module Admin
   class MiniAppsController < BaseController
-    before_action -> { require_admin_permission!(:view_mini_apps) }, only: [ :index, :show ]
-    before_action :require_admin_permission!, only: [ :new, :create, :edit, :update, :destroy, :hard_delete ]
-    before_action :set_mini_app, only: [ :show, :edit, :update, :destroy, :hard_delete ]
+    before_action -> { require_admin_permission!(:view_mini_apps) }, only: [ :index, :show, :bundle ]
+    before_action :require_admin_permission!, only: [ :new, :create, :edit, :update, :destroy, :hard_delete, :activate ]
+    before_action :set_mini_app, only: [ :show, :edit, :update, :destroy, :hard_delete, :bundle, :activate ]
     before_action :set_mini_app_for_edit, only: [ :new, :create ]
 
     def index
-      @mini_apps = paginate(MiniApp.order(created_at: :desc))
+      scope = params[:sort] == 'name' ? MiniApp.order(name: :asc, id: :asc) : MiniApp.order(created_at: :desc, id: :desc)
+      scope = scope.where(status: params[:status]) if MiniApp.statuses.key?(params[:status])
+      if params[:query].present?
+        pattern = "%#{MiniApp.sanitize_sql_like(params[:query].to_s.first(200))}%"
+        scope = scope.where("name ILIKE :q OR app_id ILIKE :q OR developer_name ILIKE :q", q: pattern)
+      end
+      @mini_apps = paginate(scope)
       @archived_count = MiniApp.where(status: :removed).count
     end
 
     def new
-      @mini_app = MiniApp.new
+      @mini_app = MiniApp.new(classification: :community, version: "1.0.0", manifest: { "scopes" => ["user:read"] })
     end
 
     def create
-      @mini_app = MiniApp.new(mini_app_params)
+      @mini_app = MiniApp.new
+      save_submission(:new)
+    end
 
-      if @mini_app.save
-        log_admin_action("create_mini_app", @mini_app.app_id, params.to_unsafe_h)
-        redirect_to admin_mini_app_path(@mini_app), notice: "Mini-app created successfully."
-      else
-        flash.now[:alert] = "Failed to create mini-app: #{@mini_app.errors.full_messages.join(', ')}"
-        render :new, status: :unprocessable_entity
-      end
+    def bundle
+      return head :not_found unless @mini_app.bundle.attached?
+      response.headers["Cache-Control"] = "private, no-store"
+      response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
+      redirect_to rails_blob_path(@mini_app.bundle, disposition: "attachment")
     end
 
     def show
-      @installations = @mini_app.miniapp_installations.includes(:user).order(created_at: :desc).limit(20)
+      @installation_page = paginate(@mini_app.miniapp_installations.includes(:user).order(created_at: :desc))
+      @installations = @installation_page.records
       @automated_check = @mini_app.mini_app_automated_checks.order(created_at: :desc).first
       @appeals = @mini_app.mini_app_appeals.order(created_at: :desc).limit(10)
     end
@@ -36,18 +43,23 @@ module Admin
     end
 
     def update
-      if @mini_app.update(mini_app_params)
-        log_admin_action("update_mini_app", @mini_app.app_id, params.to_unsafe_h)
-        redirect_to admin_mini_app_path(@mini_app), notice: "Mini-app updated successfully."
-      else
-        flash.now[:alert] = "Failed to update mini-app: #{@mini_app.errors.full_messages.join(', ')}"
-        render :edit, status: :unprocessable_entity
+      save_submission(:edit)
+    end
+
+    def activate
+      return head :unprocessable_entity unless params[:reason].to_s.strip.length.between?(5, 1000)
+      @mini_app.with_lock do
+        return head :unprocessable_entity unless @mini_app.approved?
+        @mini_app.activate!
+        log_admin_action('activate_mini_app', @mini_app.app_id, reason: params[:reason])
       end
+      redirect_to admin_mini_app_path(@mini_app), notice: 'Mini-app activated.'
     end
 
     def destroy
+      return head :unprocessable_entity unless params[:reason].to_s.strip.length.between?(5, 1000)
       @mini_app.update!(status: :removed)
-      log_admin_action("archive_mini_app", @mini_app.app_id)
+      log_admin_action("archive_mini_app", @mini_app.app_id, reason: params[:reason])
       redirect_to admin_mini_apps_path, notice: "Mini-app has been archived."
     rescue => e
       redirect_to admin_mini_apps_path, alert: "Failed to archive mini-app: #{e.message}"
@@ -75,29 +87,18 @@ module Admin
       @mini_app = MiniApp.new
     end
 
+    def save_submission(template)
+      Admin::MiniAppSubmission.call(app: @mini_app, attributes: mini_app_params,
+        manifest: params.fetch(:manifest, ActionController::Parameters.new).permit(:entry_url, :icon_url, :webhook_url, :redirect_uris, permissions: []), upload: params.dig(:mini_app, :bundle))
+      log_admin_action("submit_mini_app", @mini_app.app_id, version: @mini_app.version, delivery: @mini_app.bundle.attached? ? "bundle" : "hosted")
+      redirect_to admin_mini_app_path(@mini_app), notice: "Mini-app saved to the review queue."
+    rescue ActiveRecord::RecordInvalid, Admin::MiniAppSubmission::Invalid => error
+      @mini_app.errors.add(:base, error.message)
+      render template, status: :unprocessable_entity
+    end
+
     def mini_app_params
-      permitted = params.require(:mini_app).permit(:name, :description, :status, :classification, :version, :developer_name, :app_id)
-
-      will_be_official = params[:mini_app][:classification] == "official" || @mini_app.classification == "official"
-      manifest_data = params[:manifest]
-
-      if manifest_data.present? && will_be_official
-        manifest = {}
-        manifest["entry_url"] = params[:manifest][:entry_url] if params[:manifest][:entry_url].present?
-        manifest["icon_url"] = params[:manifest][:icon_url] if params[:manifest][:icon_url].present?
-        manifest["webhook_url"] = params[:manifest][:webhook_url] if params[:manifest][:webhook_url].present?
-
-        if params[:manifest][:redirect_uris].present?
-          manifest["redirect_uris"] = params[:manifest][:redirect_uris].split("\n").map(&:strip).reject(&:empty?)
-        end
-
-        scopes = params[:manifest][:permissions]
-        manifest["scopes"] = scopes.is_a?(Array) ? scopes : [ scopes ].compact
-
-        permitted = permitted.merge(manifest: manifest)
-      end
-
-      permitted
+      params.require(:mini_app).permit(:name, :description, :classification, :version, :developer_name, :app_id, :client_type)
     end
 
     def require_admin_permission!(permission = :manage_mini_apps)

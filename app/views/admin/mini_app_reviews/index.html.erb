@@ -1,3 +1,4 @@
+<nav class="admin-tabs" aria-label="Review queues"><%= link_to 'Submissions', admin_mini_app_reviews_path, class: 'admin-tab', aria: { current: @queue == 'reviews' ? 'page' : nil } %><%= link_to 'Appeals', admin_mini_app_reviews_path(queue: 'appeals'), class: 'admin-tab', aria: { current: @queue == 'appeals' ? 'page' : nil } %></nav>
 <% content_for :title, "Review Queue — Tween Admin" %>
 
 <div class="mb-6">
@@ -94,3 +95,4 @@
     </div>
   <% end %>
 </div>
+<%= render 'admin/shared/pagination', collection: @review_page %>

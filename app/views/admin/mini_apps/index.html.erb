@@ -1,7 +1,5 @@
-<div class="mb-8">
-  <h1 class="admin-title text-3xl font-bold text-slate-900">Mini Apps</h1>
-  <p class="text-slate-500 mt-1">Manage mini-app availability, ownership and release information.</p>
-</div>
+<div class="admin-page-heading"><div><div class="admin-eyebrow">Mini-apps</div><h1>Apps</h1><p>Manage launch configuration, distribution and review in one place.</p></div><% if current_admin_user.has_admin_permission?(:manage_mini_apps) %><%= link_to 'Create mini-app', new_admin_mini_app_path, class: 'admin-button admin-button-primary' %><% end %></div>
+<%= form_with url: admin_mini_apps_path, method: :get, class: 'admin-toolbar' do |f| %><%= f.search_field :query, value: params[:query], placeholder: 'Search apps or developers', class: 'admin-input', aria: { label: 'Search apps' } %><%= f.select :status, [['All statuses', '']] + MiniApp.statuses.keys.map { |x| [x.humanize, x] }, { selected: params[:status] }, class: 'admin-input admin-select' %><%= f.select :sort, [['Newest first', 'newest'], ['Name A–Z', 'name']], { selected: params[:sort] }, aria: { label: 'Sort' } %><%= f.submit 'Apply filters', class: 'admin-button' %><% end %>
 
 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden admin-panel">
   <table class="admin-table">

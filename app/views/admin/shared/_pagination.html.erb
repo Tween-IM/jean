@@ -1,5 +1,9 @@
 <div class="admin-pagination">
   <span><% if collection.total_count.zero? %>No results<% else %><strong><%= number_with_delimiter((collection.current_page - 1) * collection.limit_value + 1) %>–<%= number_with_delimiter([collection.current_page * collection.limit_value, collection.total_count].min) %></strong> of <%= number_with_delimiter(collection.total_count) %> results<% end %></span>
+  <%= form_with url: request.path, method: :get, class: 'admin-page-size', data: { admin_toolbar: false } do %>
+    <% request.query_parameters.except('page', 'per_page').each do |key, value| %><%= hidden_field_tag key, value unless value.is_a?(Hash) || value.is_a?(Array) %><% end %>
+    <%= label_tag 'rows-per-page', 'Rows' %><%= select_tag :per_page, options_for_select([20, 50, 100], collection.limit_value), id: 'rows-per-page', data: { action: 'change->admin-controls#submit' } %>
+  <% end %>
   <nav class="admin-actions" aria-label="Pagination">
     <% if collection.current_page > 1 %><%= link_to "← Previous", url_for(request.query_parameters.merge(page: collection.current_page - 1)), class: "admin-button" %><% end %>
     <span>Page <%= collection.current_page %> of <%= [collection.total_pages, 1].max %></span>

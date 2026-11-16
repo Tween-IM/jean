@@ -1,0 +1,1 @@
+<% if admin_workflow_views.any? %><nav class="admin-tabs" aria-label="Workflow views"><% admin_workflow_views.each do |key, label| %><%= link_to label, admin_resource_path(key), class: 'admin-tab', aria: { current: params[:resource] == key ? 'page' : nil } %><% end %></nav><% end %>

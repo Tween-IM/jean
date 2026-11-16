@@ -9,17 +9,24 @@ module Admin
   class CategoriesController < BaseController
     before_action :require_view_categories!
     before_action :require_manage_categories!, only: [ :create, :update, :prune_empty ]
-    before_action :set_category, only: [ :update ]
+    before_action :set_category, only: [ :show, :update ]
 
     def index
       @stats = stats
-      @categories = filtered_categories
+      @category_page = paginate(filtered_categories)
+      @categories = @category_page.records
       ids = @categories.map(&:id)
       @product_counts = product_counts(ids)
       @children_counts = children_counts(ids)
-      @parents = CommerceCategory.order(:name).where.not(id: ids)
+      @parents = CommerceCategory.order(:name)
       @all_categories = CommerceCategory.order(:name)
       @in_use_ids = Commerce::CategoryPruner.in_use_ids
+    end
+
+    def show
+      @parents = CommerceCategory.where.not(id: @category.id).order(:name)
+      @product_count = product_counts([@category.id])[@category.id].to_i
+      @child_count = @category.subcategories.count
     end
 
     # Pruning is destructive, so branches have to be creatable again from here.
@@ -82,7 +89,7 @@ module Admin
       else scope
       end
 
-      scope.limit(500)
+      scope
     end
 
     # Counting per category in one pass: a listing counts for its category and

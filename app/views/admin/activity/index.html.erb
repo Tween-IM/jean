@@ -6,6 +6,11 @@
     <p>A record of staff actions across the workspace.</p>
   </div>
 </div>
+<nav class="admin-tabs" aria-label="Activity streams"><%= link_to 'Workspace', admin_activity_path, class: 'admin-tab', aria: { current: @stream == 'workspace' ? 'page' : nil } %><%= link_to 'Financial operations', admin_activity_path(stream: 'payments'), class: 'admin-tab', aria: { current: @stream == 'payments' ? 'page' : nil } %></nav>
+<%= form_with url: admin_activity_path, method: :get, class: 'admin-toolbar' do |f| %><%= f.hidden_field :stream, value: @stream %><%= f.search_field :query, value: params[:query], placeholder: 'Search actions or staff', class: 'admin-input', aria: { label: 'Search activity' } %><%= f.submit 'Search', class: 'admin-button' %><% end %>
+<% if @error %><section class="admin-panel"><%= render 'admin/shared/unavailable', message: @error %></section>
+<% elsif @stream == 'payments' %><section class="admin-panel"><%= render 'admin/shared/resource_table', records: @data.fetch('records'), fields: [], resource_key: 'payment_audit' %><div class="admin-pagination"><span><%= @data['total'] %> records</span><nav class="admin-actions" aria-label="Pagination"><% if @data['page'].to_i > 1 %><%= link_to 'Previous', admin_activity_path(stream: 'payments', page: @data['page'].to_i - 1, query: params[:query]), class: 'admin-button' %><% end %><% if @data['next_page'] %><%= link_to 'Next', admin_activity_path(stream: 'payments', page: @data['next_page'], query: params[:query]), class: 'admin-button' %><% end %></nav></div></section>
+<% else %>
 <section class="admin-panel">
   <div class="admin-table-wrap">
     <table class="admin-table">
@@ -39,3 +44,5 @@
     <div class="admin-empty">Staff actions will appear here.</div>
   <% end %>
   <%= render 'admin/shared/pagination', collection: @events %></section>
+
+<% end %>

@@ -15,7 +15,7 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
     get admin_users_path, params: { query: @staff.matrix_user_id }
     assert_response :success
     assert_select "h1", "People"
-    assert_select "td", text: /workspace:tween.im/
+    assert_select "td", text: /#{Regexp.escape(@staff.matrix_user_id)}/
     get admin_user_path(@staff)
     assert_response :success
     assert_select ".admin-tab", text: "Payments"
@@ -131,7 +131,7 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
   test "official logo and card navigation are present" do
     get admin_dashboard_path
     assert_select 'img[alt="Tween"]'
-    assert_select 'a[href=?]', admin_resource_path('cards'), text: 'Cards'
+    assert_select '.admin-page-search a[href=?]', admin_resource_path('cards'), text: /Cards/
   end
 
   test "document evidence is served privately through the staff boundary" do
@@ -187,6 +187,34 @@ class Admin::WorkspaceTest < ActionDispatch::IntegrationTest
   ensure
     ENV.delete("TWEEN_PAY_ADMIN_URL")
     ENV.delete("TWEEN_ADMIN_SECRET")
+  end
+
+  test "duplicate customer directories route back to People" do
+    get admin_resource_path('payment_accounts')
+    assert_redirected_to admin_users_path
+    get admin_resource_path('verifications')
+    assert_redirected_to admin_users_path
+  end
+
+  test "navigation has stable areas and a single current secondary navigation" do
+    get admin_users_path
+    assert_select '.admin-primary-navigation .admin-area-link', count: 8
+    assert_select '.admin-primary-navigation a[aria-current=true]', text: 'People'
+    assert_select 'details.admin-nav-group', count: 0
+    assert_select '.admin-secondary-navigation', count: 1
+    assert_select '.admin-primary-navigation a', text: 'Trust & safety'
+  end
+
+  test "canonical person profile receives legacy payment account links" do
+    ENV['TWEEN_PAY_ADMIN_URL'] = 'https://pay.test'
+    ENV['TWEEN_ADMIN_SECRET'] = 'x' * 48
+    stub_request(:get, 'https://pay.test/internal/admin/v1/resources/payment_accounts/17')
+      .to_return(body: { record: { id: 17, customer_matrix_id: @staff.matrix_user_id, status: 'active' } }.to_json)
+    get admin_resource_record_path('payment_accounts', 17)
+    assert_redirected_to admin_user_path(@staff, tab: 'payments')
+  ensure
+    ENV.delete('TWEEN_PAY_ADMIN_URL')
+    ENV.delete('TWEEN_ADMIN_SECRET')
   end
 
 end

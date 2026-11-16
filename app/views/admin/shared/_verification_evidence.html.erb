@@ -1,4 +1,3 @@
-<% content_for :head do %><meta name="turbo-cache-control" content="no-cache"><% end %>
 <section class="admin-panel" data-turbo-temporary>
   <div class="admin-panel-heading"><div><h2>Retained evidence</h2><p class="admin-muted">Original submissions and provider results. Opening evidence is audited.</p></div><%= link_to "Original provider response ↓", admin_resource_evidence_path('verification_attempts', params[:id], raw: 'true'), class: "admin-button", data: { turbo: false } %></div>
   <div class="admin-panel-body">

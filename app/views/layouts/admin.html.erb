@@ -2,13 +2,14 @@
 <html lang="en">
   <head>
     <title><%= content_for?(:title) ? yield(:title).gsub("TMCP Admin", "Tween Admin") : "Tween Admin" %></title>
+    <meta name="turbo-cache-control" content="no-cache">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <%= yield :head %>
     <%= csrf_meta_tags %><%= csp_meta_tag %>
     <%= stylesheet_link_tag "tailwind", "admin", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-  <body class="admin-app" data-controller="admin-workspace" data-action="turbo:frame-load->admin-workspace#loaded turbo:frame-missing->admin-workspace#missing">
+  <body class="admin-app" data-controller="admin-workspace admin-navigation admin-controls" data-action="keydown@window->admin-navigation#shortcut turbo:frame-load->admin-workspace#loaded turbo:frame-missing->admin-workspace#missing">
     <% if current_admin_user %>
       <a href="#main" class="admin-skip">Skip to content</a>
       <div class="admin-shell" data-controller="admin-shell">
@@ -17,19 +18,22 @@
             <%= image_tag "tween-mark.svg", class: "admin-brand-logo", alt: "Tween" %><span>tween<small>Workspace</small></span>
           <% end %>
           <button class="admin-button admin-mobile-menu" data-action="admin-shell#toggle">Close navigation</button>
-          <nav>
-            <% admin_navigation.each do |group, items| %>
-              <% next if items.empty? %>
-              <% if group.present? %>
-                <details class="admin-nav-group" <%= 'open' if group == 'Workspace' || items.any? { |item| request.path == item[:path] || request.path.start_with?("#{item[:path]}/") } %>>
-                  <summary class="admin-nav-section"><%= group %></summary>
-                  <% items.each do |item| %><%= sidebar_link(item[:path], item[:label], item[:icon]) %><% end %>
-                </details>
-              <% else %>
-                <% items.each do |item| %><%= sidebar_link(item[:path], item[:label], item[:icon]) %><% end %>
+          <button type="button" class="admin-jump" data-action="admin-navigation#open"><%= admin_icon 'search' %><span>Jump to page</span><kbd>⌘ K</kbd></button>
+          <nav class="admin-primary-navigation" aria-label="Workspace areas">
+            <% area_icons = { "Overview" => "home", "People" => "people", "Commerce" => "shopping-bag", "Money" => "wallet", "Trust & safety" => "shield", "Community" => "messages-square", "Mini-apps" => "blocks", "Settings" => "settings" } %>
+            <% admin_navigation.each do |area, items| %>
+              <%= link_to items.first[:path], class: "admin-nav-link admin-area-link", aria: { current: admin_current_area == area ? "true" : nil } do %>
+                <%= admin_icon area_icons.fetch(area) %><span><%= area %></span><%= admin_icon "chevron_right" %>
               <% end %>
             <% end %>
           </nav>
+          <% local_items = admin_navigation[admin_current_area] || [] %>
+          <% if local_items.size > 1 %>
+            <nav class="admin-secondary-navigation" aria-label="<%= admin_current_area %> navigation">
+              <p class="admin-nav-section"><%= admin_current_area %></p>
+              <% local_items.each do |item| %><%= sidebar_link(item[:path], item[:label], item[:icon]) %><% end %>
+            </nav>
+          <% end %>
           <div class="admin-sidebar-footer">
             <p>One workspace. All of Tween.</p>
             <%= button_to "Sign out", admin_logout_path, method: :delete, class: "admin-button", style: "margin-top:12px;width:100%" %>
@@ -39,7 +43,7 @@
           <header class="admin-topbar">
             <button class="admin-button admin-mobile-menu" aria-controls="admin-navigation" aria-expanded="false" data-admin-shell-target="toggle" data-action="admin-shell#toggle">Menu</button>
             <%= form_with url: admin_users_path, method: :get, role: "search" do %>
-              <%= fluent_icon "search" %>
+              <%= admin_icon "search" %>
               <label for="workspace-search" class="sr-only">Find a person by Matrix ID</label>
               <input id="workspace-search" type="search" name="query" placeholder="Find a person by name or Matrix ID…" value="<%= params[:query] if controller_name == 'users' %>">
             <% end %>
@@ -67,5 +71,13 @@
         </div>
       </main>
     <% end %>
+    <% if current_admin_user %>
+      <dialog class="admin-page-search" data-admin-navigation-target="dialog" aria-labelledby="page-search-title">
+        <div class="admin-panel-heading"><h2 id="page-search-title">Jump to page</h2><button type="button" class="admin-icon-button" aria-label="Close page search" data-action="admin-navigation#close"><%= admin_icon 'dismiss' %></button></div>
+        <div class="admin-panel-body"><label class="sr-only" for="page-search">Search workspace pages</label><input id="page-search" class="admin-input" type="search" placeholder="Search pages…" data-admin-navigation-target="query" data-action="input->admin-navigation#filter keydown->admin-navigation#enter"></div>
+        <nav class="admin-page-search-results" aria-label="Workspace destinations"><% admin_jump_destinations.each do |area, items| %><% items.each do |item| %><%= link_to item[:path], data: { admin_navigation_target: 'item', action: 'admin-navigation#close' } do %><%= admin_icon item[:icon] %><span><%= item[:label] %><small><%= area %></small></span><% end %><% end %><% end %><p class="admin-empty" hidden data-admin-navigation-target="empty">No matching pages.</p></nav>
+      </dialog>
+    <% end %>
+    <% if current_admin_user %><template data-admin-control-icon="search"><%= admin_icon 'search' %></template><template data-admin-control-icon="filters"><%= admin_icon 'sliders-horizontal' %></template><template data-admin-control-icon="close"><%= admin_icon 'x' %></template><% end %>
     <%= render "admin/shared/overlays" if current_admin_user %>
   </body></html>

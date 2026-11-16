@@ -4,7 +4,11 @@ module Admin
     before_action :authorize_resource!
 
     def index
-      @data = client.list(params[:resource], page: params[:page], query: params[:query], status: params[:status], cursor: params[:cursor])
+      return redirect_to admin_activity_path(stream: "payments") if params[:resource] == "payment_audit"
+      if %w[payment_accounts verifications].include?(params[:resource])
+        return redirect_to admin_users_path(query: params[:query])
+      end
+      @data = client.list(params[:resource], page: params[:page], query: params[:query], status: params[:status], cursor: params[:cursor], sort: params[:sort])
     rescue RemoteClient::Unavailable, RemoteClient::Forbidden, RemoteClient::NotFound, RemoteClient::Rejected => e
       @needs_authorization = e.is_a?(AdminOauthGrant::ConnectionRequired)
       @error = e.message
@@ -13,6 +17,12 @@ module Admin
     def show
       payload = client.detail(params[:resource], params[:id])
       @record = payload.fetch("record")
+      if %w[payment_accounts verifications].include?(params[:resource])
+        person = User.find_by(matrix_user_id: @record['customer_matrix_id'].presence || @record['matrix_user_id'])
+        if person
+          return redirect_to admin_user_path(person, tab: params[:resource] == 'verifications' ? 'compliance' : 'payments')
+        end
+      end
       @related_transactions = payload["transactions"]
       @savings_transactions = payload["savings_transactions"]
       @evidence = payload["evidence"]

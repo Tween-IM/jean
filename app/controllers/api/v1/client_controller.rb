@@ -63,15 +63,16 @@ class Api::V1::ClientController < Api::BaseController
     device_id = params[:device_id]
 
     # Get official mini-apps for this platform
-    official_apps = MiniApp.where(classification: :official).map do |app|
+    official_apps = MiniApp.active.where(classification: :official).map do |app|
       manifest = app.manifest || {}
       {
         miniapp_id: app.app_id,
-        bundle_url: "https://cdn.tween.example/bundles/#{app.app_id}-#{app.version}.bundle",
-        bundle_hash: "sha256:#{Digest::SHA256.hexdigest(app.app_id)}",
+        entry_url: manifest['entry_url'],
+        bundle_url: (mini_app_package_url(app_id: app.app_id, version: app.version) if app.bundle.attached? && manifest.dig('bundle', 'version') == app.version),
+        bundle_hash: manifest.dig('bundle', 'hash'),
+        bundle_signature: manifest.dig('bundle', 'signature'),
         credentials: {
-          client_id: app.app_id,
-          privileged_token: generate_privileged_token(@current_user.matrix_user_id, app.app_id)
+          client_id: app.app_id
         }
       }
     end
@@ -94,7 +95,7 @@ class Api::V1::ClientController < Api::BaseController
       current_version = installed_app["current_version"]
 
       app = MiniApp.find_by(app_id: miniapp_id)
-      next unless app
+      next unless app&.active? && app.bundle.attached? && app.manifest.dig('bundle', 'version') == app.version
 
       if version_greater?(app.version, current_version)
         updates_available << {
@@ -106,10 +107,10 @@ class Api::V1::ClientController < Api::BaseController
           release_date: app.updated_at.iso8601,
           release_notes: app.manifest&.dig("changelog") || "Bug fixes and improvements",
           download: {
-            url: "https://cdn.tween.example/bundles/#{miniapp_id}-#{app.version}.bundle",
-            size_bytes: app.manifest&.dig("bundle_size") || 1048576,
-            hash: "sha256:#{Digest::SHA256.hexdigest("#{miniapp_id}#{app.version}")}",
-            signature: "signature_placeholder"
+            url: mini_app_package_url(app_id: app.app_id, version: app.version),
+            size_bytes: app.manifest.dig("bundle", "size_bytes"),
+            hash: app.manifest.dig("bundle", "hash"),
+            signature: app.manifest.dig("bundle", "signature")
           }
         }
       end
@@ -176,18 +177,8 @@ class Api::V1::ClientController < Api::BaseController
     end
   end
 
-  def generate_privileged_token(user_id, miniapp_id)
-    # Generate a privileged TEP token for official apps (PROTO Section 16.9)
-    TepTokenService.encode(
-      {
-        user_id: user_id,
-        miniapp_id: miniapp_id
-      },
-      scopes: [ "user:read", "wallet:admin", "system:notifications" ],
-      privileged: true,
-      privileged_until: 30.days.from_now.to_i
-    )
-  end
+  # Bootstrap distributes published app metadata. Tokens are obtained through
+  # the existing OAuth + PKCE consent flow, never minted for an unrelated caller.
 
   def version_greater?(new_version, current_version)
     # Simple version comparison (in production, use proper semver)

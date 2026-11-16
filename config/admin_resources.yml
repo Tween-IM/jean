@@ -23,7 +23,7 @@ wallets:
 transactions:
   label: Transactions
   group: Money
-  icon: wallet
+  icon: arrow-left-right
   permission: view_transactions
   service: payments
   description: Trace payments with their customer, amount and settlement status.
@@ -46,7 +46,7 @@ transactions:
 cards:
   label: Cards
   group: Money
-  icon: clipboard
+  icon: credit-card
   permission: view_cards
   service: payments
   description: Review virtual and physical cards without exposing sensitive card data.
@@ -72,7 +72,7 @@ cards:
 pending_transfers:
   label: Pending transfers
   group: Money
-  icon: wallet
+  icon: clock-arrow-up
   permission: view_pending_transfers
   service: payments
   description: Review transfers waiting for authorization or recipient acceptance.
@@ -96,7 +96,7 @@ pending_transfers:
 payment_links:
   label: Payment links
   group: Money
-  icon: wallet
+  icon: link
   permission: view_transactions
   service: payments
   description: Track payment requests from creation through collection.
@@ -119,7 +119,7 @@ payment_links:
 protected_payments:
   label: Protected payments
   group: Money
-  icon: wallet
+  icon: shield-check
   permission: view_transactions
   service: payments
   description: See funds held, released and refunded for protected orders.
@@ -143,7 +143,7 @@ protected_payments:
 refunds:
   label: Refunds
   group: Money
-  icon: wallet
+  icon: rotate-ccw
   permission: view_transactions
   service: payments
   description: Follow refund outcomes without issuing duplicate repayments.
@@ -165,7 +165,7 @@ refunds:
 businesses:
   label: Businesses
   group: Money
-  icon: wallet
+  icon: building-2
   permission: view_businesses
   service: payments
   description: Review business accounts and their operating status.
@@ -180,7 +180,7 @@ businesses:
 bank_accounts:
   label: Bank accounts
   group: Money
-  icon: wallet
+  icon: landmark
   permission: view_bank_accounts
   service: payments
   description: Identify collection and payout accounts by their owner and bank.
@@ -199,7 +199,7 @@ bank_accounts:
 bills:
   label: Bills
   group: Money
-  icon: wallet
+  icon: receipt-text
   permission: view_bills
   service: payments
   description: Review bill payments and upcoming obligations.
@@ -222,7 +222,7 @@ bills:
 pockets:
   label: Pockets
   group: Savings
-  icon: wallet
+  icon: piggy-bank
   permission: view_wallets
   service: payments
   description: Understand how customers organize their money.
@@ -241,7 +241,7 @@ pockets:
 stashes:
   label: Stashes
   group: Savings
-  icon: wallet
+  icon: vault
   permission: view_wallets
   service: payments
   description: Review locked savings and their current status.
@@ -260,7 +260,7 @@ stashes:
 scheduled_transfers:
   label: Scheduled transfers
   group: Savings
-  icon: wallet
+  icon: calendar-clock
   permission: view_wallets
   service: payments
   description: See when money is scheduled to move into savings.
@@ -284,7 +284,7 @@ scheduled_transfers:
 saving_rules:
   label: Savings rules
   group: Savings
-  icon: wallet
+  icon: list-checks
   permission: view_wallets
   service: payments
   description: Monitor percentage, fixed and round-up savings automation.
@@ -306,7 +306,7 @@ saving_rules:
 saving_sweeps:
   label: Savings activity
   group: Savings
-  icon: wallet
+  icon: history
   permission: view_transactions
   service: payments
   description: Trace automatic savings transfers and failed sweeps.
@@ -330,7 +330,7 @@ saving_sweeps:
 verification_attempts:
   label: Verification reviews
   group: Compliance
-  icon: check
+  icon: scan-face
   permission: view_kyc
   service: payments
   description: One inbox for failed identity checks, provider responses, captured evidence and staff decisions.
@@ -351,7 +351,7 @@ verification_attempts:
 compliance_checks:
   label: Screening checks
   group: Compliance
-  icon: shield
+  icon: clipboard-check
   permission: view_kyc
   service: payments
   description: Make clear, attributable decisions on customer compliance checks.
@@ -397,7 +397,7 @@ verifications:
 identity_documents:
   label: Identity documents
   group: Compliance
-  icon: document
+  icon: file-user
   permission: view_kyc
   service: payments
   description: Review document metadata, validity and verification outcomes.
@@ -418,9 +418,9 @@ identity_documents:
   - rejected
   - expired
 risk_reviews:
-  label: Risk & AML
+  label: Risk assessments
   group: Compliance
-  icon: shield
+  icon: shield-alert
   permission: view_risk
   service: payments
   description: Review risk signals and screening flags with the customer in context.
@@ -437,11 +437,11 @@ risk_reviews:
     label: Sanctions match
   - key: risk_assessed_at
     label: Assessed
-  statuses: []
+  statuses: [flagged]
 exchange_rates:
   label: Exchange rates
   group: Operations
-  icon: arrow_swap
+  icon: currency
   permission: view_finance
   service: payments
   description: Inspect published exchange rates and data freshness.
@@ -456,9 +456,9 @@ exchange_rates:
     label: Updated
   statuses: []
 rate_alerts:
-  label: Rate alerts
+  label: Exchange-rate alerts
   group: Operations
-  icon: alert
+  icon: bell-ring
   permission: view_transactions
   service: payments
   description: Understand customer exchange-rate notifications.
@@ -477,7 +477,7 @@ rate_alerts:
 recipients:
   label: Recipients
   group: Operations
-  icon: people
+  icon: contact-round
   permission: view_transactions
   service: payments
   description: Find saved recipients by name, without exposing bank account numbers.
@@ -496,7 +496,7 @@ recipients:
 agents:
   label: Agent network
   group: Operations
-  icon: building
+  icon: network
   permission: view_businesses
   service: payments
   description: Review agent availability, verification and service locations.
@@ -515,7 +515,7 @@ agents:
 rooms:
   label: Rooms
   group: Messaging
-  icon: people
+  icon: messages-square
   permission: view_messaging
   service: matrix
   description: Find rooms by name and understand their membership and access.
@@ -532,7 +532,7 @@ rooms:
 reports:
   label: Message reports
   group: Messaging
-  icon: alert
+  icon: message-square-warning
   permission: view_messaging
   service: matrix
   description: Review reported messages in context and dismiss handled reports.
@@ -549,7 +549,7 @@ reports:
 api_keys:
   label: API keys
   group: Platform
-  icon: settings
+  icon: key-round
   permission: view_api_keys
   service: payments
   description: Review credentials by name. Secret values are never shown.
@@ -566,7 +566,7 @@ api_keys:
 webhooks:
   label: Webhooks
   group: Platform
-  icon: settings
+  icon: webhook
   permission: view_webhooks
   service: payments
   description: Identify failing integrations and manage delivery state.
@@ -583,7 +583,7 @@ webhooks:
 webhook_deliveries:
   label: Webhook deliveries
   group: Platform
-  icon: settings
+  icon: send
   permission: view_webhooks
   service: payments
   description: Inspect delivery outcomes without exposing request payloads or signing
@@ -603,7 +603,7 @@ webhook_deliveries:
 notifications:
   label: Notifications
   group: Platform
-  icon: alert
+  icon: bell
   permission: view_notifications
   service: payments
   description: Follow customer notifications and delivery context.
@@ -622,11 +622,13 @@ notifications:
 payment_audit:
   label: Payment activity
   group: Administration
-  icon: settings
+  icon: scroll-text
   permission: view_audit
   service: payments
   description: Review attributable payment administration activity.
   columns:
+  - key: staff_matrix_id
+    label: Staff member
   - key: identity
     label: Action
   - key: resource_type
@@ -637,7 +639,7 @@ payment_audit:
 disputes:
   label: Order disputes
   group: Commerce
-  icon: box
+  icon: message-square-warning
   permission: view_orders
   service: local
   description: Review order disputes with the related customer, merchant and operational
@@ -664,7 +666,7 @@ disputes:
 payouts:
   label: Merchant payouts
   group: Commerce
-  icon: box
+  icon: banknote-arrow-up
   permission: view_merchants
   service: local
   description: Review merchant payouts with the related customer, merchant and operational
@@ -691,7 +693,7 @@ payouts:
 reviews:
   label: Product reviews
   group: Commerce
-  icon: box
+  icon: star
   permission: view_catalog
   service: local
   description: Review product reviews with the related customer, merchant and operational
@@ -717,7 +719,7 @@ reviews:
 warehouses:
   label: Warehouses
   group: Commerce
-  icon: box
+  icon: warehouse
   permission: view_fulfillment
   service: local
   description: Review warehouses with the related customer, merchant and operational
@@ -743,7 +745,7 @@ warehouses:
 shipping_profiles:
   label: Shipping profiles
   group: Commerce
-  icon: box
+  icon: truck
   permission: view_fulfillment
   service: local
   description: Review shipping profiles with the related customer, merchant and operational
@@ -763,7 +765,7 @@ shipping_profiles:
 social_posts:
   label: Feed posts
   group: Content
-  icon: people
+  icon: newspaper
   permission: view_social_moderation
   service: local
   description: Review feed posts with the related customer, merchant and operational
@@ -789,7 +791,7 @@ social_posts:
 social_reports:
   label: Content reports
   group: Content
-  icon: people
+  icon: flag
   permission: view_social_moderation
   service: local
   description: Review content reports with the related customer, merchant and operational
@@ -816,7 +818,7 @@ social_reports:
 stories:
   label: Stories
   group: Content
-  icon: people
+  icon: circle-play
   permission: view_social_moderation
   service: local
   description: Review stories with the related customer, merchant and operational
@@ -842,7 +844,7 @@ stories:
 payment_accounts:
   label: Payment accounts
   group: Money
-  icon: people
+  icon: user-round
   permission: view_users
   service: payments
   description: Manage customer payment access, KYC resets and card issuance.
