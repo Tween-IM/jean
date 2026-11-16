@@ -20,7 +20,7 @@
           <button class="admin-button admin-mobile-menu" data-action="admin-shell#toggle">Close navigation</button>
           <button type="button" class="admin-jump" data-action="admin-navigation#open"><%= admin_icon 'search' %><span>Jump to page</span><kbd>⌘ K</kbd></button>
           <nav class="admin-primary-navigation" aria-label="Workspace areas">
-            <% area_icons = { "Overview" => "home", "People" => "people", "Commerce" => "shopping-bag", "Money" => "wallet", "Trust & safety" => "shield", "Community" => "messages-square", "Mini-apps" => "blocks", "Settings" => "settings" } %>
+            <% area_icons = { "Overview" => "home", "People" => "people", "Commerce" => "shopping-cart", "Money" => "wallet", "Trust & safety" => "shield", "Community" => "messages-square", "Mini-apps" => "blocks", "Settings" => "settings" } %>
             <% admin_navigation.each do |area, items| %>
               <%= link_to items.first[:path], class: "admin-nav-link admin-area-link", aria: { current: admin_current_area == area ? "true" : nil } do %>
                 <%= admin_icon area_icons.fetch(area) %><span><%= area %></span><%= admin_icon "chevron_right" %>
