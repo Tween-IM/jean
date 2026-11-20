@@ -17,6 +17,7 @@ module Admin
       @pricing = client.update_card_pricing(
         markup_bps: percentage_to_bps(params[:markup_percent]),
         fixed_fee_minor: naira_to_minor(params[:fixed_fee]),
+        unit_markup_minor: naira_to_minor(params[:unit_markup]),
         issuance_fee_minor: naira_to_minor(params[:issuance_fee]),
         clover_issuance_cost_minor: naira_to_minor(params[:clover_issuance_cost])
       ).fetch("card_pricing")
@@ -25,8 +26,8 @@ module Admin
     rescue ::Admin::RemoteClient::Unavailable, ::Admin::RemoteClient::Forbidden,
            ::Admin::RemoteClient::Rejected => error
       @error = error.message
-      @pricing = params.slice(:markup_percent, :fixed_fee, :issuance_fee,
-                              :clover_issuance_cost).to_h
+      @pricing = params.slice(:markup_percent, :fixed_fee, :unit_markup,
+                              :issuance_fee, :clover_issuance_cost).to_h
       render :show, status: :unprocessable_entity
     end
 

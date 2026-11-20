@@ -21,6 +21,14 @@
     </div>
 
     <div class="admin-field">
+      <%= form.label :unit_markup, "Per-unit markup (₦ per $1)" %>
+      <%= form.number_field :unit_markup,
+            value: @pricing[:unit_markup_minor] ? (@pricing[:unit_markup_minor].to_d / 100).to_s("F") : "0",
+            step: "0.01", min: 0 %>
+      <p class="admin-hint">Added to the unit rate before multiplying by the amount. Use this for a fixed naira-per-dollar margin.</p>
+    </div>
+
+    <div class="admin-field">
       <%= form.label :fixed_fee, "Fixed fee per payment (₦)" %>
       <%= form.number_field :fixed_fee,
             value: @pricing[:fixed_fee_minor] ? (@pricing[:fixed_fee_minor].to_d / 100).to_s("F") : "0",
