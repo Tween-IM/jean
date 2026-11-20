@@ -1,0 +1,53 @@
+<div class="admin-eyebrow">Money</div>
+<div class="admin-page-heading">
+  <div>
+    <h1>Card pricing</h1>
+    <p>TweenPay's customer price. Clover bills the organization separately for its own card fees.</p>
+  </div>
+</div>
+
+<% if @error.present? %>
+  <p class="admin-empty" role="alert"><%= @error %></p>
+<% end %>
+
+<div class="admin-card" style="max-width: 720px">
+  <%= form_with url: admin_card_pricing_path, method: :patch, local: true do |form| %>
+    <div class="admin-field">
+      <%= form.label :markup_percent, "Card payment markup (%)" %>
+      <%= form.number_field :markup_percent,
+            value: @pricing[:markup_bps] ? (@pricing[:markup_bps].to_d / 100).to_s("F") : "0",
+            step: "0.01", min: 0, max: 100 %>
+      <p class="admin-hint">Applied to the wholesale unit rate, before multiplying by the amount.</p>
+    </div>
+
+    <div class="admin-field">
+      <%= form.label :fixed_fee, "Fixed fee per payment (₦)" %>
+      <%= form.number_field :fixed_fee,
+            value: @pricing[:fixed_fee_minor] ? (@pricing[:fixed_fee_minor].to_d / 100).to_s("F") : "0",
+            step: "0.01", min: 0 %>
+    </div>
+
+    <div class="admin-field">
+      <%= form.label :issuance_fee, "Issuance fee charged to the customer (₦)" %>
+      <%= form.number_field :issuance_fee,
+            value: @pricing[:issuance_fee_minor] ? (@pricing[:issuance_fee_minor].to_d / 100).to_s("F") : "0",
+            step: "0.01", min: 0 %>
+    </div>
+
+    <div class="admin-field">
+      <%= form.label :clover_issuance_cost, "Clover's issuance cost (₦)" %>
+      <%= form.number_field :clover_issuance_cost,
+            value: @pricing[:clover_issuance_cost_minor] ? (@pricing[:clover_issuance_cost_minor].to_d / 100).to_s("F") : "0",
+            step: "0.01", min: 0 %>
+      <p class="admin-hint">The part of the issuance fee payable to Clover. The rest is TweenPay margin.</p>
+    </div>
+
+    <div class="admin-field">
+      <%= form.submit "Save card pricing", class: "admin-button" %>
+    </div>
+  <% end %>
+
+  <% if @pricing[:updated_at].present? %>
+    <p class="admin-hint">Last updated <%= @pricing[:updated_at] %> by <%= @pricing[:updated_by_matrix_id] || "unknown" %>.</p>
+  <% end %>
+</div>

@@ -337,6 +337,7 @@ Rails.application.routes.draw do
   get "admin/auth/mas/callback", to: "admin/mas_sessions#create", as: :admin_mas_callback
 
   namespace :admin do
+    resource :card_pricing, only: [ :show, :update ], controller: :card_pricing
     get "monitoring", to: "monitoring#index", as: :monitoring
     get "monitoring/queues/:queue", to: "monitoring#queue", as: :monitoring_queue
     get "activity", to: "activity#index", as: :activity
