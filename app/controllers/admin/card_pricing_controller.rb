@@ -7,7 +7,7 @@ module Admin
     before_action :require_manage_cards!
 
     def show
-      @pricing = client.card_pricing.fetch("card_pricing")
+      @pricing = client.card_pricing.fetch("card_pricing").symbolize_keys
     rescue ::Admin::RemoteClient::Unavailable, ::Admin::RemoteClient::Forbidden => error
       @error = error.message
       @pricing = {}
@@ -20,14 +20,19 @@ module Admin
         unit_markup_minor: naira_to_minor(params[:unit_markup]),
         issuance_fee_minor: naira_to_minor(params[:issuance_fee]),
         clover_issuance_cost_minor: naira_to_minor(params[:clover_issuance_cost])
-      ).fetch("card_pricing")
+      ).fetch("card_pricing").symbolize_keys
       redirect_to admin_card_pricing_path,
                   notice: "Card pricing updated. New decisions and issuances use it."
     rescue ::Admin::RemoteClient::Unavailable, ::Admin::RemoteClient::Forbidden,
            ::Admin::RemoteClient::Rejected => error
       @error = error.message
-      @pricing = params.slice(:markup_percent, :fixed_fee, :unit_markup,
-                              :issuance_fee, :clover_issuance_cost).to_h
+      @pricing = params.permit(:markup_percent, :fixed_fee, :unit_markup,
+                               :issuance_fee, :clover_issuance_cost).to_h.symbolize_keys
+      @pricing[:markup_bps] = percentage_to_bps(params[:markup_percent])
+      @pricing[:fixed_fee_minor] = naira_to_minor(params[:fixed_fee])
+      @pricing[:unit_markup_minor] = naira_to_minor(params[:unit_markup])
+      @pricing[:issuance_fee_minor] = naira_to_minor(params[:issuance_fee])
+      @pricing[:clover_issuance_cost_minor] = naira_to_minor(params[:clover_issuance_cost])
       render :show, status: :unprocessable_entity
     end
 
