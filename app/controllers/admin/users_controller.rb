@@ -92,7 +92,16 @@ module Admin
     end
 
     def update
-      if @user.update(user_params)
+      updated = begin
+        @user.update(user_params)
+      rescue ActiveRecord::ActiveRecordError, ArgumentError => e
+        Rails.logger.error("[ADMIN_USER_UPDATE] user_id=#{@user.id} #{e.class}: #{e.message}")
+        detail = e.is_a?(ArgumentError) ? e.message : "The change could not be saved; check the server log for details."
+        flash.now[:alert] = "Failed to update user: #{detail}"
+        return render :edit, status: :unprocessable_entity
+      end
+
+      if updated
         log_admin_action("update_user", @user.matrix_user_id, params.to_unsafe_h)
         redirect_to admin_user_path(@user), notice: "User updated successfully."
       else

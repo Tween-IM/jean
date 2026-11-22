@@ -62,6 +62,9 @@ module TmcpServer
     config.session_store :cookie_store, key: "_tmcp_session"
 
     # Enable cookie/session/flash middleware for admin dashboard in api-only app
+    # API-only apps skip Rack::MethodOverride, but the admin HTML forms still
+    # submit PATCH/DELETE through a hidden `_method` field.
+    config.middleware.insert_before ActionDispatch::RequestId, Rack::MethodOverride
     config.middleware.use ActionDispatch::Cookies
     config.middleware.use ActionDispatch::Session::CookieStore, key: "_tmcp_session"
     config.middleware.use ActionDispatch::Flash
