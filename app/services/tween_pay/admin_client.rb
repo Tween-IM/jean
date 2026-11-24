@@ -54,6 +54,14 @@ module TweenPay
       request(:put, "/internal/admin/v1/card_pricing", body: attributes)
     end
 
+    def fee_configurations
+      get("/internal/admin/v1/fee_configurations")
+    end
+
+    def update_fee_configuration(id, attributes)
+      request(:put, "/internal/admin/v1/fee_configurations/#{segment(id)}", body: attributes)
+    end
+
     def evidence(id, resource: "identity_documents", **query)
       get("/internal/admin/v1/resources/#{segment(resource)}/#{segment(id)}/evidence", query)
     end

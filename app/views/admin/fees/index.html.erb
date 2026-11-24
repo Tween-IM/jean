@@ -1,0 +1,63 @@
+<div class="admin-eyebrow">Money</div>
+<div class="admin-page-heading">
+  <div>
+    <h1>Fees & charges</h1>
+    <p>TweenPay's live fee schedule. Changes apply to the next transaction.</p>
+  </div>
+</div>
+
+<% if @error.present? %>
+  <p class="admin-empty" role="alert"><%= @error %></p>
+<% end %>
+
+<div style="display:grid; gap:16px; max-width: 900px">
+  <% @fees.each do |fee| %>
+    <section class="admin-card" style="padding:16px">
+      <div style="display:flex; justify-content:space-between; align-items:start; gap:12px">
+        <div>
+          <h2 style="font-size:15px; font-weight:600"><%= fee["name"] %></h2>
+          <p class="admin-hint"><%= fee["description"] %></p>
+          <p class="admin-hint"><%= fee["transaction_type"] %> · <%= fee["currency"] %></p>
+        </div>
+        <span class="admin-badge"><%= fee["is_active"] ? "active" : "off" %></span>
+      </div>
+
+      <%= form_with url: admin_fee_path(fee["id"]), method: :patch, local: true do |form| %>
+        <div style="display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:12px; margin-top:12px">
+          <label class="admin-field">
+            Mode
+            <%= form.select :fee_mode, [["percentage", "percentage"], ["flat", "flat"]],
+                            { selected: fee["fee_mode"] } %>
+          </label>
+          <label class="admin-field">
+            Value
+            <%= form.text_field :fee_value, value: fee["fee_value"] %>
+          </label>
+          <label class="admin-field">
+            Max fee
+            <%= form.text_field :max_fee, value: fee["max_fee"] %>
+          </label>
+          <label class="admin-field">
+            Min fee
+            <%= form.text_field :min_fee, value: fee["min_fee"] %>
+          </label>
+          <label class="admin-field">
+            Applies from amount
+            <%= form.text_field :min_amount, value: fee["min_amount"] %>
+          </label>
+          <label class="admin-field">
+            Applies up to (0 = none)
+            <%= form.text_field :max_amount, value: fee["max_amount"] %>
+          </label>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:12px">
+          <label style="display:flex; align-items:center; gap:6px">
+            <%= form.check_box :is_active, { checked: fee["is_active"] }, "1", "0" %>
+            Active
+          </label>
+          <%= form.submit "Save", class: "admin-button" %>
+        </div>
+      <% end %>
+    </section>
+  <% end %>
+</div>

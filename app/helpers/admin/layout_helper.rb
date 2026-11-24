@@ -23,6 +23,7 @@ module Admin::LayoutHelper
       "Community" => [], "Mini-apps" => [], "Settings" => [] }
     items = [
       [:manage_cards, "Money", "Card pricing", admin_card_pricing_path, "credit-card"],
+      [:manage_cards, "Money", "Fees & charges", admin_fees_path, "receipt"],
       [:view_risk, "Trust & safety", "Monitoring", admin_monitoring_path, "chart"],
       [:view_users, "People", "Everyone", admin_users_path, "people"],
       [:view_businesses, "People", "Businesses", admin_resource_path("businesses"), "building"],

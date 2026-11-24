@@ -339,6 +339,9 @@ Rails.application.routes.draw do
   namespace :admin do
     resource :card_pricing, only: [ :show, :update ], controller: :card_pricing
     post "card_pricing", to: "card_pricing#update"
+    get "fees", to: "fees#index", as: :fees
+    patch "fees/:id", to: "fees#update", as: :fee
+    put "fees/:id", to: "fees#update"
     get "monitoring", to: "monitoring#index", as: :monitoring
     get "monitoring/queues/:queue", to: "monitoring#queue", as: :monitoring_queue
     get "activity", to: "activity#index", as: :activity
