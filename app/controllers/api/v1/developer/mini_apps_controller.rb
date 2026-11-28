@@ -11,9 +11,9 @@ module Api
 
         before_action :authenticate_tep_token
         before_action :ensure_first_party
-        before_action :set_mini_app, only: [ :update ]
+        before_action :set_mini_app, only: [ :update, :destroy ]
         before_action :ensure_editable, only: [ :update ]
-        rate_limit to: 6, within: 1.hour, only: [ :create, :update ],
+        rate_limit to: 6, within: 1.hour, only: [ :create, :update, :destroy ],
           by: -> { @current_user&.id || request.remote_ip },
           with: -> { render json: { error: "rate_limited", message: "Try again later." }, status: :too_many_requests }
 
@@ -47,6 +47,13 @@ module Api
           render json: { app: serialize(@mini_app) }
         rescue Admin::MiniAppSubmission::Invalid, ActiveRecord::RecordInvalid, ArgumentError => error
           render json: { error: "invalid_submission", message: error.message }, status: :unprocessable_entity
+        end
+
+        def destroy
+          @mini_app.update!(status: :removed) unless @mini_app.removed?
+          render json: { app: serialize(@mini_app) }
+        rescue ActiveRecord::RecordInvalid => error
+          render json: { error: "remove_failed", message: error.message }, status: :unprocessable_entity
         end
 
         private

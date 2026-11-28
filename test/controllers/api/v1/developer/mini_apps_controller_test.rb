@@ -182,6 +182,36 @@ class Api::V1::Developer::MiniAppsControllerTest < ActionDispatch::IntegrationTe
     assert_response :unprocessable_entity
   end
 
+  test "removes a live app from the store" do
+    app = create_submission
+    app.update!(status: :active)
+
+    delete "/api/v1/developer/mini_apps/#{app.app_id}", headers: @headers
+
+    assert_response :success
+    assert_equal "removed", JSON.parse(response.body).dig("app", "status")
+    assert_equal "removed", app.reload.status
+
+    get "/api/v1/store/apps"
+    ids = JSON.parse(response.body).fetch("apps").map { |item| item["mini_app_id"] }
+    refute_includes ids, app.app_id
+  end
+
+  test "does not let another developer remove an app" do
+    app = create_submission
+    app.update!(status: :active)
+    other_token = TepTokenService.encode(
+      { user_id: @other.matrix_user_id, miniapp_id: "ma_tweensocial" },
+      scopes: [ "user:read" ]
+    )
+
+    delete "/api/v1/developer/mini_apps/#{app.app_id}",
+      headers: { "Authorization" => "Bearer #{other_token}" }
+
+    assert_response :not_found
+    assert_equal "active", app.reload.status
+  end
+
   test "requires a TEP token" do
     get "/api/v1/developer/mini_apps"
     assert_response :unauthorized

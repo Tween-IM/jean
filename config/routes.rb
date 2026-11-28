@@ -246,7 +246,7 @@ Rails.application.routes.draw do
 
         # Tween publishing studio. User submissions are reviewed before activation.
         namespace :developer do
-          resources :mini_apps, only: [ :index, :create, :update ], param: :miniapp_id
+          resources :mini_apps, only: [ :index, :create, :update, :destroy ], param: :miniapp_id
         end
 
         # Mini-App Registration endpoints (TMCP Protocol Section 9.1)
