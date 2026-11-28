@@ -244,6 +244,11 @@ Rails.application.routes.draw do
         delete "auth/revoke", to: "auth_revocation#user_revoke"
         post "auth/revoke/webhook", to: "auth_revocation#webhook"
 
+        # Tween publishing studio. User submissions are reviewed before activation.
+        namespace :developer do
+          resources :mini_apps, only: [ :index, :create, :update ], param: :miniapp_id
+        end
+
         # Mini-App Registration endpoints (TMCP Protocol Section 9.1)
         post "mini-apps/register", to: "mini_app_registration#create"
         get "mini-apps/:miniapp_id", to: "mini_app_registration#show"

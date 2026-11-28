@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_15_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_28_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -780,6 +780,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_140000) do
     t.datetime "created_at", null: false
     t.text "description"
     t.string "developer_name"
+    t.string "developer_user_id"
     t.integer "install_count", default: 0
     t.json "manifest"
     t.string "name"
@@ -794,6 +795,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_15_140000) do
     t.string "version"
     t.index ["app_id"], name: "index_mini_apps_on_app_id"
     t.index ["client_type"], name: "index_mini_apps_on_client_type"
+    t.index ["developer_user_id"], name: "index_mini_apps_on_developer_user_id"
   end
 
   create_table "miniapp_installations", force: :cascade do |t|

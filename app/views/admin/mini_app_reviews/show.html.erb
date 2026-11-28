@@ -1,5 +1,5 @@
 <div class="admin-eyebrow"><%= link_to 'Mini-app review queue', admin_mini_app_reviews_path %> / Review</div>
-<div class="admin-page-heading"><div><h1><%= @mini_app.name %></h1><p><%= @mini_app.app_id %> · <%= @mini_app.version %></p></div><%= admin_badge(@mini_app.status) %></div>
+<div class="admin-page-heading"><div><h1><%= @mini_app.name %></h1><p><%= @mini_app.app_id %> · <%= @mini_app.version %><% if @mini_app.developer_user_id.present? %> · Submitted by <%= @mini_app.developer_user_id %><% end %></p></div><%= admin_badge(@mini_app.status) %></div>
 <%= render 'admin/mini_apps/configuration' %>
 <% if current_admin_user.has_admin_permission?(:manage_mini_apps) && %w[pending_review under_review appeal_submitted].include?(@mini_app.status) %>
 <% { 'Approve configuration' => admin_approve_mini_app_review_path(@mini_app), 'Request changes' => admin_request_changes_mini_app_review_path(@mini_app), 'Reject submission' => admin_reject_mini_app_review_path(@mini_app) }.each do |label, destination| %>
