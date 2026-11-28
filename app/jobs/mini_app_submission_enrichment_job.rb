@@ -42,5 +42,15 @@ class MiniAppSubmissionEnrichmentJob < ApplicationJob
     Rails.logger.info(
       "Mini-app enrichment skipped for #{app&.app_id}: #{error.class}"
     )
+    if app
+      manifest = app.manifest.deep_dup
+      if manifest["enrichment"].is_a?(Hash)
+        manifest["enrichment"] = manifest["enrichment"].merge(
+          "pending" => false,
+          "failed" => true
+        )
+        app.update!(manifest: manifest)
+      end
+    end
   end
 end

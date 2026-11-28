@@ -105,7 +105,7 @@ module Api
               "fill_screenshots" => (params.key?(:screenshots) ? screenshots.blank? : true) &&
                 preview_screenshots.empty?
             }
-            enrichment["pending"] = enrichment.values.any? { |value| value == true }
+            enrichment["pending"] = enrichment["fill_name"] || enrichment["fill_icon"]
           end
 
           raise ArgumentError, "App name is required." if name.blank?

@@ -53,4 +53,39 @@ class MiniAppSubmissionEnrichmentJobTest < ActiveJob::TestCase
     assert_equal "https://example.com/cover.png", app.manifest["header_image"]
     refute app.manifest.dig("enrichment", "pending")
   end
+
+  test "stops waiting when the site cannot be read" do
+    app = MiniApp.create!(
+      app_id: "ma_unreadable",
+      name: "Example",
+      description: "",
+      version: "1.0.0",
+      classification: :community,
+      status: :pending_review,
+      manifest: {
+        scopes: [ "public" ],
+        permissions: [],
+        category: "utilities",
+        entry_url: "https://example.com",
+        enrichment: {
+          "pending" => true,
+          "fill_name" => true,
+          "fill_icon" => true
+        }
+      }
+    )
+
+    preview = Object.new
+    def preview.call(_url)
+      raise PublicWebsiteFetch::Unavailable
+    end
+
+    MiniAppWebsitePreview.stub(:new, -> { preview }) do
+      MiniAppSubmissionEnrichmentJob.perform_now(app.id)
+    end
+
+    app.reload
+    refute app.manifest.dig("enrichment", "pending")
+    assert app.manifest.dig("enrichment", "failed")
+  end
 end

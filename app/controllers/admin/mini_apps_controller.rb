@@ -10,10 +10,18 @@ module Admin
     }
 
     def website_preview
-      render json: MiniAppWebsitePreview.new.call(params[:url])
+      url = PublicWebsiteFetch.url(params[:url])
+      unless url
+        render json: { error: "Use a public HTTPS URL without credentials." },
+          status: :unprocessable_entity
+        return
+      end
+
+      render json: MiniAppWebsitePreview.new.call(url)
     rescue PublicWebsiteFetch::Unavailable
-      render json: { error: "Couldn’t read this website. Use a public HTTPS URL or fill the listing manually." },
-        status: :unprocessable_entity
+      render json: {
+        error: "This site blocks Tween’s server from reading it. Submit it from the Tween app so it can be read on your device, or fill the listing manually."
+      }, status: :unprocessable_entity
     end
 
     def index
