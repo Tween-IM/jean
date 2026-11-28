@@ -28,7 +28,7 @@ class MiniAppWebsitePreviewTest < ActiveSupport::TestCase
       <meta property="og:image" content="cover.jpg">
     HTML
     manifest = response("https://assets.example.com/v2/app.webmanifest", <<~JSON, content_type: "application/manifest+json")
-      {"name":"Product","description":"A useful app","icons":[
+      {"name":"Product","description":"A useful app","categories":["games"],"icons":[
         {"src":"tiny.png","sizes":"32x32"},{"src":"mask.png","sizes":"512x512","purpose":"maskable"},
         {"src":"icon.png","sizes":"192x192"}],
       "screenshots":[{"src":"shot.webp"},{"src":"shot.webp"},{"src":"https://private.test/x.png"}]}
@@ -41,6 +41,7 @@ class MiniAppWebsitePreviewTest < ActiveSupport::TestCase
 
     assert_equal "Product", result[:name]
     assert_equal "A useful app", result[:description]
+    assert_equal "entertainment", result[:category]
     assert_equal "https://assets.example.com/v2/icon.png", result[:icon_url]
     assert_equal ["https://assets.example.com/v2/shot.webp"], result[:screenshots]
     assert_equal "https://app.example.com/product/cover.jpg", result[:header_image]

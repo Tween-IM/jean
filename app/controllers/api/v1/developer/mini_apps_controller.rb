@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "ipaddr"
+require "timeout"
 
 module Api
   module V1
@@ -25,16 +26,24 @@ module Api
         end
 
         def create
-          app = MiniApp.new(app_id: build_app_id(params[:name]))
+          entry_url = params[:entry_url].to_s.strip
+          raise ArgumentError, "Add your website URL." if entry_url.blank?
+          raise ArgumentError, "Use a public HTTPS website URL." unless valid_submission_url?(entry_url)
+
+          preview = needs_preview? ? preview_for(entry_url) : nil
+          proposed_name = params[:name].to_s.strip.presence ||
+            preview&.dig(:name).to_s.strip.presence ||
+            derived_name(entry_url)
+          app = MiniApp.new(app_id: build_app_id(proposed_name))
           app.developer_user_id = @current_user.matrix_user_id
-          submit(app, resubmit: false)
+          submit(app, resubmit: false, preview: preview)
           render json: { app: serialize(app) }, status: :created
         rescue Admin::MiniAppSubmission::Invalid, ActiveRecord::RecordInvalid, ArgumentError => error
           render json: { error: "invalid_submission", message: error.message }, status: :unprocessable_entity
         end
 
         def update
-          submit(@mini_app, resubmit: true)
+          submit(@mini_app, resubmit: true, preview: nil)
           render json: { app: serialize(@mini_app) }
         rescue Admin::MiniAppSubmission::Invalid, ActiveRecord::RecordInvalid, ArgumentError => error
           render json: { error: "invalid_submission", message: error.message }, status: :unprocessable_entity
@@ -42,40 +51,92 @@ module Api
 
         private
 
-        def submit(app, resubmit:)
-          entry_url = value_for(:entry_url, app)
-          raise ArgumentError, "A public HTTPS launch URL is required." unless valid_submission_url?(entry_url)
+        def submit(app, resubmit:, preview:)
+          entry_url = params[:entry_url].to_s.strip.presence ||
+            app.manifest&.dig("entry_url").to_s.presence
+          raise ArgumentError, "Add your website URL." if entry_url.blank?
+          raise ArgumentError, "Use a public HTTPS website URL." unless valid_submission_url?(entry_url)
 
-          category = value_for(:category, app)
+          provided_name = params[:name].to_s.strip
+          provided_description = params[:description].to_s.strip
+          provided_category = params[:category].to_s.strip.downcase
+          provided_icon = params[:icon_url].to_s.strip
+          raise ArgumentError, "Choose a valid category." if provided_category.present? && !CATEGORIES.include?(provided_category)
+          raise ArgumentError, "App name is too long." if provided_name.length > 80
+          raise ArgumentError, "Description is too long." if provided_description.length > 2000
+          raise ArgumentError, "Use an HTTPS icon URL." if provided_icon.present? && PublicWebsiteFetch.url(provided_icon).nil?
+
+          preview_name = preview&.dig(:name).to_s.strip
+          preview_description = preview&.dig(:description).to_s.strip
+          preview_icon = preview&.dig(:icon_url)
+          preview_category = preview&.dig(:category)
+          preview_screenshots = Array(preview&.dig(:screenshots))
+
+          if resubmit
+            name = provided_name.presence || app.name
+            description = provided_description.presence || app.description.to_s
+            category = provided_category.presence || app.manifest&.dig("category").presence || "utilities"
+            icon_url = provided_icon.presence || app.manifest&.dig("icon_url")
+            screenshots = if params.key?(:screenshots)
+              clean_screenshots(params[:screenshots])
+            else
+              Array(app.manifest&.dig("screenshots"))
+            end
+            header_image = app.manifest&.dig("header_image")
+            enrichment = app.manifest&.dig("enrichment") || {}
+          else
+            name = provided_name.presence || preview_name.presence || derived_name(entry_url)
+            name = name.first(80) if provided_name.blank? && name.length > 80
+            description = provided_description.presence || preview_description
+            description = description.first(2000) if description.present? && provided_description.blank?
+            category = provided_category.presence || preview_category.presence || "utilities"
+            icon_url = provided_icon.presence || preview_icon
+            screenshots = if params.key?(:screenshots) && Array(params[:screenshots]).any?
+              clean_screenshots(params[:screenshots])
+            else
+              preview_screenshots
+            end
+            header_image = preview&.dig(:header_image)
+            enrichment = {
+              "fill_name" => provided_name.blank? && preview_name.blank?,
+              "fill_description" => provided_description.blank? && preview_description.blank?,
+              "fill_category" => provided_category.blank? && !CATEGORIES.include?(preview_category),
+              "fill_icon" => provided_icon.blank? && preview_icon.blank?,
+              "fill_screenshots" => (params.key?(:screenshots) ? screenshots.blank? : true) &&
+                preview_screenshots.empty?
+            }
+            enrichment["pending"] = enrichment.values.any? { |value| value == true }
+          end
+
+          raise ArgumentError, "App name is required." if name.blank?
           raise ArgumentError, "Choose a valid category." unless CATEGORIES.include?(category)
 
-          permissions = permitted_permissions(app)
-          developer_name = value_for(:developer_name, app).presence ||
-            @current_user.matrix_username.to_s.split(":").first.presence || "Tween developer"
-          name = value_for(:name, app).to_s.strip
-          description = value_for(:description, app).to_s.strip
-          raise ArgumentError, "App name is required." if name.blank?
-          raise ArgumentError, "Description is required." if description.blank?
-          raise ArgumentError, "App name is too long." if name.length > 80
-          raise ArgumentError, "Description is too long." if description.length > 2000
-
-          icon_url = value_for(:icon_url, app).to_s.strip
-          screenshots = screenshot_urls(app)
-          icon_url = nil if icon_url.blank?
-          raise ArgumentError, "Use an HTTPS icon URL." unless icon_url.nil? || PublicWebsiteFetch.url(icon_url)
+          developer_name = params[:developer_name].to_s.strip.presence ||
+            app.developer_name.presence ||
+            @current_user.matrix_username.to_s.split(":").first.presence ||
+            "Tween developer"
+          permissions = if params.key?(:permissions)
+            Array(params[:permissions]).map(&:to_s).uniq & ALLOWED_PERMISSIONS
+          else
+            Array(app.manifest&.dig("permissions"))
+          end
 
           manifest = (app.manifest || {}).deep_dup
           manifest.merge!(
             "category" => category,
             "developer" => { "name" => developer_name },
             "permissions" => permissions,
-            "redirect_uris" => [ entry_url ]
+            "redirect_uris" => [ entry_url ],
+            "enrichment" => enrichment
           )
+          if header_image.present? && manifest["header_image"].blank?
+            manifest["header_image"] = header_image
+          end
           app.manifest = manifest
 
           attributes = {
             "name" => name,
-            "description" => description,
+            "description" => description.to_s,
             "version" => app.persisted? ? app.version : (params[:version].presence || "1.0.0"),
             "developer_name" => developer_name,
             "classification" => app.persisted? ? app.classification : "community",
@@ -85,15 +146,11 @@ module Api
 
           submission_manifest = {
             "entry_url" => entry_url,
-            "icon_url" => icon_url,
+            "icon_url" => icon_url.to_s,
             "screenshots" => screenshots.join("\n"),
             "runtime" => "website",
             "permissions" => [ "public", *permissions ].uniq
           }
-
-          if icon_url.blank?
-            submission_manifest["entry_url"] = entry_url
-          end
 
           Admin::MiniAppSubmission.call(app: app, attributes: attributes, manifest: submission_manifest)
           app.update!(
@@ -104,42 +161,41 @@ module Api
             revision_request: nil,
             revision_requested_at: nil
           )
-          MiniAppSubmissionEnrichmentJob.perform_later(app.id) if icon_url.blank? || screenshots.empty?
+          MiniAppSubmissionEnrichmentJob.perform_later(app.id) if enrichment["pending"]
         end
 
-        def value_for(key, app)
-          value = params[key]
-          return value if value.present?
-
-          case key
-          when :entry_url, :category, :icon_url
-            app.manifest&.dig(key.to_s)
-          when :developer_name
-            app.developer_name
-          when :name
-            app.name
-          when :description
-            app.description
-          end
+        def needs_preview?
+          params[:name].blank? ||
+            params[:description].blank? ||
+            params[:icon_url].blank? ||
+            params[:category].blank? ||
+            !params.key?(:screenshots) ||
+            Array(params[:screenshots]).empty?
         end
 
-        def permitted_permissions(app)
-          requested = params[:permissions]
-          if requested.nil?
-            existing = Array(app.manifest&.dig("permissions"))
-            requested = existing
-          end
-          Array(requested).map(&:to_s).uniq & ALLOWED_PERMISSIONS
+        def preview_for(entry_url)
+          Timeout.timeout(10) { MiniAppWebsitePreview.new.call(entry_url) }
+        rescue StandardError => error
+          Rails.logger.info(
+            "Submission enrichment skipped for #{entry_url}: #{error.class}"
+          )
+          nil
         end
 
-        def screenshot_urls(app)
-          requested = params[:screenshots]
-          urls = requested.nil? ? Array(app.manifest&.dig("screenshots")) : Array(requested)
-          urls = urls.map { |url| url.to_s.strip }.reject(&:empty?).uniq
+        def clean_screenshots(value)
+          urls = Array(value).map { |url| url.to_s.strip }.reject(&:empty?).uniq
           raise ArgumentError, "Use up to six HTTPS screenshot URLs." if urls.length > 6
           raise ArgumentError, "Use HTTPS screenshot URLs." unless urls.all? { |url| PublicWebsiteFetch.url(url) }
 
           urls
+        end
+
+        def derived_name(entry_url)
+          host = URI.parse(entry_url).hostname.to_s.sub(/\Awww\./, "")
+          host.split(".").first.to_s.split(/[-_]/).map(&:capitalize).join(" ").presence ||
+            "Mini app"
+        rescue URI::Error
+          "Mini app"
         end
 
         def valid_submission_url?(value)
@@ -211,6 +267,7 @@ module Api
             entry_url: manifest["entry_url"].to_s,
             permissions: Array(manifest["permissions"]),
             screenshots: Array(manifest["screenshots"]),
+            enrichment_pending: manifest.dig("enrichment", "pending") == true,
             version: app.version,
             submitted_at: app.submitted_at&.iso8601,
             reviewed_at: app.reviewed_at&.iso8601,

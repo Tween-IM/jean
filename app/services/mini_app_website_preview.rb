@@ -10,6 +10,17 @@ class MiniAppWebsitePreview
   RASTER_ICON_TYPES = %w[image/png image/jpeg image/webp image/gif image/x-icon image/vnd.microsoft.icon].freeze
   ROOT_ICON_PATHS = %w[/icon-512.png /icon-192.png /apple-touch-icon.png /favicon.ico].freeze
   APP_TYPES = %w[SoftwareApplication WebApplication MobileApplication].freeze
+  CATEGORY_ALIASES = {
+    "shopping" => "shopping", "ecommerce" => "shopping", "lifestyle" => "shopping",
+    "finance" => "finance", "business" => "finance",
+    "social" => "social", "socialnetworking" => "social", "communication" => "social", "networking" => "social",
+    "productivity" => "productivity", "education" => "productivity", "educational" => "productivity",
+    "businessapplication" => "productivity", "reference" => "productivity", "tools" => "productivity",
+    "entertainment" => "entertainment", "games" => "entertainment", "game" => "entertainment",
+    "music" => "entertainment", "video" => "entertainment", "news" => "entertainment", "photography" => "entertainment",
+    "utilities" => "utilities", "weather" => "utilities", "travel" => "utilities", "health" => "utilities",
+    "medical" => "utilities", "navigation" => "utilities"
+  }.freeze
 
   def initialize(fetcher: PublicWebsiteFetch.new)
     @fetcher = fetcher
@@ -40,6 +51,7 @@ class MiniAppWebsitePreview
       description: clean(2000, manifest["description"], app["description"], meta["og:description"],
         meta["twitter:description"], meta["description"], html.at_css("main p, article p")&.text),
       icon_url: icon,
+      category: inferred_category(manifest, app),
       header_image: cover,
       screenshots: screenshots.uniq.first(MAX_SCREENSHOTS),
       final_url: page.url.to_s,
@@ -48,6 +60,17 @@ class MiniAppWebsitePreview
   end
 
   private
+
+  def inferred_category(manifest, app)
+    candidates = Array(manifest["categories"]) + [app["applicationCategory"]]
+    candidates.each do |candidate|
+      key = candidate.to_s.downcase.gsub(/[^a-z]/, "")
+      key = key.delete_suffix("application")
+      mapped = CATEGORY_ALIASES[key]
+      return mapped if mapped
+    end
+    nil
+  end
 
   def metadata(html)
     html.css("meta[content]").each_with_object({}) do |node, values|

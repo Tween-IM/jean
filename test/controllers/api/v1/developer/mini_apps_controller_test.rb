@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "minitest/mock"
 
 class Api::V1::Developer::MiniAppsControllerTest < ActionDispatch::IntegrationTest
   setup do
@@ -48,6 +49,60 @@ class Api::V1::Developer::MiniAppsControllerTest < ActionDispatch::IntegrationTe
     assert_equal [ "public", "user:read", "storage:read" ], app.manifest["scopes"]
     assert_equal [ "https://example.com/rent" ], app.manifest["redirect_uris"]
     assert app.submitted_at.present?
+  end
+
+  test "creates a submission from just a URL using website metadata" do
+    preview = Object.new
+    def preview.call(_url)
+      {
+        name: "Lagos Rent Calculator",
+        description: "Work out agency, legal and caution fees.",
+        icon_url: "https://example.com/icon.png",
+        screenshots: [ "https://example.com/shot.png" ],
+        header_image: "https://example.com/cover.png",
+        category: "utilities"
+      }
+    end
+
+    MiniAppWebsitePreview.stub(:new, -> { preview }) do
+      post "/api/v1/developer/mini_apps", params: {
+        entry_url: "https://example.com/rent"
+      }, headers: @headers, as: :json
+    end
+
+    assert_response :created
+    body = JSON.parse(response.body).fetch("app")
+    assert_equal "Lagos Rent Calculator", body["name"]
+    assert_equal "utilities", body["category"]
+    assert_equal "https://example.com/icon.png", body["icon_url"]
+    assert_equal [ "https://example.com/shot.png" ], body["screenshots"]
+
+    app = MiniApp.find_by!(app_id: body["miniapp_id"])
+    assert_equal "Work out agency, legal and caution fees.", app.description
+    assert_equal [], app.manifest["permissions"]
+    assert_equal [ "public" ], app.manifest["scopes"]
+    refute app.manifest.dig("enrichment", "pending")
+  end
+
+  test "creates a provisional app and queues enrichment when the site is unreadable" do
+    preview = Object.new
+    def preview.call(_url)
+      raise PublicWebsiteFetch::Unavailable
+    end
+
+    assert_enqueued_with(job: MiniAppSubmissionEnrichmentJob) do
+      MiniAppWebsitePreview.stub(:new, -> { preview }) do
+        post "/api/v1/developer/mini_apps", params: {
+          entry_url: "https://example.com/rent"
+        }, headers: @headers, as: :json
+      end
+    end
+
+    assert_response :created
+    app = MiniApp.find_by!(app_id: JSON.parse(response.body).dig("app", "miniapp_id"))
+    assert_equal "Example", app.name
+    assert_equal "utilities", app.manifest["category"]
+    assert app.manifest.dig("enrichment", "pending")
   end
 
   test "lists only the current developer's apps" do
