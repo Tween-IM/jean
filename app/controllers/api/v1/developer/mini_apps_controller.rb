@@ -68,14 +68,17 @@ module Api
           provided_description = params[:description].to_s.strip
           provided_category = params[:category].to_s.strip.downcase
           provided_icon = params[:icon_url].to_s.strip
+          provided_cover = params[:header_image].to_s.strip
           raise ArgumentError, "Choose a valid category." if provided_category.present? && !CATEGORIES.include?(provided_category)
           raise ArgumentError, "App name is too long." if provided_name.length > 80
           raise ArgumentError, "Description is too long." if provided_description.length > 2000
           raise ArgumentError, "Use an HTTPS icon URL." if provided_icon.present? && PublicWebsiteFetch.url(provided_icon).nil?
+          raise ArgumentError, "Use an HTTPS cover image URL." if provided_cover.present? && PublicWebsiteFetch.url(provided_cover).nil?
 
           preview_name = preview&.dig(:name).to_s.strip
           preview_description = preview&.dig(:description).to_s.strip
           preview_icon = preview&.dig(:icon_url)
+          preview_cover = preview&.dig(:header_image)
           preview_category = preview&.dig(:category)
           preview_screenshots = Array(preview&.dig(:screenshots))
 
@@ -84,6 +87,7 @@ module Api
             description = provided_description.presence || app.description.to_s
             category = provided_category.presence || app.manifest&.dig("category").presence || "utilities"
             icon_url = provided_icon.presence || app.manifest&.dig("icon_url")
+            cover_url = provided_cover.presence || app.manifest&.dig("header_image")
             screenshots = if params.key?(:screenshots)
               clean_screenshots(params[:screenshots])
             else
@@ -98,6 +102,7 @@ module Api
             description = description.first(2000) if description.present? && provided_description.blank?
             category = provided_category.presence || preview_category.presence || "utilities"
             icon_url = provided_icon.presence || preview_icon
+            cover_url = provided_cover.presence || preview_cover
             screenshots = if params.key?(:screenshots) && Array(params[:screenshots]).any?
               clean_screenshots(params[:screenshots])
             else
@@ -136,7 +141,9 @@ module Api
             "redirect_uris" => [ entry_url ],
             "enrichment" => enrichment
           )
-          if header_image.present? && manifest["header_image"].blank?
+          if cover_url.present?
+            manifest["header_image"] = cover_url
+          elsif header_image.present? && manifest["header_image"].blank?
             manifest["header_image"] = header_image
           end
           app.manifest = manifest
@@ -271,6 +278,7 @@ module Api
             status: app.status,
             classification: app.classification,
             icon_url: manifest["icon_url"].presence,
+            cover_url: Array(manifest["header_image"]).first.presence,
             entry_url: manifest["entry_url"].to_s,
             permissions: Array(manifest["permissions"]),
             screenshots: Array(manifest["screenshots"]),

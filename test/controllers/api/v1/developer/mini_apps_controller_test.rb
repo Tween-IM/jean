@@ -75,10 +75,12 @@ class Api::V1::Developer::MiniAppsControllerTest < ActionDispatch::IntegrationTe
     assert_equal "Lagos Rent Calculator", body["name"]
     assert_equal "utilities", body["category"]
     assert_equal "https://example.com/icon.png", body["icon_url"]
+    assert_equal "https://example.com/cover.png", body["cover_url"]
     assert_equal [ "https://example.com/shot.png" ], body["screenshots"]
 
     app = MiniApp.find_by!(app_id: body["miniapp_id"])
     assert_equal "Work out agency, legal and caution fees.", app.description
+    assert_equal "https://example.com/cover.png", app.manifest["header_image"]
     assert_equal [], app.manifest["permissions"]
     assert_equal [ "public" ], app.manifest["scopes"]
     refute app.manifest.dig("enrichment", "pending")
