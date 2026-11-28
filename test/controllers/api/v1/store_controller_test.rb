@@ -64,6 +64,26 @@ class Api::V1::StoreControllerTest < ActionDispatch::IntegrationTest
     assert app["review_count"].is_a?(Integer)
   end
 
+  test "GET /api/v1/store/apps does not invent ratings or artwork" do
+    unique_suffix = SecureRandom.alphanumeric(6).downcase
+    mini_app = MiniApp.create!(
+      app_id: "ma_#{unique_suffix}",
+      name: "Bare App",
+      version: "1.0.0",
+      classification: :community,
+      status: :active,
+      manifest: { scopes: [ "user:read" ], category: "utilities" }
+    )
+
+    get api_v1_store_apps_path
+
+    assert_response :success
+    app = JSON.parse(response.body)["apps"].find { |item| item["mini_app_id"] == mini_app.app_id }
+    assert_nil app["rating"]
+    assert_equal 0, app["review_count"]
+    assert_nil app["icon_url"]
+  end
+
   teardown do
   end
 end

@@ -61,8 +61,8 @@ class Api::V1::StoreController < Api::BaseController
     app_data = apps.map do |app|
       manifest = app.manifest || {}
       dev = manifest["developer"] || {}
-      rating = manifest["rating"] || 4.5
-      rating_count = manifest["rating_count"] || 100
+      rating = manifest["rating"]
+      rating_count = manifest["rating_count"]
       {
         mini_app_id: app.app_id,
         name: app.name,
@@ -70,10 +70,11 @@ class Api::V1::StoreController < Api::BaseController
         classification: app.classification,
         category: manifest["category"] || "utilities",
         rating: rating.is_a?(Hash) ? rating["average"] : rating,
-        review_count: rating.is_a?(Hash) ? rating["count"] : rating_count,
+        review_count: rating.is_a?(Hash) ? rating["count"] : (rating_count || 0),
         install_count: app.install_count || 0,
-        icon_url: manifest["icon_url"] || "https://cdn.tween.example/icons/default.png",
+        icon_url: manifest["icon_url"],
         version: app.version,
+        updated_at: app.updated_at || app.created_at,
         entry_url: manifest["entry_url"] || "https://tween.im/apps/#{app.app_id}",
         runtime: listing_runtime(app, manifest),
         preinstalled: app.classification == "official" && manifest["preinstalled"],
@@ -114,8 +115,8 @@ class Api::V1::StoreController < Api::BaseController
     # Format app data (same structure as apps list)
     manifest = app.manifest || {}
     dev = manifest["developer"] || {}
-    rating = manifest["rating"] || 4.5
-    rating_count = manifest["rating_count"] || 100
+    rating = manifest["rating"]
+    rating_count = manifest["rating_count"]
     app_data = {
       mini_app_id: app.app_id,
       name: app.name,
@@ -124,7 +125,7 @@ class Api::V1::StoreController < Api::BaseController
       long_description: manifest["long_description"] || app.description || "",
       classification: app.classification,
       category: manifest["category"] || "utilities",
-      icon_url: manifest["icon_url"] || "https://cdn.tween.example/icons/default.png",
+      icon_url: manifest["icon_url"],
       marketing: {
         screenshots: manifest["screenshots"] || [],
         header_image: Array(manifest["header_image"].presence),
@@ -135,7 +136,7 @@ class Api::V1::StoreController < Api::BaseController
       size: manifest["size"],
       developer_name: dev["name"].presence || app.developer_name.presence || "Unknown Developer",
       rating: rating.is_a?(Hash) ? rating["average"] : rating,
-      review_count: rating.is_a?(Hash) ? rating["count"] : rating_count,
+      review_count: rating.is_a?(Hash) ? rating["count"] : (rating_count || 0),
       install_count: app.install_count || 0,
       entry_url: manifest["entry_url"] || "https://tween.im/apps/#{app.app_id}",
       runtime: listing_runtime(app, manifest),
