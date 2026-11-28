@@ -48,6 +48,28 @@ class Admin::MiniAppManagementTest < ActionDispatch::IntegrationTest
     assert_equal 'Publisher name', listing['developer_name']
   end
 
+  test 'catalog selects website runtime only for standalone HTTPS listings or explicit overrides' do
+    configs = {
+      "public" => { "scopes" => ["public"] },
+      "granted" => { "scopes" => ["user:read"] },
+      "override" => { "scopes" => ["user:read"], "runtime" => "website" },
+      "protected" => { "scopes" => ["public"], "runtime" => "tmcp" }
+    }
+    apps = configs.transform_values.with_index do |config, index|
+      MiniApp.create!(
+        app_id: "ma_runtime#{SecureRandom.hex(3)}", name: "Runtime test #{index}",
+        status: :active, classification: :community, version: "1.0.0",
+        manifest: { "entry_url" => "https://app.example.com" }.merge(config)
+      )
+    end
+    get '/api/v1/store/apps', params: { limit: 100 }
+    runtime_by_id = response.parsed_body.fetch('apps').to_h { |item| [item['mini_app_id'], item['runtime']] }
+    assert_equal "website", runtime_by_id[apps.fetch("public").app_id]
+    assert_equal "tmcp", runtime_by_id[apps.fetch("granted").app_id]
+    assert_equal "website", runtime_by_id[apps.fetch("override").app_id]
+    assert_equal "tmcp", runtime_by_id[apps.fetch("protected").app_id]
+  end
+
   test 'website preview requires staff authentication and rejects invalid URLs' do
     post website_preview_admin_mini_apps_path, params: { url: 'tween-internal://wallet' }, as: :json
     assert_response :unprocessable_entity

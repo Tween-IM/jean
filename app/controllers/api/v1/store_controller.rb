@@ -75,6 +75,7 @@ class Api::V1::StoreController < Api::BaseController
         icon_url: manifest["icon_url"] || "https://cdn.tween.example/icons/default.png",
         version: app.version,
         entry_url: manifest["entry_url"] || "https://tween.im/apps/#{app.app_id}",
+        runtime: listing_runtime(app, manifest),
         preinstalled: app.classification == "official" && manifest["preinstalled"],
         installed: @current_user ? current_user_installed?(app.app_id) : false,
         developer_name: dev["name"].presence || app.developer_name.presence || "Unknown Developer",
@@ -137,6 +138,7 @@ class Api::V1::StoreController < Api::BaseController
       review_count: rating.is_a?(Hash) ? rating["count"] : rating_count,
       install_count: app.install_count || 0,
       entry_url: manifest["entry_url"] || "https://tween.im/apps/#{app.app_id}",
+      runtime: listing_runtime(app, manifest),
       preinstalled: app.classification == "official" && manifest["preinstalled"],
       installed: @current_user ? current_user_installed?(app.app_id) : false,
       permissions: manifest["permissions"] || {},
@@ -246,6 +248,23 @@ class Api::V1::StoreController < Api::BaseController
   end
 
   private
+
+  def listing_runtime(app, manifest)
+    url = URI.parse(manifest["entry_url"].to_s)
+    return "tmcp" unless url.is_a?(URI::HTTPS) && url.host.present? && url.userinfo.nil?
+
+    override = manifest["runtime"]
+    return override if %w[website tmcp].include?(override)
+    return "tmcp" if app.official? || app.verified?
+
+    permissions = manifest["permissions"]
+    granted = permissions.is_a?(Hash) ? Array(permissions["required"]) + Array(permissions["optional"]) : Array(permissions)
+    scopes = Array(manifest["scopes"]) + granted
+    (scopes.reject(&:blank?) - ["public"]).empty? ? "website" : "tmcp"
+  rescue URI::InvalidURIError
+    "tmcp"
+  end
+
 
   def authenticate_tep_token
     auth_header = request.headers["Authorization"]

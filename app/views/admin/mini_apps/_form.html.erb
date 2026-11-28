@@ -9,6 +9,10 @@
 <div class="admin-form-field admin-form-field-wide"><%= form.label :description %><%= form.text_area :description, rows: 3, class: 'admin-input' %></div>
 <div class="admin-form-field admin-form-field-wide"><%= label_tag 'manifest_entry_url', 'Launch URL' %><%= text_field_tag 'manifest[entry_url]', @mini_app.manifest&.dig('entry_url'), required: true, class: 'admin-input', placeholder: 'https://app.example.com' %><small>Hosted apps launch over HTTPS. Official embedded apps may use tween-internal://.</small></div>
 <div class="admin-form-field admin-form-field-wide">
+  <%= admin_select 'manifest[runtime]', label: 'App runtime', choices: [['Automatic', ''], ['Website', 'website'], ['Tween mini-app', 'tmcp']], selected: @mini_app.manifest&.dig('runtime').to_s %>
+  <small>Use Website for apps that run independently of Tween. Automatic uses Tween’s runtime for official and verified apps, and apps with Tween permissions.</small>
+</div>
+<div class="admin-form-field admin-form-field-wide">
   <button type="button" class="admin-button" data-admin-mini-app-target="previewButton" data-action="admin-mini-app#fetchPreview">Fetch website details</button>
   <small data-admin-mini-app-target="previewStatus" role="status" aria-live="polite"></small>
 </div>

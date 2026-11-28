@@ -110,7 +110,7 @@ module Admin
 
     def mini_app_manifest_params
       params.fetch(:manifest, ActionController::Parameters.new).permit(
-        :entry_url, :icon_url, :header_image, :screenshots, :webhook_url, :redirect_uris, permissions: []
+        :entry_url, :icon_url, :header_image, :screenshots, :runtime, :webhook_url, :redirect_uris, permissions: []
       )
     end
 

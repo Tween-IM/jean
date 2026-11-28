@@ -27,6 +27,19 @@ module Admin
         end
         config[key] = value
       end
+      if input.key?("runtime")
+        case input["runtime"]
+        when "website", "tmcp"
+          config["runtime"] = input["runtime"]
+        when ""
+          config.delete("runtime")
+        else
+          raise Invalid, "Choose a valid app runtime."
+        end
+      end
+      if config["runtime"] == "website" && !config["entry_url"].to_s.start_with?("https://")
+        raise Invalid, "The website runtime requires an HTTPS launch URL."
+      end
       if input.key?("screenshots")
         screenshots = input["screenshots"].to_s.lines.map(&:strip).reject(&:empty?).uniq
         if screenshots.length > MiniAppWebsitePreview::MAX_SCREENSHOTS ||
