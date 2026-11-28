@@ -25,6 +25,40 @@ class Admin::MiniAppManagementTest < ActionDispatch::IntegrationTest
     assert_equal '1.0.1', app.reload.version
   end
 
+  test 'stores reviewed artwork and includes it in the public catalog after activation' do
+    icon = 'https://cdn.example.com/logo.png'
+    cover = 'https://cdn.example.com/cover.png'
+    shot = 'https://cdn.example.com/screen.webp'
+    post admin_mini_apps_path, params: {
+      mini_app: @values.merge(developer_name: 'Publisher name'),
+      manifest: @manifest.merge(icon_url: icon, header_image: cover, screenshots: "#{shot}\n#{shot}")
+    }
+    app = MiniApp.find_by!(app_id: @values[:app_id])
+    assert_equal 'pending_review', app.status
+    assert_equal @manifest[:entry_url], app.manifest['entry_url']
+    assert_equal cover, app.manifest['header_image']
+    assert_equal [shot], app.manifest['screenshots']
+
+    app.update!(status: :active)
+    get '/api/v1/store/apps', params: { limit: 100 }
+    listing = response.parsed_body.fetch('apps').find { |item| item['mini_app_id'] == app.app_id }
+    assert_equal icon, listing['icon_url']
+    assert_equal cover, listing['header_image']
+    assert_equal [shot], listing['screenshots']
+    assert_equal 'Publisher name', listing['developer_name']
+  end
+
+  test 'website preview requires staff authentication and rejects invalid URLs' do
+    post website_preview_admin_mini_apps_path, params: { url: 'tween-internal://wallet' }, as: :json
+    assert_response :unprocessable_entity
+    assert_match(/public HTTPS/, response.parsed_body.fetch('error'))
+
+    open_session do |visitor|
+      visitor.post website_preview_admin_mini_apps_path, params: { url: 'https://example.com' }, as: :json
+      visitor.assert_redirected_to admin_login_path
+    end
+  end
+
   test 'invalid launch URLs and privileged community scopes fail visibly' do
     assert_no_difference 'MiniApp.count' do
       post admin_mini_apps_path, params: { mini_app: @values, manifest: @manifest.merge(entry_url: 'javascript:alert(1)') }

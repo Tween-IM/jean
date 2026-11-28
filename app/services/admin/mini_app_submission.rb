@@ -17,7 +17,7 @@ module Admin
       end
       config = app.manifest.to_h.deep_dup
       input = manifest.to_h.stringify_keys
-      %w[entry_url icon_url webhook_url].each do |key|
+      %w[entry_url icon_url header_image webhook_url].each do |key|
         next unless input.key?(key)
         value = input[key].to_s.strip
         if value.present?
@@ -26,6 +26,14 @@ module Admin
           raise Invalid, "#{key.humanize} must be an HTTPS URL without credentials." unless internal || (uri.is_a?(URI::HTTPS) && uri.host.present? && uri.userinfo.nil?)
         end
         config[key] = value
+      end
+      if input.key?("screenshots")
+        screenshots = input["screenshots"].to_s.lines.map(&:strip).reject(&:empty?).uniq
+        if screenshots.length > MiniAppWebsitePreview::MAX_SCREENSHOTS ||
+            screenshots.any? { |url| PublicWebsiteFetch.url(url).nil? }
+          raise Invalid, "Use up to six HTTPS screenshot URLs without credentials."
+        end
+        config["screenshots"] = screenshots
       end
       config["scopes"] = Array(input["permissions"]).reject(&:blank?) if input.key?("permissions")
       config["redirect_uris"] = input["redirect_uris"].to_s.lines.map(&:strip).reject(&:empty?) if input.key?("redirect_uris")

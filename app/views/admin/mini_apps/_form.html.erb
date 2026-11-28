@@ -1,4 +1,4 @@
-<%= form_with model: [:admin, @mini_app], multipart: true, class: "admin-panel", data: { controller: "admin-mini-app", action: "change->admin-mini-app#refresh" } do |form| %>
+<%= form_with model: [:admin, @mini_app], multipart: true, class: "admin-panel", data: { controller: "admin-mini-app", admin_mini_app_preview_url_value: website_preview_admin_mini_apps_path, action: "change->admin-mini-app#refresh" } do |form| %>
 <div class="admin-panel-heading"><h2>App identity & distribution</h2></div>
 <div class="admin-panel-body">
 <% if @mini_app.errors.any? %><div class="admin-flash admin-flash-alert" role="alert"><%= @mini_app.errors.full_messages.to_sentence %></div><% end %>
@@ -8,7 +8,13 @@
 <div class="admin-form-field"><%= form.label :client_type %><%= form.select :client_type, %w[public confidential hybrid].map { |x| [x.humanize, x] }, {}, class: 'admin-input admin-select' %></div>
 <div class="admin-form-field admin-form-field-wide"><%= form.label :description %><%= form.text_area :description, rows: 3, class: 'admin-input' %></div>
 <div class="admin-form-field admin-form-field-wide"><%= label_tag 'manifest_entry_url', 'Launch URL' %><%= text_field_tag 'manifest[entry_url]', @mini_app.manifest&.dig('entry_url'), required: true, class: 'admin-input', placeholder: 'https://app.example.com' %><small>Hosted apps launch over HTTPS. Official embedded apps may use tween-internal://.</small></div>
+<div class="admin-form-field admin-form-field-wide">
+  <button type="button" class="admin-button" data-admin-mini-app-target="previewButton" data-action="admin-mini-app#fetchPreview">Fetch website details</button>
+  <small data-admin-mini-app-target="previewStatus" role="status" aria-live="polite"></small>
+</div>
 <div class="admin-form-field"><%= label_tag 'manifest_icon_url', 'Icon URL' %><%= url_field_tag 'manifest[icon_url]', @mini_app.manifest&.dig('icon_url'), class: 'admin-input' %></div>
+<div class="admin-form-field"><%= label_tag 'manifest_header_image', 'Cover image URL' %><%= url_field_tag 'manifest[header_image]', Array(@mini_app.manifest&.dig('header_image')).first, class: 'admin-input' %></div>
+<div class="admin-form-field admin-form-field-wide"><%= label_tag 'manifest_screenshots', 'Screenshot URLs' %><%= text_area_tag 'manifest[screenshots]', Array(@mini_app.manifest&.dig('screenshots')).join("\n"), rows: 3, class: 'admin-input' %><small>Up to six URLs, one per line.</small></div>
 <div class="admin-form-field"><%= label_tag 'manifest_webhook_url', 'Webhook URL' %><%= url_field_tag 'manifest[webhook_url]', @mini_app.manifest&.dig('webhook_url'), class: 'admin-input' %></div>
 <div class="admin-form-field admin-form-field-wide"><%= label_tag 'manifest_redirect_uris', 'OAuth redirect URLs — one per line' %><%= text_area_tag 'manifest[redirect_uris]', Array(@mini_app.manifest&.dig('redirect_uris')).join("\n"), rows: 3, class: 'admin-input' %></div>
 <fieldset class="admin-form-field admin-form-field-wide"><legend>Requested permissions</legend><%= hidden_field_tag 'manifest[permissions][]', '' %><div class="admin-permission-grid"><% (%w[public user:read storage:read storage:write wallet:read wallet:pay system:notifications wallet:admin messaging:broadcast analytics:detailed] + Array(@mini_app.manifest&.dig('scopes'))).uniq.each do |scope| %><%= admin_checkbox 'manifest[permissions][]', label: scope, value: scope, checked: Array(@mini_app.manifest&.dig('scopes')).include?(scope) %><% end %></div><small>Classification restrictions are enforced on the server.</small></fieldset>

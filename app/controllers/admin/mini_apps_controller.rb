@@ -1,9 +1,20 @@
 module Admin
   class MiniAppsController < BaseController
     before_action -> { require_admin_permission!(:view_mini_apps) }, only: [ :index, :show, :bundle ]
-    before_action :require_admin_permission!, only: [ :new, :create, :edit, :update, :destroy, :hard_delete, :activate ]
+    before_action :require_admin_permission!, only: [ :new, :create, :edit, :update, :destroy, :hard_delete, :activate, :website_preview ]
     before_action :set_mini_app, only: [ :show, :edit, :update, :destroy, :hard_delete, :bundle, :activate ]
     before_action :set_mini_app_for_edit, only: [ :new, :create ]
+
+    rate_limit to: 6, within: 1.minute, only: :website_preview, by: -> { current_admin_user.id }, with: -> {
+      render json: { error: "Too many preview requests. Try again in a minute." }, status: :too_many_requests
+    }
+
+    def website_preview
+      render json: MiniAppWebsitePreview.new.call(params[:url])
+    rescue PublicWebsiteFetch::Unavailable
+      render json: { error: "Couldn’t read this website. Use a public HTTPS URL or fill the listing manually." },
+        status: :unprocessable_entity
+    end
 
     def index
       scope = params[:sort] == 'name' ? MiniApp.order(name: :asc, id: :asc) : MiniApp.order(created_at: :desc, id: :desc)
@@ -89,12 +100,18 @@ module Admin
 
     def save_submission(template)
       Admin::MiniAppSubmission.call(app: @mini_app, attributes: mini_app_params,
-        manifest: params.fetch(:manifest, ActionController::Parameters.new).permit(:entry_url, :icon_url, :webhook_url, :redirect_uris, permissions: []), upload: params.dig(:mini_app, :bundle))
+        manifest: mini_app_manifest_params, upload: params.dig(:mini_app, :bundle))
       log_admin_action("submit_mini_app", @mini_app.app_id, version: @mini_app.version, delivery: @mini_app.bundle.attached? ? "bundle" : "hosted")
       redirect_to admin_mini_app_path(@mini_app), notice: "Mini-app saved to the review queue."
     rescue ActiveRecord::RecordInvalid, Admin::MiniAppSubmission::Invalid => error
       @mini_app.errors.add(:base, error.message)
       render template, status: :unprocessable_entity
+    end
+
+    def mini_app_manifest_params
+      params.fetch(:manifest, ActionController::Parameters.new).permit(
+        :entry_url, :icon_url, :header_image, :screenshots, :webhook_url, :redirect_uris, permissions: []
+      )
     end
 
     def mini_app_params

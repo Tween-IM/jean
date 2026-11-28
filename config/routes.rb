@@ -352,6 +352,7 @@ Rails.application.routes.draw do
     get "dashboard", to: "dashboard#index", as: :dashboard
     get "mini-apps/:id/bundle", to: "mini_apps#bundle", as: :mini_app_bundle
     resources :mini_apps, only: [ :index, :show, :new, :create, :edit, :update, :destroy ], path: "mini-apps" do
+      post :website_preview, on: :collection
       member do
         post :activate
         post :update
