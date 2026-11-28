@@ -5,6 +5,10 @@ require "nokogiri"
 
 class MiniAppWebsitePreview
   MAX_SCREENSHOTS = 6
+  MAX_ICON_ATTEMPTS = 10
+  MAX_ICON_BYTES = 512_000
+  RASTER_ICON_TYPES = %w[image/png image/jpeg image/webp image/gif image/x-icon image/vnd.microsoft.icon].freeze
+  ROOT_ICON_PATHS = %w[/icon-512.png /icon-192.png /apple-touch-icon.png /favicon.ico].freeze
   APP_TYPES = %w[SoftwareApplication WebApplication MobileApplication].freeze
 
   def initialize(fetcher: PublicWebsiteFetch.new)
@@ -91,18 +95,24 @@ class MiniAppWebsitePreview
       icon["purpose"].present? && !icon["purpose"].to_s.split.include?("any")
     end
     icons = icons.sort_by { |icon| -icon["sizes"].to_s.scan(/(\d+)x\1\b/).flatten.map(&:to_i).max.to_i }
-    image_urls(icons, manifest_url, key: "src").first ||
-      image_urls(app["logo"], base).first ||
-      image_urls(%w[apple-touch-icon apple-touch-icon-precomposed icon].map { |rel| link(html, rel) }, base).first ||
-      verified_favicon(page_url)
+    candidates =
+      image_urls(icons, manifest_url, key: "src") +
+      image_urls(app["logo"], base) +
+      image_urls(%w[apple-touch-icon apple-touch-icon-precomposed icon].map { |rel| link(html, rel) }, base) +
+      ROOT_ICON_PATHS.filter_map { |path| PublicWebsiteFetch.url(path, base: page_url)&.to_s }
+
+    candidates.compact.uniq.first(MAX_ICON_ATTEMPTS).find { |url| raster_image?(url) }
   end
 
-  def verified_favicon(page_url)
-    url = PublicWebsiteFetch.url("/favicon.ico", base: page_url)
-    asset = @fetcher.get(url, accept: "image/*", max_bytes: 128_000) { |type| type.start_with?("image/") }
-    asset.url.to_s unless asset.body.empty?
+  def raster_image?(value)
+    uri = PublicWebsiteFetch.url(value)
+    return false unless uri
+
+    asset = @fetcher.get(uri, accept: "image/png, image/jpeg, image/webp, image/gif, image/x-icon",
+      max_bytes: MAX_ICON_BYTES) { |type| RASTER_ICON_TYPES.include?(type) }
+    !asset.body.empty?
   rescue PublicWebsiteFetch::Unavailable
-    nil
+    false
   end
 
   def image_urls(value, base, key: nil)
