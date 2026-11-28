@@ -9,6 +9,7 @@ module Api
         include Api::TepAuthenticatable
 
         before_action :authenticate_tep_token
+        before_action :ensure_first_party
         before_action :set_mini_app, only: [ :update ]
         before_action :ensure_editable, only: [ :update ]
         rate_limit to: 6, within: 1.hour, only: [ :create, :update ],
@@ -156,6 +157,19 @@ module Api
             # Hostname, not a literal IP.
           end
           true
+        end
+
+        def ensure_first_party
+          allowed = ENV.fetch(
+            "FIRST_PARTY_MINIAPPS",
+            "ma_tweenpay,ma_tweencommerce,ma_tweensocial"
+          ).split(",")
+          return if allowed.include?(@miniapp_id)
+
+          render json: {
+            error: "forbidden",
+            message: "Publishing is only available in Tween."
+          }, status: :forbidden
         end
 
         def set_mini_app

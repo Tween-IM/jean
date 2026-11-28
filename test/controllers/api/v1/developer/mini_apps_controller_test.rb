@@ -132,6 +132,17 @@ class Api::V1::Developer::MiniAppsControllerTest < ActionDispatch::IntegrationTe
     assert_response :unauthorized
   end
 
+  test "rejects tokens minted for third-party mini apps" do
+    token = TepTokenService.encode(
+      { user_id: @user.matrix_user_id, miniapp_id: "ma_thirdparty" },
+      scopes: [ "user:read" ]
+    )
+    get "/api/v1/developer/mini_apps",
+      headers: { "Authorization" => "Bearer #{token}" }
+
+    assert_response :forbidden
+  end
+
   test "admin approval makes a submission activatable" do
     app = create_submission
     reviewer = User.create!(
